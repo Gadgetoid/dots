@@ -235,7 +235,12 @@ test("running out of moves on a level offers a retry, which costs only that leve
   assert.ok(advanceUntil(game, () => game.phase === PHASE.OVER, 4))
 
   const rows = game.menuRows()
-  assert.equal(rows[0].id, "retry", "the first thing offered is another go at the level")
+  assert.equal(rows[0].kind, "buttons")
+  assert.equal(
+    rows[0].options[0].action,
+    "retry",
+    "the first thing offered is another go at the level",
+  )
   game.player.score = banked + 999 // whatever was made on the level that was lost
   game.retryLevel()
   assert.equal(game.phase, PHASE.PLAYING)

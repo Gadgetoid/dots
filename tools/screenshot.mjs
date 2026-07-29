@@ -139,9 +139,8 @@ const SHOTS = [
     file: "modes.png",
     theme: "dark",
     frames: 30,
-    pose: `(game) => {
-      game.menuIndex = game.menuRows().findIndex((row) => row.id === "modes")
-      game.menuConfirm()
+    pose: `(game, art) => {
+      art.press(game, "modes")
       game.menuAdjust(3)
     }`,
   },
@@ -151,12 +150,11 @@ const SHOTS = [
     file: "controls.png",
     theme: "dark",
     frames: 20,
-    pose: `(game) => {
+    pose: `(game, art) => {
       game.start("classic")
       game.settle(2)
       game.togglePause()
-      game.menuIndex = game.menuRows().findIndex((row) => row.id === "controls")
-      game.menuConfirm()
+      art.press(game, "controls")
       game.menuMove(1)
       game.menuMove(1)
     }`,
@@ -279,7 +277,27 @@ try {
             game.advance(1 / 60)
           }
         }
-        new Function(`return (${pose})`)()(game)
+        // Menu rows are data and their ids are an implementation detail, so a pose says
+        // which button it wants by the action the button performs.
+        const art = {
+          press(target, action) {
+            const rows = target.menuRows()
+            for (const [index, row] of rows.entries()) {
+              if (row.kind !== "buttons") {
+                continue
+              }
+              const option = row.options.findIndex((cell) => cell && cell.action === action)
+              if (option >= 0) {
+                target.menuIndex = index
+                target.menuOption = option
+                target.menuConfirm()
+                return true
+              }
+            }
+            throw new Error(`no button for ${action}`)
+          },
+        }
+        new Function(`return (${pose})`)()(game, art)
         for (let i = 0; i < frames; i++) {
           game.advance(1 / 60)
         }

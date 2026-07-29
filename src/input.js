@@ -206,10 +206,21 @@ export class PointerInput {
   }
 
   onMove(event) {
-    if (this.game.page || event.pointerId !== this.activePointer) {
-      // With no button down a mouse still moves the cursor, which is what shows
-      // what a dot is carrying.
-      if (!this.game.page && event.pointerType === "mouse") {
+    if (this.game.page) {
+      // The menu cursor follows the pointer, so a mode can be hovered to read what it
+      // is without pressing it. Nothing is applied by hovering: a setting still takes a
+      // press, and only the cursor moves.
+      const point = this.view.toViewSpace(event.clientX, event.clientY)
+      const row = point ? this.view.menuRowAt(point.x, point.y) : null
+      if (row) {
+        this.game.menuHover(row.index, row.option)
+      }
+      return
+    }
+    if (event.pointerId !== this.activePointer) {
+      // With no button down a mouse still moves the cursor, which is what shows what a
+      // dot is carrying.
+      if (event.pointerType === "mouse") {
         this.game.pointerMove(this.playerIndex, this.#cellAt(event))
       }
       return

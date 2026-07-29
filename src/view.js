@@ -24,10 +24,16 @@ const OUTCOMES = {
   won: "Board cleared",
 }
 
-// A button in the mode grid, and the gap between them. Big enough to be an obvious
-// target for a thumb, which is the whole reason the modes are a grid and not a list.
-const GRID_CELL_H = 48
-const GRID_GAP = 8
+// Menu metrics. A button is big: these are tap targets first, and on a phone the field
+// is scaled down, so what looks generous here is about a fingertip there. The padding is
+// what keeps a heading off the top edge of its panel.
+const PANEL_PAD = 26
+const BUTTON_H = 88
+const BUTTON_GAP = 8
+const OPTION_H = 52
+const PREVIEW_H = 66
+const HEADING_H = 26
+const HINT_H = 28
 
 // The pause button, in the strip under the board. A touch player has no escape key,
 // so this is the only way into the menu for them, and it is where a thumb already is.
@@ -498,52 +504,45 @@ export class GameView {
   }
 
   // ---- menus --------------------------------------------------------------
-  // Rows in a panel. Three kinds of row are drawn: a heading, a pressable row, and a
-  // row of options laid out side by side - which is what a setting is here, so a tap
-  // can reach a particular value instead of pressing the same row until it comes round.
+  // Rows in a panel. A heading is a label, a block of buttons is what there is to
+  // press, an options strip is a setting, a binding row waits for a key, and a hint row
+  // says one line about whatever the cursor is on - see Game.menuRows for the shapes.
   #drawMenu(game, theme) {
     const renderer = this.renderer
     const rows = game.menuRows()
     const heading = this.#menuHeading(game)
-    const headerHeight = heading.reduce((total, line) => total + line.size + 10, 0) + 22
+    const headerHeight = PANEL_PAD + heading.reduce((total, line) => total + line.size + 10, 0) + 6
     const width = 460
     const x = (VIEW_W - width) / 2
     let contentHeight = 0
     for (const row of rows) {
       contentHeight += this.#rowHeight(row)
     }
-    // The hint lives inside the panel: under it, it lands on the board behind and is
-    // unreadable on a busy field. It says what the selected row is for - never how to
-    // work a menu, which needs no saying.
-    const hint = this.#menuHint(game, rows)
-    // The room for it is always there, whether or not the selected row has anything to
-    // say: a panel that changes height as the cursor moves down it is a panel that
-    // jumps under the cursor.
-    const height = contentHeight + headerHeight + 30 + 30
-    const y = clamp((VIEW_H - height) / 2, 16, Math.max(16, VIEW_H - height - 16))
+    const height = contentHeight + headerHeight + PANEL_PAD
+    const y = clamp((VIEW_H - height) / 2, 12, Math.max(12, VIEW_H - height - 12))
 
     // The board stays visible behind the panel, dimmed rather than hidden: a menu is
     // over the game, not instead of it.
-    renderer.panel(0, 0, VIEW_W, VIEW_H, {
-      fill: theme.scrim.color,
-      alpha: theme.scrim.alpha,
-    })
+    renderer.panel(0, 0, VIEW_W, VIEW_H, { fill: theme.scrim.color, alpha: theme.scrim.alpha })
     renderer.panel(x, y, width, height, { fill: theme.panel, radius: 18 })
     renderer.panel(x, y, width, height, { stroke: theme.panelEdge, width: 1.5, radius: 18 })
 
-    let textY = y + 38
+    // Headings are drawn from the middle of their line, so what sets how far the first
+    // one sits from the top of the panel is the padding and not the size of the type.
+    let textY = y + PANEL_PAD
     for (const line of heading) {
-      renderer.text(line.text, VIEW_W / 2, textY, {
+      renderer.text(line.text, VIEW_W / 2, textY + line.size / 2, {
         color: line.colour,
         size: line.size,
         align: "center",
+        baseline: "middle",
         bold: line.bold,
         glow: line.glow || 0,
       })
       textY += line.size + 10
     }
 
-    let rowY = y + headerHeight + 12
+    let rowY = y + headerHeight
     this.menuHits.length = 0
     rows.forEach((row, index) => {
       const rowHeight = this.#rowHeight(row)
@@ -552,46 +551,112 @@ export class GameView {
           color: theme.text.faint,
           size: 12,
         })
+      } else if (row.kind === "buttons") {
+        this.#drawButtons(game, theme, row, index, x, rowY, width)
       } else if (row.kind === "options") {
         this.#drawOptions(game, theme, row, index, x, rowY, width, rowHeight)
-      } else if (row.kind === "grid") {
-        this.#drawGrid(game, theme, row, index, x, rowY, width)
-      } else if (row.kind === "button") {
-        this.#drawButton(game, theme, row, index, x, rowY, width, rowHeight)
+      } else if (row.kind === "hint") {
+        this.#drawHint(game, theme, rows, x, rowY, width, rowHeight)
       } else {
         this.#drawRow(game, theme, row, index, x, rowY, width, rowHeight)
       }
       rowY += rowHeight
     })
-
-    if (hint) {
-      renderer.text(hint.text, VIEW_W / 2, y + height - 12, {
-        color: hint.colour,
-        size: 12,
-        align: "center",
-      })
-    }
   }
 
   #rowHeight(row) {
     if (row.kind === "heading") {
-      return 24
+      return HEADING_H
+    }
+    if (row.kind === "hint") {
+      return HINT_H
+    }
+    if (row.kind === "buttons") {
+      const lines = Math.ceil(row.options.length / (row.columns || row.options.length))
+      return lines * (BUTTON_H + BUTTON_GAP) + 6
     }
     if (row.kind === "options") {
-      return row.options.some((option) => option.preview) ? 58 : 40
-    }
-    if (row.kind === "grid") {
-      const lines = Math.ceil(row.options.length / (row.columns || 1))
-      return lines * (GRID_CELL_H + GRID_GAP) + 6
-    }
-    if (row.kind === "button") {
-      return GRID_CELL_H + 14
+      return (row.options.some((option) => option.preview) ? PREVIEW_H : OPTION_H) + 10
     }
     return 32
   }
 
-  // A pressable row: the label, whatever it currently reads, and a filled box behind
-  // it when it is the one selected.
+  // A block of buttons. `primary` fills every cell, for the one thing a page is for;
+  // otherwise only the cell under the cursor is filled, which is what says that pressing
+  // now presses that. A null cell draws nothing and keeps its place, so the button in the
+  // bottom right corner is in the same corner on every page.
+  #drawButtons(game, theme, row, index, x, rowY, width) {
+    const renderer = this.renderer
+    const columns = row.columns || row.options.length
+    const cellW = (width - 52 - BUTTON_GAP * (columns - 1)) / columns
+    row.options.forEach((option, optionIndex) => {
+      if (!option) {
+        return
+      }
+      const box = {
+        x: x + 26 + (optionIndex % columns) * (cellW + BUTTON_GAP),
+        y: rowY + Math.floor(optionIndex / columns) * (BUTTON_H + BUTTON_GAP),
+        w: cellW,
+        h: BUTTON_H,
+      }
+      const under = index === game.menuIndex && optionIndex === game.menuOption
+      const filled = row.primary || under
+      this.menuHits.push({ index, option: optionIndex, ...box })
+      renderer.panel(box.x, box.y, box.w, box.h, {
+        fill: filled ? theme.accent : theme.cell,
+        radius: 14,
+        alpha: filled ? 1 : 0.75,
+      })
+      if (under) {
+        renderer.panel(box.x, box.y, box.w, box.h, {
+          stroke: theme.text.bright,
+          width: 2,
+          radius: 14,
+        })
+      }
+      renderer.text(option.label, box.x + box.w / 2, box.y + box.h / 2, {
+        color: filled ? theme.panel : theme.text.normal,
+        size: row.primary ? 20 : 17,
+        align: "center",
+        baseline: "middle",
+        bold: filled,
+      })
+      // The mode last played, marked rather than pre-pressed.
+      if (option.marked) {
+        renderer.disc(box.x + box.w - 14, box.y + 14, 4, {
+          color: filled ? theme.panel : theme.accent,
+          glow: filled ? 0 : 0.6,
+        })
+      }
+    })
+  }
+
+  // One line about whatever the cursor is on: what a mode is, which level a retry would
+  // deal, what a rebinding row is waiting for. Never how to work a menu.
+  #drawHint(game, theme, rows, x, rowY, width, rowHeight) {
+    let text
+    let colour = theme.text.faint
+    if (game.rebinding) {
+      text = "Press a key or button, or escape to cancel"
+      colour = theme.accent
+    } else {
+      const row = rows[game.menuIndex]
+      const option = row && row.kind === "buttons" ? row.options[game.menuOption] : null
+      text = (option && option.hint) || (row && row.hint) || null
+    }
+    if (!text) {
+      return
+    }
+    this.renderer.text(text, x + width / 2, rowY + rowHeight / 2, {
+      color: colour,
+      size: 12,
+      align: "center",
+      baseline: "middle",
+    })
+  }
+
+  // A plain row: a label, whatever it currently reads, and a filled box behind it when
+  // it is the one selected. What is left drawn this way is the control bindings.
   #drawRow(game, theme, row, index, x, rowY, width, rowHeight) {
     const renderer = this.renderer
     const selected = index === game.menuIndex
@@ -616,78 +681,6 @@ export class GameView {
         bold: selected,
       })
     }
-    // A mode the player last played is marked, so a returning player can see where
-    // they left off without it being pre-pressed for them.
-    if (row.current) {
-      renderer.disc(x + width - 34, middle, 4, { color: theme.accent, glow: 0.6 })
-    }
-  }
-
-  // The one thing on a page most worth pressing: full width, centred, and filled
-  // whether or not the cursor is on it, so it reads as the way forward at a glance. The
-  // cursor adds an outline rather than the fill, since the fill is already spent saying
-  // what this row is.
-  #drawButton(game, theme, row, index, x, rowY, width, rowHeight) {
-    const renderer = this.renderer
-    const selected = index === game.menuIndex
-    const box = { x: x + 26, y: rowY, w: width - 52, h: rowHeight - 14 }
-    this.menuHits.push({ index, option: null, ...box })
-    // No glow: the halo is added over the frame in the composite pass, and this button
-    // has dark text on a bright fill, so lighting it washes out its own label. A filled
-    // accent box needs no help being noticed.
-    renderer.panel(box.x, box.y, box.w, box.h, { fill: theme.accent, radius: 12 })
-    if (selected) {
-      renderer.panel(box.x, box.y, box.w, box.h, {
-        stroke: theme.text.bright,
-        width: 2,
-        radius: 12,
-      })
-    }
-    renderer.text(row.label, box.x + box.w / 2, box.y + box.h / 2, {
-      color: theme.panel,
-      size: 19,
-      align: "center",
-      baseline: "middle",
-      bold: true,
-    })
-  }
-
-  // A block of buttons: the mode grid. Two across rather than a list of rows, because
-  // a button the width of a thumb reads as something to press and a line of text reads
-  // as something to consider. The one under the cursor is filled, since pressing it is
-  // what happens next; the mode last played carries a dot.
-  #drawGrid(game, theme, row, index, x, rowY, width) {
-    const renderer = this.renderer
-    const columns = row.columns || 1
-    const cellW = (width - 52 - GRID_GAP * (columns - 1)) / columns
-    row.options.forEach((option, optionIndex) => {
-      const box = {
-        x: x + 26 + (optionIndex % columns) * (cellW + GRID_GAP),
-        y: rowY + Math.floor(optionIndex / columns) * (GRID_CELL_H + GRID_GAP),
-        w: cellW,
-        h: GRID_CELL_H,
-      }
-      const under = index === game.menuIndex && optionIndex === row.selected
-      this.menuHits.push({ index, option: optionIndex, ...box })
-      renderer.panel(box.x, box.y, box.w, box.h, {
-        fill: under ? theme.accent : theme.cell,
-        radius: 12,
-        alpha: under ? 1 : 0.75,
-      })
-      renderer.text(option.label, box.x + box.w / 2, box.y + box.h / 2, {
-        color: under ? theme.panel : theme.text.normal,
-        size: 16,
-        align: "center",
-        baseline: "middle",
-        bold: under,
-      })
-      if (option.current) {
-        renderer.disc(box.x + box.w - 12, box.y + 12, 3.5, {
-          color: under ? theme.panel : theme.accent,
-          glow: under ? 0 : 0.6,
-        })
-      }
-    })
   }
 
   // A row of options, each its own pressable box. The chosen one is filled; the row is
@@ -696,14 +689,13 @@ export class GameView {
   #drawOptions(game, theme, row, index, x, rowY, width, rowHeight) {
     const renderer = this.renderer
     const onRow = index === game.menuIndex
-    const gap = 8
     const count = row.options.length
     const available = width - 52
-    const boxW = (available - gap * (count - 1)) / count
+    const boxW = (available - BUTTON_GAP * (count - 1)) / count
     const boxH = rowHeight - 10
     row.options.forEach((option, optionIndex) => {
       const box = {
-        x: x + 26 + optionIndex * (boxW + gap),
+        x: x + 26 + optionIndex * (boxW + BUTTON_GAP),
         y: rowY,
         w: boxW,
         h: boxH,
@@ -712,14 +704,14 @@ export class GameView {
       this.menuHits.push({ index, option: optionIndex, ...box })
       renderer.panel(box.x, box.y, box.w, box.h, {
         fill: chosen ? theme.accent : theme.cell,
-        radius: 10,
+        radius: 12,
         alpha: chosen ? 1 : 0.7,
       })
       if (onRow && chosen) {
         renderer.panel(box.x, box.y, box.w, box.h, {
           stroke: theme.text.bright,
           width: 2,
-          radius: 10,
+          radius: 12,
         })
       }
       if (option.preview) {
@@ -727,7 +719,7 @@ export class GameView {
       } else {
         renderer.text(option.label, box.x + box.w / 2, box.y + box.h / 2, {
           color: chosen ? theme.panel : theme.text.normal,
-          size: 15,
+          size: 16,
           align: "center",
           baseline: "middle",
           bold: chosen,
@@ -744,12 +736,9 @@ export class GameView {
     if (!preview) {
       return
     }
-    const inset = 5
+    const inset = 6
     const inner = { x: box.x + inset, y: box.y + inset, w: box.w - inset * 2, h: box.h - inset * 2 }
-    renderer.panel(inner.x, inner.y, inner.w, inner.h, {
-      fill: preview.background,
-      radius: 7,
-    })
+    renderer.panel(inner.x, inner.y, inner.w, inner.h, { fill: preview.background, radius: 8 })
     const cells = 3
     const cell = Math.min(inner.w, inner.h) / cells
     const radius = cell * 0.3
@@ -767,23 +756,9 @@ export class GameView {
       renderer.panel(inner.x, inner.y, inner.w, inner.h, {
         stroke: ring,
         width: 1.5,
-        radius: 7,
+        radius: 8,
       })
     }
-  }
-
-  // What the selected row is for. A rebind says what it is waiting for, a mode says
-  // what it is, and anything else says nothing: how to work a menu is not worth a line.
-  #menuHint(game, rows) {
-    const theme = game.theme
-    if (game.rebinding) {
-      return { text: "Press a key or button, or escape to cancel", colour: theme.accent }
-    }
-    const row = rows[game.menuIndex]
-    if (row && row.hint) {
-      return { text: row.hint, colour: theme.text.faint }
-    }
-    return null
   }
 
   // What sits above the rows: the game's name on the title, and what happened on

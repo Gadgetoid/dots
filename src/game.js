@@ -91,7 +91,9 @@ export class Game {
     // same thing on all three.
     this.page = "title"
     this.pageReturn = null
+    // Two cursors: which row, and which cell of that row.
     this.menuIndex = 0
+    this.menuOption = 0
     // The control a menu row is waiting for a key or a button for, as
     // { device, control }, or null.
     this.rebinding = null
@@ -127,6 +129,7 @@ export class Game {
     this.banner = null
 
     this.dealAttractBoard()
+    this.#resetMenuCursor()
     this.#restoreState()
   }
 
@@ -270,14 +273,15 @@ export class Game {
     this.phase = PHASE.PLAYING
     this.page = null
     this.menuIndex = 0
+    this.menuOption = 0
   }
 
   toTitle() {
     this.phase = PHASE.TITLE
     this.page = "title"
     this.rebinding = null
-    this.menuIndex = 0
     this.dealAttractBoard()
+    this.#resetMenuCursor()
   }
 
   // Move on to the next authored level, keeping the score. What a mode with levels
@@ -330,13 +334,14 @@ export class Game {
     this.phase = PHASE.PLAYING
     this.page = null
     this.menuIndex = 0
+    this.menuOption = 0
   }
 
   #finish(outcome) {
     this.outcome = outcome
     this.phase = PHASE.OVER
     this.page = "over"
-    this.menuIndex = 0
+    this.#resetMenuCursor()
     for (const player of this.players) {
       this.#dropChain(player, true)
     }
@@ -794,74 +799,113 @@ export class Game {
 
   // ---- menus --------------------------------------------------------------
   // A page is a list of rows the view draws and the input layer walks. A row is data:
-  // what it is called, what kind of thing it is, and for a row of options what those
-  // options are and which is chosen. What each one does lives in #activate,
-  // #chooseOption and #adjust, keyed by its id.
+  // what kind of thing it is, and what it holds. What each one does lives in #activate
+  // and #chooseOption, keyed by an id.
   //
   // The kinds:
   //   heading   a section title. Not selectable; the cursor steps over it.
-  //   action    a press does something
-  //   options   a row of options, any of which can be pressed directly. This is what
-  //             a setting is, rather than a value that cycles: a tap has to be able to
-  //             reach a particular option, and left/right walks the same row.
-  //   binding   waiting-for-a-key row on the controls page
+  //   buttons   a block of big pressable cells, laid out in `columns`. This is what
+  //             anything worth pressing is: one cell wide for the thing a page is for,
+  //             two for a pair, and seven in a grid for the modes. A null cell holds
+  //             its place without drawing, which is how a button keeps the same corner
+  //             of the panel on a page that has nothing to put beside it.
+  //   options   a strip of settings values, any of which can be pressed directly.
+  //             Unlike buttons, walking onto one applies it: it is a value, not an act.
+  //   binding   a control waiting to be told which key or button works it.
+  //   hint      one line about whatever the cursor is on. A row rather than a footer,
+  //             so a page can put it where it belongs - under the mode grid it explains
+  //             and above the button that leaves the page, not below both.
+  //
+  // Two cursors: `menuIndex` is the row, `menuOption` the cell within it.
+  //
+  // The bottom right of every page is the way out of it - Controls where there is a
+  // game to configure, Back inside a sub-page - so the button a player reaches for
+  // without looking is always in the same place.
   menuRows() {
     switch (this.page) {
       case "title":
-        return [{ id: "modes", label: "New game", kind: "button" }, ...this.#settingRows()]
-      case "modes":
         return [
-          {
-            id: "mode",
-            kind: "grid",
-            columns: 2,
-            selected: Math.max(GAME_MODES.indexOf(this.mode), 0),
-            hint: this.mode.blurb,
-            options: GAME_MODES.map((mode) => ({
-              id: mode.id,
-              label: mode.name,
-              // Marks the one last played, so a returning player can see where they
-              // left off without it being pressed for them.
-              current: mode.id === this.settings.mode,
-            })),
-          },
-          { id: "back", label: "Back", kind: "action" },
+          this.#buttons([{ action: "modes", label: "New game" }], { primary: true }),
+          ...this.#settingRows(),
+          this.#buttons([null, { action: "controls", label: "Controls" }]),
         ]
       case "pause":
         return [
-          { id: "resume", label: "Resume", kind: "action" },
-          { id: "restart", label: "Restart", kind: "action" },
+          this.#buttons([
+            { action: "resume", label: "Resume" },
+            { action: "restart", label: "Restart" },
+          ]),
           ...this.#settingRows(),
-          { id: "title", label: "Quit to title", kind: "action" },
+          this.#buttons([
+            { action: "title", label: "Quit to title" },
+            { action: "controls", label: "Controls" },
+          ]),
         ]
       case "over": {
         const rows = []
-        // A level lost is a puzzle got wrong: retrying it is what the player wants,
-        // and starting from the first level again is offered underneath.
+        // A level lost is a puzzle got wrong, so another go at that level is the thing
+        // this page is for; starting from the first level again is offered beside it.
         if (this.currentLevel && this.outcome !== "won") {
-          rows.push({
-            id: "retry",
-            label: "Retry level",
-            kind: "button",
-            hint: `Level ${this.level + 1}: ${this.currentLevel.name}`,
-          })
+          rows.push(
+            this.#buttons([{ action: "retry", label: "Retry level" }], {
+              primary: true,
+              hint: `Level ${this.level + 1}: ${this.currentLevel.name}`,
+            }),
+          )
+        } else {
+          rows.push(this.#buttons([{ action: "again", label: "Play again" }], { primary: true }))
         }
-        rows.push({
-          id: "again",
-          label: this.currentLevel ? "Start over" : "Play again",
-          // The one thing most players want next, so it is a button on its own rather
-          // than a line in a list - except on a level, where trying that level again is
-          // what they want and this is the way back to the first one.
-          kind: this.currentLevel ? "action" : "button",
-        })
-        rows.push({ id: "modes", label: "Choose a mode", kind: "action" })
-        rows.push({ id: "title", label: "Title", kind: "action" })
+        rows.push({ id: "hint", kind: "hint" })
+        rows.push(
+          this.#buttons([
+            this.currentLevel ? { action: "again", label: "Start over" } : null,
+            { action: "modes", label: "Choose a mode" },
+          ]),
+        )
         return rows
       }
+      case "modes":
+        return [
+          {
+            id: "modes",
+            kind: "buttons",
+            columns: 2,
+            hint: this.mode.blurb,
+            options: GAME_MODES.map((mode) => ({
+              action: `mode:${mode.id}`,
+              label: mode.name,
+              // Marks the one last played, so a returning player can see where they
+              // left off without it being pressed for them.
+              marked: mode.id === this.settings.mode,
+            })),
+          },
+          { id: "hint", kind: "hint" },
+          this.#buttons([null, { action: "back", label: "Back" }]),
+        ]
       case "controls":
-        return this.#controlRows()
+        return [
+          ...this.#controlRows(),
+          { id: "hint", kind: "hint" },
+          this.#buttons([
+            { action: "resetBindings", label: "Reset to defaults" },
+            { action: "back", label: "Back" },
+          ]),
+        ]
       default:
         return []
+    }
+  }
+
+  // A block of buttons, one row across unless told otherwise. `primary` fills every
+  // cell rather than only the one under the cursor, for the single thing a page is for.
+  #buttons(options, { primary = false, hint = null, columns = 0 } = {}) {
+    return {
+      id: `buttons:${options.map((option) => (option ? option.action : "-")).join(",")}`,
+      kind: "buttons",
+      columns: columns || options.length,
+      primary,
+      hint,
+      options,
     }
   }
 
@@ -892,7 +936,6 @@ export class Game {
           { id: "off", label: "Off" },
         ],
       },
-      { id: "controls", label: "Controls", kind: "action" },
     ]
   }
 
@@ -918,8 +961,6 @@ export class Game {
         })
       }
     }
-    rows.push({ id: "resetBindings", label: "Reset to defaults", kind: "action" })
-    rows.push({ id: "back", label: "Back", kind: "action" })
     return rows
   }
 
@@ -938,18 +979,39 @@ export class Game {
     return keys.map(keyLabel).join(" / ")
   }
 
+  // ---- walking a menu -----------------------------------------------------
+  // Where the cursor lands when it arrives on a row: the first cell there is to press,
+  // except on the mode grid, where it is the mode already chosen.
+  #firstOption(row) {
+    if (!row || row.kind !== "buttons") {
+      return 0
+    }
+    if (row.id === "modes") {
+      return Math.max(GAME_MODES.indexOf(this.mode), 0)
+    }
+    const first = row.options.findIndex(Boolean)
+    return first < 0 ? 0 : first
+  }
+
+  #goToRow(index, rows = this.menuRows()) {
+    this.menuIndex = index
+    this.menuOption = this.#firstOption(rows[index])
+  }
+
   menuMove(delta) {
     const rows = this.menuRows()
     if (rows.length === 0) {
       return
     }
-    // A grid is one row holding a block of buttons, so up and down move a line inside
+    // A block of buttons is one row holding several, so up and down move a line inside
     // it and only leave it when there is no line left to move to.
     const here = rows[this.menuIndex]
-    if (here && here.kind === "grid") {
-      const next = here.selected + delta * (here.columns || 1)
-      if (next >= 0 && next < here.options.length) {
-        this.#chooseOption(here, next)
+    if (here && here.kind === "buttons") {
+      const next = this.menuOption + delta * (here.columns || here.options.length)
+      if (next >= 0 && next < here.options.length && here.options[next]) {
+        this.menuOption = next
+        this.#hover(here, next)
+        Sound.menuMove()
         return
       }
     }
@@ -962,23 +1024,32 @@ export class Game {
       }
     }
     if (index !== this.menuIndex) {
-      this.menuIndex = index
+      this.#goToRow(index, rows)
+      this.#hover(rows[index], this.menuOption)
       Sound.menuMove()
     }
   }
 
   menuAdjust(delta) {
     const row = this.menuRows()[this.menuIndex]
-    if (row && row.kind === "grid") {
-      // Left and right step across the grid, and off the end of a line onto the next,
-      // so every button is reachable however narrow the block is.
-      const next = clamp(row.selected + delta, 0, row.options.length - 1)
-      if (next !== row.selected) {
-        this.#chooseOption(row, next)
+    if (!row) {
+      return
+    }
+    if (row.kind === "buttons") {
+      // Left and right step across the block, over any cell that is only holding its
+      // place, and off the end of a line onto the next.
+      let next = this.menuOption + delta
+      while (next >= 0 && next < row.options.length && !row.options[next]) {
+        next += delta
+      }
+      if (next >= 0 && next < row.options.length) {
+        this.menuOption = next
+        this.#hover(row, next)
+        Sound.menuMove()
       }
       return
     }
-    if (!row || row.kind !== "options") {
+    if (row.kind !== "options") {
       return
     }
     // Walked rather than wrapped: these are short lists where the ends are meaningful,
@@ -995,14 +1066,11 @@ export class Game {
     if (!row) {
       return
     }
-    if (row.kind === "grid") {
-      // A button in the grid is the choice and the confirmation at once.
-      this.#activateOption(row, row.selected)
-      return
-    }
-    if (row.kind === "options") {
-      // Nothing to confirm: an option is chosen by pressing it or by walking onto it,
-      // and either way it has already been applied.
+    if (row.kind === "buttons") {
+      const option = row.options[this.menuOption]
+      if (option) {
+        this.#activate(option.action)
+      }
       return
     }
     if (row.kind === "binding") {
@@ -1011,11 +1079,12 @@ export class Game {
       Sound.menuConfirm()
       return
     }
-    this.#activate(row)
+    // An options row has nothing to confirm: a value is taken by pressing it or by
+    // walking onto it, and either way it has already been applied.
   }
 
-  // A press on a menu row, from a pointer. `option` is which option of an options row
-  // was hit, so a tap reaches a particular setting rather than cycling toward it.
+  // A press on a menu row from a pointer. `option` is which cell of the row was hit, so
+  // a tap reaches a particular button or setting rather than cycling toward it.
   menuTap(index, option = null) {
     const rows = this.menuRows()
     const row = rows[index]
@@ -1023,8 +1092,12 @@ export class Game {
       return
     }
     this.menuIndex = index
-    if (row.kind === "grid" && option != null) {
-      this.#activateOption(row, option)
+    if (row.kind === "buttons") {
+      const cell = option ?? this.menuOption
+      if (row.options[cell]) {
+        this.menuOption = cell
+        this.#activate(row.options[cell].action)
+      }
       return
     }
     if (row.kind === "options") {
@@ -1034,6 +1107,34 @@ export class Game {
       return
     }
     this.menuConfirm()
+  }
+
+  // The cursor following a pointer across the menu, without pressing anything. This is
+  // what lets a mode be hovered to read what it is.
+  menuHover(index, option = null) {
+    const rows = this.menuRows()
+    const row = rows[index]
+    if (!row || row.kind === "heading" || row.kind === "hint") {
+      return
+    }
+    const cell = row.kind === "buttons" ? (option ?? this.menuOption) : this.menuOption
+    if (row.kind === "buttons" && !row.options[cell]) {
+      return
+    }
+    if (this.menuIndex === index && this.menuOption === cell) {
+      return
+    }
+    this.menuIndex = index
+    this.menuOption = cell
+    this.#hover(row, cell)
+  }
+
+  // Moving onto a cell, which for most of them is nothing at all. The mode grid is the
+  // exception: it shows what it is pointing at.
+  #hover(row, option) {
+    if (row && row.id === "modes" && row.options[option]) {
+      this.#previewMode(GAME_MODES[clamp(option, 0, GAME_MODES.length - 1)])
+    }
   }
 
   menuBack() {
@@ -1080,7 +1181,7 @@ export class Game {
       Sound.menuBack()
     } else if (this.page == null) {
       this.page = "pause"
-      this.menuIndex = 0
+      this.#resetMenuCursor()
       Sound.menuConfirm()
     }
   }
@@ -1088,29 +1189,38 @@ export class Game {
   #openPage(page) {
     this.pageReturn = this.page
     this.page = page
-    // A page whose first row is a heading - the controls page - would otherwise
-    // open with the cursor on a label that does nothing when pressed.
-    this.menuIndex = Math.max(
-      this.menuRows().findIndex((row) => row.kind !== "heading"),
-      0,
-    )
+    this.#resetMenuCursor()
   }
 
   #closePage() {
     this.page = this.pageReturn ?? (this.phase === PHASE.PLAYING ? "pause" : "title")
     this.pageReturn = null
-    this.menuIndex = 0
     this.rebinding = null
+    this.#resetMenuCursor()
     Sound.menuBack()
   }
 
-  #activate(row) {
-    switch (row.id) {
+  // Where a page's cursor starts: the first row there is to press, and the first cell of
+  // it. Every route into a page goes through this, so none of them can leave the cursor
+  // pointing at a row that page does not have or a cell that row does not.
+  #resetMenuCursor() {
+    const rows = this.menuRows()
+    const first = rows.findIndex((row) => row.kind !== "heading" && row.kind !== "hint")
+    this.#goToRow(Math.max(first, 0), rows)
+  }
+
+  // What a button does, by the action it names.
+  #activate(action) {
+    if (action.startsWith("mode:")) {
+      Sound.menuConfirm()
+      this.start(action.slice(5))
+      return
+    }
+    switch (action) {
       case "modes":
         Sound.menuConfirm()
         this.#openPage("modes")
         break
-      case "start":
       case "again":
         Sound.menuConfirm()
         this.start(this.mode.id)
@@ -1172,17 +1282,6 @@ export class Game {
       default:
         break
     }
-  }
-
-  // Press one of a block of buttons. Only the mode grid has any, and pressing one is
-  // both choosing that mode and starting it.
-  #activateOption(row, option) {
-    if (row.id !== "mode") {
-      return
-    }
-    const mode = GAME_MODES[clamp(option, 0, GAME_MODES.length - 1)]
-    Sound.menuConfirm()
-    this.start(mode.id)
   }
 
   // Look at a mode without committing to it: the board behind the menu becomes that

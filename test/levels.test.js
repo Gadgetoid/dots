@@ -417,3 +417,93 @@ test("a mode whose refill is a plain boolean still works", () => {
   assert.equal(modeRefills({ refill: false }, board), false)
   assert.equal(modeRefills({}, board), false)
 })
+
+test("clearing a level records it, unlocks the next and nothing else", () => {
+  const game = new Game()
+  game.start("puzzle")
+  assert.equal(game.levelUnlocked(0), true, "the first is always open")
+  assert.equal(game.levelUnlocked(1), false, "and the second is not")
+
+  // Clear it by hand at exactly par, which is what a star is for.
+  clearLevel(game, LEVELS[0].par)
+  assert.deepEqual(game.levelBest(), { 0: LEVELS[0].par })
+  assert.equal(game.levelCleared(0), true)
+  assert.equal(game.levelUnlocked(1), true, "the next one opens")
+  assert.equal(game.levelUnlocked(2), false, "and only the next one")
+})
+
+test("a star is for par, and only where par is worth reaching", () => {
+  // The first level pays the same however it is played, so there is no star in it however
+  // well it is cleared. The third pays anywhere from 64 to 1120.
+  const forced = new Game()
+  forced.start("puzzle")
+  clearLevel(forced, LEVELS[0].par)
+  assert.equal(forced.levelContested(0), false, "every order pays the same")
+  assert.equal(forced.levelStarred(0), false, "so there is no star to give")
+
+  // The third pays anywhere from its floor to its par, so there is something to reach for.
+  const reached = { puzzle: { 0: LEVELS[0].par, 1: LEVELS[1].par } }
+
+  const short = new Game()
+  short.progress = reached
+  short.start("puzzle", { level: 2 })
+  assert.equal(short.levelContested(2), true)
+  clearLevel(short, LEVELS[2].par - 1)
+  assert.equal(short.levelStarred(2), false, "one short of par is no star")
+
+  const exact = new Game()
+  exact.progress = reached
+  exact.start("puzzle", { level: 2 })
+  clearLevel(exact, LEVELS[2].par)
+  assert.equal(exact.levelStarred(2), true, "and par is")
+
+  // A worse run afterwards does not take it away: what is kept is the best.
+  exact.start("puzzle", { level: 2 })
+  clearLevel(exact, LEVELS[2].floor)
+  assert.equal(exact.levelBest()[2], LEVELS[2].par, "the record is the best, not the last")
+  assert.equal(exact.levelStarred(2), true)
+})
+
+test("a level that has not been reached cannot be started", () => {
+  const game = new Game()
+  game.start("puzzle", { level: 9 })
+  assert.equal(game.level, 0, "asking for a locked level opens the first instead")
+
+  game.progress = { puzzle: Object.fromEntries(LEVELS.slice(0, 9).map((level, i) => [i, 1])) }
+  game.start("puzzle", { level: 9 })
+  assert.equal(game.level, 9, "and once it has been reached, it opens")
+})
+
+test("the picker locks what has not been reached and opens where the player left off", () => {
+  const game = new Game()
+  game.progress = { puzzle: { 0: 24, 1: 81, 2: 100 } }
+  game.start("puzzle")
+  game.page = "levels"
+  const rows = game.menuRows()
+  const grid = rows.find((row) => row.kind === "levels")
+  assert.equal(grid.options.length, LEVELS.length, "one cell per level")
+  assert.deepEqual(
+    grid.options.map((cell) => cell.locked),
+    LEVELS.map((level, index) => index > 3),
+    "everything past the one after the last cleared is locked",
+  )
+
+  // The cursor lands on the furthest one open, which is the one a player came back for.
+  game.menuIndex = rows.indexOf(grid)
+  game.menuOption = 0
+  game.menuMove(-1)
+  game.menuMove(1)
+  assert.equal(grid.options[game.menuOption].locked, false, "and never on a locked cell")
+})
+
+// Clear whatever level a game is on, paying `scored` for it. The board is emptied rather than
+// played, since what is being checked is what the game does about it.
+function clearLevel(game, scored) {
+  const level = game.level
+  game.player.score = game.levelStartScore + scored
+  game.board.remove(game.board.dots.slice())
+  for (let i = 0; i < 240; i++) {
+    game.advance(1 / 60)
+  }
+  assert.equal(game.levelCleared(level), true, `level ${level + 1} was recorded`)
+}

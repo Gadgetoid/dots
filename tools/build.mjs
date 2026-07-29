@@ -78,6 +78,19 @@ if (!page.includes(entry)) {
 }
 page = page.replace(entry, `src="${scripts}/main.js"`)
 
+// The level editor goes up with it. Not linked from the game, and not part of it, but it is
+// how a level gets made and it needs the same modules the game does - which are already up
+// there under the versioned directory.
+const editor = fs.readFileSync(path.join(ROOT, "editor.html"), "utf8")
+const editorEntry = 'src="src/editor/main.js"'
+if (!editor.includes(editorEntry)) {
+  throw new Error("editor.html no longer loads src/editor/main.js")
+}
+fs.writeFileSync(
+  path.join(out, "editor.html"),
+  editor.replace(editorEntry, `src="${scripts}/editor/main.js"`),
+)
+
 // Absolute URLs, for the readers that will not take a relative one: Open Graph, and the
 // canonical link. The card gets the version as well, so a new picture is a new URL rather
 // than whatever a platform cached the first time it saw the old one.
@@ -92,5 +105,5 @@ page = page.replace("<title>", `<meta name="version" content="${version}" />\n  
 fs.writeFileSync(path.join(out, "index.html"), page)
 
 const files = fs.readdirSync(path.join(out, scripts)).length
-console.log(`built ${path.relative(ROOT, out)}: ${files} scripts under ${scripts}`)
+console.log(`built ${path.relative(ROOT, out)}: ${files} scripts under ${scripts}, plus the editor`)
 console.log(`  base ${base || "(relative)"}`)

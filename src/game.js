@@ -4,7 +4,7 @@
 // Chain state is per player, not per game. One player is the only case there is
 // today, but a chain, a cursor, a score and a multiplier all belong to whoever is
 // holding them, and a dot records which player's chain has claimed it - so a
-// second pad is a second entry in `players` rather than a second copy of all of
+// second pad is a second entry in `players` and not a second copy of all of
 // this. Every input method therefore takes a player index, and defaults to the
 // first.
 
@@ -53,7 +53,7 @@ export const MAX_PLAYERS = 4
 
 // How loud a landing has to be to be worth a sound, and how many of them may be
 // voiced in one frame: a refilled board lands a dozen dots at once, and playing
-// all of them is a clatter rather than a rain.
+// all of them is a clatter, not a rain.
 const LAND_AUDIBLE = 6
 const LAND_VOICES = 3
 
@@ -69,7 +69,7 @@ export class Player {
     // The dots being held, in the order they were linked.
     this.chain = []
     // The drawn glow, chasing what the chain's length is worth, so it builds and
-    // fades rather than stepping.
+    // fades instead of stepping.
     this.glow = 0
     // Specials banked for later use. Nothing deals them yet; see specials.js.
     this.held = []
@@ -307,7 +307,7 @@ export class Game {
   // picked.
   levelStarred(index, modeId = this.mode.id) {
     // Only where there was a star to be had. Clearing a level whose every order pays the same
-    // is not an achievement, so those have no star at all rather than one nobody can miss.
+    // is not an achievement, so those have no star at all.
     if (!this.levelContested(index, modeId)) {
       return false
     }
@@ -354,8 +354,8 @@ export class Game {
     return !this.mode.levels || this.level >= this.mode.levels.length - 1
   }
 
-  // A board for the title screen to sit over, so the game shows itself rather than
-  // offering a menu on an empty field. It is dealt and left alone: nothing is
+  // A board for the title screen to sit over, so the game shows itself instead of offering a
+  // menu on an empty field. It is dealt and left alone: nothing is
   // playing it, and starting a mode deals a fresh one.
   dealAttractBoard() {
     this.#dealBoard()
@@ -394,8 +394,8 @@ export class Game {
     this.settings.mode = this.mode.id
     this.#storeSettings()
     this.layout = boardLayout(this.mode.cols, this.mode.rows)
-    // What the mode sounds like. Resolved here rather than held on the mode, because
-    // a mode may ask for a random tuning and then it is a different one per session.
+    // What the mode sounds like. Resolved per game, not held on the mode: a mode may ask for
+    // a random tuning, and then it is a different one each session.
     this.tuning = resolveTuning(this.mode.tuning)
     Sound.setTuning(this.tuning)
     // Where to begin, for a mode with levels: the one asked for if it has been reached, and
@@ -467,7 +467,7 @@ export class Game {
   }
 
   // Deal the current level again, at the score it was dealt at. A level with no
-  // moves left is a puzzle got wrong rather than a game over, so this is what the
+  // moves left is a puzzle got wrong and not a game over, so this is what the
   // game-over screen offers instead of starting from the first one.
   retryLevel() {
     if (!this.currentLevel) {
@@ -520,7 +520,7 @@ export class Game {
     this.time += dt
     this.#announce()
     // Score still floats up off a chain in a reduced-motion session, but it stays where
-    // it was spent rather than rising: it is the one particle carrying information.
+    // it was spent instead of rising: it is the one particle carrying information.
     this.particles.motion = this.reducedMotion ? 0 : 1
     this.particles.step(dt)
     if (this.banner) {
@@ -555,8 +555,8 @@ export class Game {
   }
 
   #advanceBoard(dt) {
-    // Landings are collected rather than voiced as they happen, so a whole
-    // refilled board is one soft rain instead of a dozen overlapping knocks.
+    // Landings are collected and voiced together, so a whole refilled board is one soft rain
+    // instead of a dozen overlapping knocks.
     let voices = 0
     // A reduced-motion session runs the board's own clock slower, which slows the fall
     // and everything that falls out of it - the bounce, the wobble ringing down - without
@@ -702,7 +702,7 @@ export class Game {
       const changed = this.mode.onSettled ? this.mode.onSettled(this.board) : null
       if (changed) {
         // A mode that recoloured something has changed the board under the player, which
-        // is worth pointing at rather than decorating.
+        // is worth pointing at, not decorating.
         this.#showHint(changed)
         Sound.link(0)
       }
@@ -724,7 +724,7 @@ export class Game {
     if (this.overFor < (verdict === "won" ? 0.4 : CONFIG.LOSE_DELAY)) {
       return
     }
-    // A cleared level with more behind it moves on rather than ending; the last one
+    // A cleared level with more behind it moves on; the last one
     // ends the game, and having cleared them all is what winning this mode is.
     if (verdict === "won" && !this.lastLevel) {
       this.#nextLevel()
@@ -853,7 +853,7 @@ export class Game {
   }
 
   // Let a chain go without spending it. `quiet` skips the sound, for a chain
-  // dropped because the game ended rather than because the player let go.
+  // dropped because the game ended, not because the player let go.
   #dropChain(player, quiet = false) {
     if (player.chain.length === 0) {
       return
@@ -958,7 +958,7 @@ export class Game {
 
   // A move that could not happen. Rate-limited, because a direction held against the edge
   // of the board repeats at the cursor's own rate and thirteen of these a second is a
-  // machine gun rather than a refusal.
+  // machine gun instead of a refusal.
   #soundBlocked() {
     if (this.time - this.blockedAt < BLOCKED_GAP) {
       return
@@ -1071,9 +1071,9 @@ export class Game {
   //   options   a strip of settings values, any of which can be pressed directly.
   //             Unlike buttons, walking onto one applies it: it is a value, not an act.
   //   binding   a control waiting to be told which key or button works it.
-  //   hint      one line about whatever the cursor is on. A row rather than a footer,
-  //             so a page can put it where it belongs - under the mode grid it explains
-  //             and above the button that leaves the page, not below both.
+  //   hint      one line about whatever the cursor is on. A row of its own, so a page can
+  //             put it where it belongs: under the mode grid it explains and above the
+  //             button that leaves the page.
   //
   // Two cursors: `menuIndex` is the row, `menuOption` the cell within it.
   //
@@ -1203,7 +1203,7 @@ export class Game {
   }
 
   // A block of buttons, one row across unless told otherwise. `primary` fills every
-  // cell rather than only the one under the cursor, for the single thing a page is for.
+  // cell, not only the one under the cursor, for the single thing a page is for.
   #buttons(options, { primary = false, hint = null, columns = 0 } = {}) {
     return {
       id: `buttons:${options.map((option) => (option ? option.action : "-")).join(",")}`,
@@ -1215,7 +1215,7 @@ export class Game {
     }
   }
 
-  // The settings, each a row of values with its name beside them rather than over them.
+  // The settings, each a row of values with its name in the gutter beside them.
   // Beside, because there are seven of these and a heading each would not fit the field -
   // and a name at the left of the values it names reads as belonging to them anyway.
   #settingRows() {
@@ -1226,7 +1226,7 @@ export class Game {
         label: "Theme",
         selected: Math.max(THEME_IDS.indexOf(this.settings.theme), 0),
         // The preview is the option: a little board in that theme says more than its
-        // name does, and it is what makes the row worth pressing rather than reading.
+        // name does, and it is what makes the row worth pressing.
         options: THEME_IDS.map((id) => ({ id, label: THEMES[id].name, preview: id })),
       },
       {
@@ -1362,8 +1362,8 @@ export class Game {
     if (!row || (row.kind !== "buttons" && row.kind !== "levels")) {
       return 0
     }
-    // The furthest level reached, so a picker opens where a player left off rather than at
-    // the beginning of a ladder they have already climbed.
+    // The furthest level reached, so a picker opens where a player left off and not at the
+    // bottom of a ladder they have already climbed.
     if (row.id === "levels") {
       const last = row.options.findLastIndex((cell) => this.#pressable(cell))
       return last < 0 ? 0 : last
@@ -1388,7 +1388,7 @@ export class Game {
     // A block of buttons is one row holding several, so up and down move a line inside it
     // and only leave it when there is no line left to move to. Where the line moved onto
     // is short of the column being left - the last line of the mode grid holds one - the
-    // cursor takes the nearest cell along it rather than stepping out of the block.
+    // cursor takes the nearest cell along it and stays in the block.
     const here = rows[this.menuIndex]
     if (here && (here.kind === "buttons" || here.kind === "levels")) {
       const columns = here.columns || here.options.length
@@ -1448,7 +1448,7 @@ export class Game {
     if (row.kind !== "options") {
       return
     }
-    // Walked rather than wrapped: these are short lists where the ends are meaningful,
+    // Walked, never wrapped: these are short lists where the ends are meaningful,
     // and a brightness that jumps from full to night on one press is a nasty surprise
     // in a dark room.
     const next = clamp(row.selected + delta, 0, row.options.length - 1)
@@ -1484,7 +1484,7 @@ export class Game {
   }
 
   // A press on a menu row from a pointer. `option` is which cell of the row was hit, so
-  // a tap reaches a particular button or setting rather than cycling toward it.
+  // a tap reaches a particular button or setting directly.
   menuTap(index, option = null) {
     const rows = this.menuRows()
     const row = rows[index]
@@ -1554,8 +1554,7 @@ export class Game {
             index + entry.options.slice(0, this.menuOption).filter(Boolean).length,
           )
         }
-        // A row of settings is pointed at by the value it holds rather than by a cursor
-        // of its own.
+        // A row of settings is pointed at by the value it holds, having no cursor of its own.
         return this.#positionalNote(index + (entry.kind === "options" ? entry.selected : 0))
       }
       index += this.#itemCount(entry)
@@ -1563,7 +1562,7 @@ export class Game {
     return this.#positionalNote(index)
   }
 
-  // An item's place on its page, as semitones. A whole tone apart rather than a semitone:
+  // An item's place on its page, as semitones. A whole tone apart, not a semitone:
   // neighbouring semitones are the hardest interval to tell apart, and telling one item
   // from the next is the whole job.
   #positionalNote(place) {
@@ -1957,7 +1956,7 @@ export class Game {
 
 // A key code as a player would recognise it: the code without its category, so "KeyW"
 // reads as W and "ArrowLeft" as Left. What is left is split at its capitals, which
-// turns a code like "ShiftLeft" into words rather than a run of them.
+// turns a code like "ShiftLeft" into spaced words.
 export function keyLabel(code) {
   if (code.startsWith("Key")) {
     return code.slice(3)

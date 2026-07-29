@@ -25,6 +25,7 @@ Two of the three still exist to compare against: the 32blit version is in
 | ![A chain of six dots, glowing](screenshots/board.png) | ![A chain unzipping](screenshots/popping.png)                 |
 | ![The light theme, mid chain](screenshots/light.png)   | ![The board turned down for the night](screenshots/night.png) |
 | ![An authored puzzle level](screenshots/puzzle.png)    | ![The pause menu](screenshots/menu.png)                       |
+| ![The puzzle picker](screenshots/levels.png)           | ![The settings page](screenshots/settings.png)                |
 
 ## Playing
 
@@ -65,7 +66,7 @@ by a pointer and this game is played as often with a pad or a keyboard.
 | Endless     | 7x7   | 2     | Deals against itself: matches are hidden, never absent |
 | Elimination | 6x6   | 2     | A colour cleared off the board never comes back        |
 | Clear out   | 6x7   | 2     | No refill, and the board is random. Whittle it down    |
-| Puzzle      | 6x7   | 2     | Seven designed boards, cleared one after another       |
+| Puzzle      | 6x7   | 2     | Twenty designed boards, cleared one after another      |
 
 The last three all come from the original browser game, which had `puzzle`,
 `elimination` and an endless default. Elimination refills only with colours still in
@@ -91,7 +92,8 @@ in `src/modes/index.js`.
 
 ### Levels
 
-A level is drawn rather than written, in `src/modes/levels.js`:
+A level is drawn in `src/modes/levels.js`, in ASCII so it can be read and edited as the shape
+it is:
 
 ```
 "......"
@@ -103,24 +105,52 @@ A level is drawn rather than written, in `src/modes/levels.js`:
 "331133"
 ```
 
-A digit is a colour and a dot is an empty cell, numbered as the original game's level
-data numbered them. What is drawn is then allowed to fall, so a shape does not have to
-be bottom-aligned by hand.
+A digit is a colour and a dot is an empty cell, numbered as the original game's level data
+numbered them. What is drawn falls, so a shape does not have to be bottom-aligned by hand,
+though the shipped ones are written already fallen so the file shows what the board will look
+like. `prettier-ignore` keeps the formatter from flattening each one onto a single line.
 
-Since nothing refills, a badly drawn level is one the player can only lose in, so
-`test/solver.js` searches each layout for a sequence of chains that empties it and the
-test fails if it cannot find one. Every shipped level is therefore provably clearable,
-and the last one is deliberately not clearable by simply taking the longest chain every
-time.
+There are twenty, opened one at a time as the one before is cleared and resumable from any
+that has been reached. Each carries two exact numbers:
 
-Each level also carries a `par`: the most it can score over every order that clears it.
-That is an exact answer to an exact question, because a pop only ever takes dots off the
-board - the positions reachable from a layout form a graph with no cycles, so each one
-need only be valued once, with the multiplier as part of what is valued. The largest
-level is about forty thousand positions, which is a second of work: too slow for a frame,
-so it is written down beside the layout and the test recomputes it, and a number that has
-drifted from its layout fails rather than quietly misleading a player. The board shows it
-as a target while a level is being played.
+| Field   | What it is                                                                       |
+| ------- | -------------------------------------------------------------------------------- |
+| `par`   | the most the level can score, over every order that clears it. A star for it     |
+| `floor` | the least any clearing order scores. Equal to par means how it is played is moot |
+
+Both are exact because the question is finite: a pop only ever takes dots off the board, so
+the positions reachable from a layout form a graph with no cycles and each need only be valued
+once, with the multiplier as part of what is valued. The largest level is about sixty thousand
+positions, which is a second or two of work - too slow for a frame, so both are written down
+beside the layout and `test/levels.test.js` recomputes them. A number that has drifted from
+its layout fails the test.
+
+The same test proves every level can be emptied at all, which matters because nothing refills:
+a badly drawn level is one a player can only lose in. It also checks the order of the ladder,
+which is by measured difficulty and rises from 2.0 to 11.3 across the twenty. The first three
+fall to taking the longest chain every time; the next nine have several clearing orders that
+pay very differently; from the thirteenth exactly one order pays par and the obvious play
+misses it or strands the board.
+
+Difficulty is the interesting measure. `src/analysis.js` walks the same graph and answers all
+of it at once: clearable or not, par, floor, how many orders pay par, how long the shortest
+clearing order is, how many openings lose the level, and what greed would do. One refinement
+is worth knowing: a trap that leaves a colour with a single dot on the board announces itself,
+since nothing refills and a player can see it as plainly as the solver can. Every trap in the
+original seven levels is that kind, which is why they play as forgiving even though most of
+their moves strand the board. A trap that leaves everything still looking matchable is what
+makes a level hard, and those come out of the collapse several moves deep.
+
+Which is why the thirteen newer levels were searched for. The silhouettes in
+`tools/find-levels.mjs` are drawn by hand, since no search knows what looks good; the colours
+are searched, since none of the above can be seen in a layout. Growing regions of colour
+rather than scattering dots took the share of candidates that can be cleared at all from one
+in twenty to one in three.
+
+```
+node tools/levels.mjs        # the table for the shipped set
+node tools/find-levels.mjs   # look for more
+```
 
 ## Sound
 
@@ -213,6 +243,14 @@ Pages serves HTML with a ten minute cache - that is the longest a player can be 
 ```
 npm run build      # _site/, with relative URLs, for a look
 ```
+
+`editor.html` is a level editor, outside the game and not linked from it, built out of the
+game's own renderer, palette and analysis so a board drawn in it is drawn by the code that
+will draw it when it is played. It says whether the board can be cleared, what par and floor
+would be, roughly how hard it is, and hands over the layout ready to paste into
+`src/modes/levels.js` - or refuses to, if the board cannot be emptied. The analysis runs in a
+worker, since judging a full board takes a couple of seconds and on the page's own thread
+that is a couple of seconds of a dead editor after every click.
 
 ## Still to come
 

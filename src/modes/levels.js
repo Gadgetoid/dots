@@ -2,47 +2,35 @@
 //
 // A layout is one string per board row, top row first: a digit is a colour (1 for the first of
 // the theme's dot colours, as the original game's level data numbered them) and a dot is an
-// empty cell. Board.load reads it and then lets it fall, so a layout can be drawn as a shape
-// without every column being bottom-aligned by hand - but these are all written already
-// fallen, so what is drawn here is what appears on screen.
+// empty cell. ASCII so a level can be read and edited as the shape it is; `prettier-ignore` so
+// the formatter does not flatten each one onto a single line. Every layout is exactly
+// PUZZLE_COLS wide and PUZZLE_ROWS tall, and written already fallen, so what is drawn here is
+// what appears on screen.
 //
-// Nothing refills, so every level has to be clearable - and whether it is depends on the order
-// the chains are taken in, because each pop collapses the columns under it. That is the puzzle,
-// and it is also easy to get wrong when authoring one: test/levels.test.js searches each layout
-// for a sequence of chains that empties it and fails if it cannot find one. A level that does
-// not survive that test is not shipped, so these are all provably clearable.
+//   par     the most the level can score, over every order that clears it. A star is given for
+//           reaching it.
+//   floor   the least any clearing order scores. Where floor equals par, how the level is
+//           played makes no difference to the score and no star is offered. The first two
+//           levels are like that.
 //
-// Every layout must be exactly PUZZLE_COLS wide and PUZZLE_ROWS tall; the test checks that too.
+// Nothing refills, so a level can only be cleared in some orders and not others: each pop
+// collapses the columns under it. Both numbers are exact, and stored because the search that
+// finds them takes about a second on the larger levels. test/levels.test.js recomputes both,
+// proves each level can be emptied, and checks the order below.
 //
-// The two numbers on each level are exact rather than estimated, because the question is
-// finite: a pop only ever takes dots off the board, so the positions reachable from a layout
-// form a graph with no cycles and each one need only be valued once.
-//
-//   par     the most the level can score, over every order that clears it. What a star is
-//           given for reaching.
-//   floor   the least any clearing order scores. Where this is the par, every order that
-//           clears pays the same: there is nothing to aim at, so no star is offered at all.
-//           The first two levels are like that on purpose.
-//
-// Both are written down rather than worked out at run time, because the search takes about a
-// second on the larger levels - and the test recomputes both, so a number that has drifted
-// from its layout fails rather than quietly misleading a player.
-//
-// The order is by measured difficulty, which is its own question: see src/analysis.js, and
-// tools/find-levels.mjs for how the later ones were found. It rises from 2.0 to 11.3 across the
-// twenty. What the ladder is made of, roughly: the first three can be cleared for par by simply
-// taking the longest chain on the board every time, the next nine have several orders that clear
-// with very different scores, and from the thirteenth there is exactly one order that pays par
-// and the obvious play either misses it or strands the board outright.
+// That order is by measured difficulty, which rises from 2.0 to 11.3 across the twenty: see
+// src/analysis.js for what it is made of, and tools/find-levels.mjs for how the later levels
+// were found. The first three fall to taking the longest chain every time; the next nine have
+// several clearing orders paying very differently; from the thirteenth one order pays par and
+// the obvious play misses it or strands the board.
 
 import { parse } from "../solver.js"
 
 export const PUZZLE_COLS = 6
 export const PUZZLE_ROWS = 7
 
-// A level as the board it will actually be: the layout with every column fallen to the
-// bottom, which is what the picker draws as its preview. Cached per level, since the picker
-// asks for all twenty of them on every frame it is open.
+// The board a level becomes: its layout with every column fallen. What the picker draws as a
+// preview. Cached, since the picker asks for all twenty on every frame it is open.
 const grids = new WeakMap()
 export function levelGrid(level) {
   let grid = grids.get(level)
@@ -53,13 +41,6 @@ export function levelGrid(level) {
   return grid
 }
 
-// A level is drawn rather than written, so the shape of it can be read here. Left to
-// itself the formatter puts each layout on one line, where it is just a row of
-// strings and the shape is gone.
-// prettier-ignore
-// A level is drawn rather than written, so the shape of it can be read here. Left to itself
-// the formatter puts each layout on one line, where it is just a row of strings and the shape
-// is gone.
 // prettier-ignore
 export const LEVELS = [
   {

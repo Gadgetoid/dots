@@ -27,8 +27,8 @@ const PREVIEW_H = 72
 const HEADING_H = 30
 // The score's own size, which the multiplier beside it is placed from.
 const SCORE_SIZE = 44
-// Tall enough to hold its line near the top and leave a gap under it, so a hint sits with
-// what it describes rather than with the button below it.
+// Tall enough to hold its line near the top and leave a gap under it, so a hint groups with
+// the row it describes and not with the button below.
 const HINT_H = 46
 // The gutter a settings row's name sits in, to the left of its values.
 const LABEL_W = 116
@@ -52,11 +52,11 @@ export class GameView {
     this.renderer = renderer
     // Kept so a resize can be recomputed without the caller having to hold it.
     this.rect = { width: 0, height: 0 }
-    // Where each menu row was drawn this frame, so a tap can find it. Recorded by
-    // the drawing rather than worked out twice: the layout is only written once.
+    // Where each menu row was drawn this frame, so a tap can find it. Recorded while drawing,
+    // so the layout is computed once.
     this.menuHits = []
-    // How far the level picker has been scrolled, in view pixels. Held here rather than in
-    // the game: where a list has been scrolled to is a property of looking at it.
+    // How far the level picker has been scrolled, in view pixels. Where a list is scrolled to
+    // belongs to looking at it, so the view keeps it and the game knows nothing about it.
     this.levelScroll = 0
   }
 
@@ -220,7 +220,7 @@ export class GameView {
 
   // The chain, as one body: a disc at every dot and a cord between them, filleted
   // together by the shader so the dots reach out to each other and a right-angle turn
-  // is a curve rather than a notch. Drawn under the dots, which are the same colour,
+  // is a curve and not a notch. Drawn under the dots, which are the same colour,
   // so nothing about it reads as two shapes overlapping.
   #drawChains(game, theme) {
     for (const player of game.players) {
@@ -286,8 +286,8 @@ export class GameView {
     }
   }
 
-  // Everything above the board belongs to the score bar, so dots falling in from
-  // above are hidden behind it rather than sliding over it.
+  // Everything above the board belongs to the score bar, so dots falling in from above are
+  // hidden behind it.
   #drawCurtain(game, theme) {
     const top = game.layout.y - game.layout.cell * 0.22
     this.renderer.panel(0, 0, VIEW_W, top, { fill: theme.background })
@@ -383,8 +383,8 @@ export class GameView {
         align: "right",
       })
       // The multiplier only appears once it is worth something, and glows, since it
-      // is what a long chain earned. It sits beside the score rather than above the
-      // board, which is where the page's own buttons are.
+      // is what a long chain earned. Beside the score: above the board is where the page's
+      // own buttons are.
       if (player.multiplier > 1) {
         renderer.text(
           `x${player.multiplier}`,
@@ -420,8 +420,7 @@ export class GameView {
 
     // The strip under the board says only what the board cannot: which level this is,
     // and what a special under the cursor would do. What mode is being played and what
-    // that mode is belong in the pause menu, where they are read once, rather than
-    // under the board for the whole game.
+    // that mode is belong in the pause menu, where they are read once.
     const special = game.hoveredSpecial()
     const level = game.currentLevel
     if (special) {
@@ -468,8 +467,8 @@ export class GameView {
     }
   }
 
-  // Two bars in a rounded box. Drawn rather than written, because a glyph for this is
-  // not in the atlas and a word would need translating.
+  // Two bars in a rounded box, drawn: the atlas has no glyph for it and a word would need
+  // translating.
   #drawPauseButton(theme) {
     const box = PAUSE_BUTTON
     this.renderer.panel(box.x, box.y, box.w, box.h, { fill: theme.cell })
@@ -563,14 +562,10 @@ export class GameView {
     const height = contentHeight + headerHeight + PANEL_PAD
     const y = clamp((VIEW_H - height) / 2, 12, Math.max(12, VIEW_H - height - 12))
 
-    // A menu goes over a finished frame rather than into it, which is what lets the
-    // panel frost itself against a blurred copy of the board: the game stays visible
-    // behind the menu instead of being replaced by it.
-    // A menu goes over a finished frame rather than into it, which is what lets it frost
-    // itself against a blurred copy of the board: the game stays visible behind the menu
-    // instead of being replaced by it. The frost fills the window rather than sitting in a
-    // box on it - there is nothing for an edge to separate, since everything in front of it
-    // is a button with an edge of its own.
+    // A menu goes over a finished frame, not into it: that is what lets it frost itself
+    // against a blurred copy of the board, so the game stays visible behind the menu. The
+    // frost fills the window, with no edge or corner of its own - everything in front of it
+    // is a button with an edge already.
     //
     // Transparency is one of the things a reduced-motion session asks to be spared, so
     // there it is a plain fill: nothing shows through, and nothing behind it can move
@@ -685,7 +680,7 @@ export class GameView {
         baseline: "middle",
         bold: filled,
       })
-      // The mode last played, marked rather than pre-pressed.
+      // The mode last played, marked but not pre-pressed.
       if (option.marked) {
         renderer.disc(box.x + box.w - 14, box.y + 14, 4, {
           color: filled ? theme.panel : theme.accent,
@@ -821,7 +816,7 @@ export class GameView {
     const overflow = Math.max(0, lines * step - LEVEL_GAP - rowHeight)
 
     // Follow the cursor: whichever line it is on has to be on screen, and moving onto a line
-    // that is not brings it into view rather than the other way round.
+    // that is not scrolls the grid to it.
     if (index === game.menuIndex) {
       const line = Math.floor(game.menuOption / columns)
       this.levelScroll = clamp(this.levelScroll, line * step + cell - rowHeight, line * step)
@@ -991,7 +986,7 @@ export class GameView {
         renderer.disc(left + (col + 0.5) * cell, top + (row + 0.5) * cell, radius, {
           color: colours.base,
           // The preview wears the shapes too when they are on, so the setting shows what
-          // it does rather than only saying it.
+          // it does and not only saying it.
           shape: shapes ? DOT_SHAPES[which] : null,
         })
       }
@@ -1035,7 +1030,7 @@ export class GameView {
         ]
         // On a board that is never refilled and was never designed, what is left on it
         // is the measure of the game: most random boards cannot be emptied at all, so
-        // "how few did you leave" is the question rather than "did you clear it".
+        // the question is "how few did you leave", not "did you clear it".
         if (game.mode.refill === false && !game.mode.levels && game.board) {
           const left = game.board.count
           lines.push({

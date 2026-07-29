@@ -39,10 +39,10 @@ export const CONFIG = {
   // One damped oscillator per dot, stiff and lightly damped, so a nudge rings for about
   // half a second.
   //
-  // Nothing the board does drives it any more. A dot landing used to squash, and a dot
-  // beside a pop used to flinch, and both were movement drawing the eye to something that
-  // had already happened and did not matter. The wobble is worth more as the one thing
-  // that means "look here": it is the hint, and nothing else uses it.
+  // A hint is the only thing that drives it, and nothing the board does on its own account
+  // does. That is what makes it worth having: movement means "look here", and a board that
+  // squashed a dot on every landing would be spending it on things that have already
+  // happened and do not matter.
   WOBBLE_STIFFNESS: 460,
   WOBBLE_DAMPING: 9,
   // Ceiling on the deformation, as a fraction of the radius. Past about a third the shape
@@ -217,6 +217,11 @@ export function cellAt(layout, x, y) {
   return { col, row }
 }
 
+// How many levels the picker puts on a line. Four across a 600 wide field leaves a preview
+// big enough to tell one board from another at a glance, which is the whole point of it;
+// with the four lines the view shows at a time, sixteen are on screen at once.
+export const LEVEL_COLUMNS = 4
+
 // ---------------------------------------------------------------------------
 // INPUT
 //
@@ -303,11 +308,6 @@ export const RESERVED_BUTTONS = new Set([GAMEPAD.buttons.pause, GAMEPAD.buttons.
 // How far apart two neighbouring items are, in semitones. A whole tone: two neighbouring
 // semitones are the hardest interval there is to tell apart, and telling one item from the
 // next is the entire job here.
-// How many levels the picker puts on a line. Four across a 600 wide field leaves a preview
-// big enough to tell one board from another at a glance, which is the whole point of it, and
-// twelve of the twenty on screen at once.
-export const LEVEL_COLUMNS = 4
-
 export const MENU_STEP = 2
 
 export const MENU_NOTES = {

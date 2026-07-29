@@ -1174,8 +1174,8 @@ export class GameView {
       case "controls":
         return [{ text: PAGE_TITLES.controls, colour: theme.text.bright, size: 30, bold: true }]
       default:
-        // The pause menu is where the mode says what it is. It used to be written under
-        // the board for the whole game, where it was read once and then in the way.
+        // The pause menu is where the mode says what it is: read once, on the one page that
+        // is asked for rather than always there, and out of the way of the board.
         return [
           { text: game.mode.name, colour: theme.text.bright, size: 30, bold: true },
           { text: game.mode.blurb, colour: theme.text.dim, size: 19 },

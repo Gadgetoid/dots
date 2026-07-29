@@ -1883,9 +1883,8 @@ export class Game {
     return this.#positionalNote(index)
   }
 
-  // An item's place on its page, as semitones. A whole tone apart, not a semitone:
-  // neighbouring semitones are the hardest interval to tell apart, and telling one item
-  // from the next is the whole job.
+  // An item's place on its page, as semitones. See MENU_STEP for how far apart two
+  // neighbouring items are and why.
   #positionalNote(place) {
     return place * MENU_STEP
   }

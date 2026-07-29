@@ -518,8 +518,10 @@ export class Board {
     return this.dots.filter((dot) => dot.colour === colour)
   }
 
-  // Shift a whole column sideways, wrapping at the edges, for a NUDGE special. The
-  // dots keep their visual y, so the column slides rather than dropping again.
+  // Exchange a column with the one `delta` along, wrapping at the edges, for a NUDGE
+  // special. Both columns move, since a column shifted onto an occupied one would have
+  // nowhere to put what was there. The dots keep their visual y, so they slide sideways
+  // instead of dropping again.
   nudgeColumn(col, delta) {
     const target = (((col + delta) % this.cols) + this.cols) % this.cols
     if (target === col) {

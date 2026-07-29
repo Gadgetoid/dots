@@ -279,7 +279,6 @@ export const Sound = {
     this.noise(0.05, { volume: 0.012, freq: 180, q: 1.2 })
   },
 
-  // Dropping a chain without spending it: the link tone, reversed.
   // Dropping a chain without spending it: the root, falling away under itself. Below
   // the scale rather than in it, since nothing was earned.
   cancel() {

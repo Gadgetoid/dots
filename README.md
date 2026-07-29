@@ -127,7 +127,7 @@ numbered them. What is drawn falls, so a shape does not have to be bottom-aligne
 though the shipped ones are written already fallen so the file shows what the board will look
 like. `prettier-ignore` keeps the formatter from flattening each one onto a single line.
 
-There are twenty, opened one at a time as the one before is cleared and resumable from any
+There are forty-three, opened one at a time as the one before is cleared and resumable from any
 that has been reached. Each carries two exact numbers:
 
 | Field   | What it is                                                                       |
@@ -137,16 +137,19 @@ that has been reached. Each carries two exact numbers:
 
 Both are exact because the question is finite: a pop only ever takes dots off the board, so
 the positions reachable from a layout form a graph with no cycles and each need only be valued
-once, with the multiplier as part of what is valued. The largest level is about sixty thousand
-positions, which is a second or two of work - too slow for a frame, so both are written down
-beside the layout and `test/levels.test.js` recomputes them. A number that has drifted from
-its layout fails the test.
+once, with the multiplier as part of what is valued. The largest level is about nine million
+positions, which is a few minutes of work - so both are written down beside the layout, and what
+has been proved about a board goes in `data/verified-boards.json` by `tools/verify-levels.mjs`.
+`test/levels.test.js` reads that and walks a couple of levels a day besides, so the whole ladder
+is re-proved over time. A number that has drifted from its layout fails the test.
 
 The same test proves every level can be emptied at all, which matters because nothing refills:
 a badly drawn level is one a player can only lose in. It also checks the order of the ladder,
-which is by measured difficulty and rises from 2.0 to 11.3 across the twenty. The first three
-fall to taking the longest chain every time; the next nine have several clearing orders that
-pay very differently; from the thirteenth exactly one order pays par and the obvious play
+which is by measured difficulty and rises from 2.0 to 11.8 across the first thirty-two. The last
+eleven are arranged rather than sorted: all of them above everything before them, but swinging
+between hard and harder and finishing on the hardest board in the game at 14.0. The first three
+levels fall to taking the longest chain every time; the next nine have several clearing orders
+that pay very differently; from the thirteenth exactly one order pays par and the obvious play
 misses it or strands the board.
 
 Difficulty is the interesting measure. `src/analysis.js` walks the same graph and answers all
@@ -158,7 +161,7 @@ original seven levels is that kind, which is why they play as forgiving even tho
 their moves strand the board. A trap that leaves everything still looking matchable is what
 makes a level hard, and those come out of the collapse several moves deep.
 
-Which is why the thirteen newer levels were searched for. The silhouettes in
+Which is why the thirty-six newer levels were searched for. The silhouettes in
 `tools/find-levels.mjs` are drawn by hand, since no search knows what looks good; the colours
 are searched, since none of the above can be seen in a layout. Growing regions of colour rather
 than scattering dots took the share that can be cleared at all from 8.5% to 98%, and the search

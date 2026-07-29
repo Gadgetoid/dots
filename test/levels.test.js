@@ -141,7 +141,7 @@ const SCORING = {
 //     ladder is re-proved from scratch over time rather than never.
 const CACHE = loadCache()
 // How many are walked whatever the cache says. Two is a couple of seconds on the early levels and
-// most of a minute if the day lands on the biggest, and gets through thirty in a fortnight.
+// several minutes if the day lands on the biggest, and gets through the ladder in three weeks.
 const SAMPLED = 2
 const sampleFrom = Math.floor(Date.now() / 86400000) * SAMPLED
 const sampled = new Set(
@@ -166,9 +166,12 @@ const KNOWN = LEVELS.map((level, index) => {
   if (proved) {
     return shape(proved, { fromCache: true })
   }
-  // A walked level has no route written down, so the replay test finds one for it.
+  // A walked level has no route written down, so the replay test finds one for it. The budget is
+  // named rather than left to the default, which the largest boards are over: the two of thirty-two
+  // dots reach nine million positions, and a walk that runs out of budget can say nothing exact.
   const found = analyse(level.layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain, SCORING, {
     seconds: 300,
+    budget: 20000000,
   })
   return shape(
     {
@@ -254,7 +257,7 @@ test("every level's floor is the least a clearing order scores", () => {
 })
 
 // The last stretch is arranged rather than sorted; see the head of src/modes/levels.js.
-const FINALE = 7
+const FINALE = 11
 
 test("the ladder climbs as far as the finale, and the finale is above all of it", () => {
   const difficulty = KNOWN.map((known) => known.difficulty)
@@ -281,7 +284,7 @@ test("the ladder climbs as far as the finale, and the finale is above all of it"
 })
 
 test("the finale swings rather than climbing, and ends on the hardest board", () => {
-  // Sorted, the last seven run 11.97 to 13.26 without a pause, which is a wall rather than an
+  // Sorted, the last eleven run 11.97 to 14.01 without a pause, which is a wall rather than an
   // ending. So the hardest are spread through them: what this insists on is that the run is not
   // monotone - there are dips - and that the last level is the hardest in the game, since an
   // ending should be the peak and not the trough after one.

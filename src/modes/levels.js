@@ -20,30 +20,33 @@
 //
 // Nothing refills, so a level can only be cleared in some orders and not others: each pop
 // collapses the columns under it. Both numbers are exact, and stored because the search that
-// finds them takes about a second on the larger levels. test/levels.test.js recomputes both,
-// proves each level can be emptied, and checks the order below.
+// finds them takes minutes on the largest levels. test/levels.test.js checks both, proves each
+// level can be emptied, and checks the order below.
 //
-// The order is by measured difficulty as far as the last seven, rising from 2.0 to 11.8: see
+// The order is by measured difficulty as far as the last eleven, rising from 2.0 to 11.8: see
 // src/analysis.js for what that measure is made of, and tools/find-levels.mjs for how all but the
 // first seven levels were found. The first three fall to taking the longest chain every time; the
 // next nine have several clearing orders paying very differently; from the thirteenth exactly one
 // order pays par and the obvious play misses it or strands the board.
 //
-// The last seven are arranged rather than sorted. Sorted, they run 11.97 to 13.26 without a pause,
-// which is a wall to climb rather than an ending to play: so the three hardest are spread through
-// them and the rest fall between, giving a swing between hard and harder that finishes on the
-// hardest board in the game. They are all above everything before them, so the difficulty still
-// only goes one way overall.
+// The last eleven are arranged rather than sorted. Sorted, they run 11.97 to 14.01 without a pause,
+// which is a wall to climb rather than an ending to play: so the hardest are spread through them and
+// the rest fall between, giving a swing between hard and harder that finishes on the hardest board
+// in the game. They are all above everything before them, so the difficulty still only goes one way
+// overall.
 //
-// No two levels next to each other have the same silhouette, at the end or anywhere else. There are
-// three boards of thirty dots and two each of a couple of other shapes, and consecutively they read
-// as the same puzzle again.
+// No two levels next to each other have the same silhouette, at the end or anywhere else. Five
+// boards are drawn to one shape and several others to two or three, and consecutively any of those
+// read as the same puzzle again.
 //
 // Both of those are checked in test/levels.test.js, since neither survives being left to a sort.
 //
-// The three thirty-dot boards take a minute or two each to value, which is why what has been proved
-// about a level is written down in data/verified-boards.json rather than worked out again on every
-// run: see tools/verify-levels.mjs.
+// Four boards fill a column to the top of the field, so a chain can run the height of it and a pop
+// near the floor drops a great deal onto whatever is left.
+//
+// The largest boards are thirty-two dots and take a few minutes each to value, which is why what has
+// been proved about a level is written down in data/verified-boards.json rather than worked out again
+// on every run: see tools/verify-levels.mjs.
 //
 // Boards found and not shipped are at the foot of this file, commented out.
 
@@ -389,6 +392,20 @@ export const LEVELS = [
     ],
   },
   {
+    name: "The flue",
+    par: 1611,
+    floor: 118,
+    layout: [
+      "..33..",
+      "..13..",
+      "..11..",
+      "..41..",
+      "..44..",
+      "222222",
+      "222412",
+    ],
+  },
+  {
     name: "Rampart",
     par: 2140,
     floor: 99,
@@ -414,6 +431,20 @@ export const LEVELS = [
       ".4444.",
       "222222",
       "233211",
+    ],
+  },
+  {
+    name: "The mast",
+    par: 1345,
+    floor: 118,
+    layout: [
+      "2.....",
+      "2.....",
+      "3.....",
+      "3.....",
+      "114444",
+      "111233",
+      "211233",
     ],
   },
   {
@@ -459,6 +490,20 @@ export const LEVELS = [
     ],
   },
   {
+    name: "Steeple",
+    par: 4702,
+    floor: 134,
+    layout: [
+      "..11..",
+      "..11..",
+      "..12..",
+      ".1133.",
+      ".1223.",
+      "222334",
+      "222244",
+    ],
+  },
+  {
     name: "Descent",
     par: 1459,
     floor: 129,
@@ -470,20 +515,6 @@ export const LEVELS = [
       "..1111",
       ".22233",
       "222333",
-    ],
-  },
-  {
-    name: "Wicket",
-    par: 783,
-    floor: 156,
-    layout: [
-      "......",
-      "......",
-      "3.21.1",
-      "3.11.1",
-      "3.41.1",
-      "334455",
-      "322555",
     ],
   },
   {
@@ -501,17 +532,17 @@ export const LEVELS = [
     ],
   },
   {
-    name: "Ravine",
-    par: 5370,
-    floor: 161,
+    name: "Wicket",
+    par: 783,
+    floor: 156,
     layout: [
       "......",
-      "1....2",
-      "11..22",
-      "111.22",
-      "444222",
-      "515233",
-      "555233",
+      "......",
+      "3.21.1",
+      "3.11.1",
+      "3.41.1",
+      "334455",
+      "322555",
     ],
   },
   {
@@ -529,6 +560,34 @@ export const LEVELS = [
     ],
   },
   {
+    name: "Ravine",
+    par: 5370,
+    floor: 161,
+    layout: [
+      "......",
+      "1....2",
+      "11..22",
+      "111.22",
+      "444222",
+      "515233",
+      "555233",
+    ],
+  },
+  {
+    name: "The slab",
+    par: 4060,
+    floor: 150,
+    layout: [
+      "......",
+      "......",
+      "111111",
+      "555541",
+      "335441",
+      "335542",
+      "332222",
+    ],
+  },
+  {
     name: "Sally port",
     par: 2555,
     floor: 126,
@@ -540,6 +599,20 @@ export const LEVELS = [
       "1.33.3",
       "122333",
       "222223",
+    ],
+  },
+  {
+    name: "Citadel",
+    par: 5299,
+    floor: 188,
+    layout: [
+      "......",
+      "33..11",
+      "43..11",
+      "443111",
+      "332211",
+      "432225",
+      "445555",
     ],
   },
   {
@@ -557,17 +630,45 @@ export const LEVELS = [
     ],
   },
   {
-    name: "The slab",
-    par: 4060,
-    floor: 150,
+    name: "Saddle",
+    par: 1266,
+    floor: 134,
     layout: [
       "......",
       "......",
-      "111111",
-      "555541",
-      "335441",
-      "335542",
-      "332222",
+      "44..44",
+      "41..44",
+      "111442",
+      "355522",
+      "335552",
+    ],
+  },
+  {
+    name: "Palisade",
+    par: 2959,
+    floor: 150,
+    layout: [
+      "1.3.1.",
+      "1.3.1.",
+      "1.3.1.",
+      "1.3.1.",
+      "221145",
+      "223444",
+      "222445",
+    ],
+  },
+  {
+    name: "Bastion",
+    par: 2656,
+    floor: 188,
+    layout: [
+      "......",
+      "2.44.1",
+      "2.14.1",
+      "211441",
+      "411143",
+      "422233",
+      "423333",
     ],
   },
 ]

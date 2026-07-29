@@ -303,6 +303,9 @@ export class WebGLRenderer extends Renderer {
     const gl = this.gl
     this.uniformCache = new Map()
     this.vboCapacity = 0
+    // How many attribute arrays are enabled on the vertex array below, which holds that
+    // state across every replay and every frame. A fresh one has none.
+    this.enabledAttrs = 0
     // Every handle from the old context is dead, so nothing here is deleted; it is dropped.
     this.atlasTex = null
     this.progs = {
@@ -573,6 +576,15 @@ export class WebGLRenderer extends Renderer {
         gl.vertexAttribPointer(location, size, gl.FLOAT, false, stride, offset)
         offset += size * 4
       }
+      // And off with whatever a wider pipeline left enabled. An array the program does not
+      // read is still an array the draw walks, at the stride and offset it was last given:
+      // the chain's stride is 88 bytes against text's 32, so a long run of glyphs drawn
+      // after a chain addresses well past the vertices it owns. Every layout numbers its
+      // attributes from nought without gaps, so the count is how many are wanted.
+      for (let location = layout.attrs.length; location < this.enabledAttrs; location++) {
+        gl.disableVertexAttribArray(location)
+      }
+      this.enabledAttrs = layout.attrs.length
       gl.drawArrays(gl.TRIANGLES, 0, command.floats / layout.stride)
     }
     // Both are global state that the blur and composite passes after this do not set for

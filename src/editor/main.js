@@ -217,6 +217,12 @@ const view = {
 }
 
 let painting = false
+// What this drag has already painted. A drag fires a move event for every pixel, and in the
+// fallen view every paint adds another dot to the column - so without this, a press and a
+// twitch fills the column to the top. One dot per column per drag: press again for another,
+// and drag sideways to lay a row of them.
+let painted = new Set()
+
 function paint(point) {
   // The board is drawn fallen, so a cell pressed there is not the cell it is written in: the
   // press lands on the column, and the row is where the writing has room.
@@ -224,6 +230,11 @@ function paint(point) {
   if (!cell) {
     return false
   }
+  const already = showFall ? `${cell.col}` : `${cell.col},${cell.row}`
+  if (painted.has(already)) {
+    return false
+  }
+  painted.add(already)
   if (showFall) {
     return paintColumn(cell.col)
   }
@@ -278,6 +289,7 @@ canvas.addEventListener("pointerdown", (event) => {
     }
   }
   painting = true
+  painted = new Set()
   canvas.setPointerCapture(event.pointerId)
   paint(point)
 })
@@ -442,6 +454,16 @@ document.getElementById("clear").addEventListener("click", () => {
 document.getElementById("fall").addEventListener("click", () => {
   showFall = !showFall
 })
+
+// The same debug handle the game keeps, for the same reason: a console or a test can drive the
+// editor without reaching into module scope.
+window.__editor = {
+  cells,
+  layout: () => asLayout(),
+  fallen: () => asLayout(collapsed()),
+  dots: () => [...cells].filter((value) => value !== EMPTY).length,
+  latest: () => latest,
+}
 
 // Checked per frame, for the same reason main.js does it: a ResizeObserver whose callback
 // resizes the canvas can fire itself, and a browser zoom is what starts it.

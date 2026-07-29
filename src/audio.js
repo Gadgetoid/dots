@@ -14,15 +14,17 @@
 
 import { randRange } from "./math.js"
 import { CONFIG } from "./config.js"
-import { buildTuning, DEFAULT_TUNING } from "./scales.js"
+import { buildTuning, noteFrequency, DEFAULT_TUNING, MENU_ROOT } from "./scales.js"
 
 // Pitch spread on each blip, about a tenth of a semitone either way, so a run
 // shimmers instead of sounding sequenced.
 const POP_DETUNE = 0.006
 
 // A frequency ratio for a number of semitones, which is what the menus are tuned in: see
-// menuMove, and MENU_NOTES in config.js.
+// menuMove, and MENU_NOTES in config.js. Their root is fixed rather than the mode's, so an
+// item sounds the same whatever the board is tuned to.
 const semitones = (steps) => Math.pow(2, steps / 12)
+const MENU_ROOT_HZ = noteFrequency(MENU_ROOT)
 
 export const Sound = {
   enabled: false,
@@ -310,7 +312,7 @@ export const Sound = {
   //
   // `step` is which item this is, in semitones: see MENU_NOTES in config.js.
   menuMove(step = 0) {
-    this.voice(this.tuning.rootHz * semitones(step), 0.09, {
+    this.voice(MENU_ROOT_HZ * semitones(step), 0.09, {
       wave: "sine",
       volume: 0.022,
       attack: 0.005,

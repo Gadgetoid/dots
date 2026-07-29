@@ -154,6 +154,11 @@ export const CONFIG = {
   // Bloom shape. The glow layer is drawn and blurred separately from the scene,
   // so this is how much of it is added back rather than a brightness threshold.
   BLOOM_INTENSITY: 1,
+  // How far a dot bends toward its shape when shapes are on, as a fraction of the radius
+  // the edges are dented in by. Every shape dents by this much whatever its side count, so
+  // a triangle and a hexagon are equally emphatic - see DOT_SHAPES in palette.js. Turn it
+  // up for a board that shouts its shapes, down for one that only whispers them.
+  SHAPE_STRENGTH: 0.16,
 }
 
 // Where a board of this shape sits, in view units. Everything the view draws for
@@ -277,6 +282,11 @@ export const RESERVED_BUTTONS = new Set([GAMEPAD.buttons.pause, GAMEPAD.buttons.
 // the root instead: Back is Back wherever it is put, and the furniture of a menu is
 // audibly not its contents.
 // ---------------------------------------------------------------------------
+// How far apart two neighbouring items are, in semitones. A whole tone: two neighbouring
+// semitones are the hardest interval there is to tell apart, and telling one item from the
+// next is the entire job here.
+export const MENU_STEP = 2
+
 export const MENU_NOTES = {
   back: -12,
   title: -11,
@@ -323,6 +333,9 @@ export const DEFAULT_SETTINGS = {
   motion: "full",
   // Whether a settled board points out a move when nothing has happened for a while.
   hints: "on",
+  // Whether each dot colour also carries a shape of its own, for anyone who cannot rely on
+  // the colours. See DOT_SHAPES in palette.js for which shape goes where and why.
+  shapes: "off",
 }
 
 // How much of the game's motion a reduced-motion session keeps. The fall is slowed

@@ -13,6 +13,34 @@
 // How many dot colours a board deals from. The themes must each list this many.
 export const DOT_COLOURS = 5
 
+// A shape per dot colour, for anyone who cannot rely on the colours.
+//
+// Each dot is bent slightly toward a regular polygon - `sides` of them, turned by `turn`
+// radians - so it carries a second, redundant signal. Slightly, because the board should
+// still read as dots: how far is CONFIG.SHAPE_STRENGTH, and every shape dents its edges by
+// the same fraction of the radius whatever its side count.
+//
+// Which shape goes on which colour is not arbitrary. Red-green deficiency is far and away
+// the common case, and it confuses red with teal, red with orange, and purple with blue -
+// so those three pairs get the shapes that look least alike, and the round one goes to a
+// colour whose partners are already strongly marked:
+//
+//   purple  triangle, point up      blue    square
+//   teal    square, turned 45       red     triangle, point down
+//   orange  round
+//
+// Purple against blue is a triangle against a square; red against orange is a triangle
+// against a circle; red against teal is three corners against four, turned. What is left
+// weakest - a square against a diamond, for blue against teal - is a blue-yellow
+// confusion, which is the rare one.
+export const DOT_SHAPES = [
+  { sides: 3, turn: -Math.PI / 2 }, // purple: point up
+  { sides: 4, turn: 0 }, // blue: square
+  { sides: 4, turn: Math.PI / 4 }, // teal: diamond
+  { sides: 3, turn: Math.PI / 2 }, // red: point down
+  { sides: 0, turn: 0 }, // orange: left round
+]
+
 const DARK = {
   id: "dark",
   name: "Dark",

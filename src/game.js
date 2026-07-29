@@ -24,9 +24,10 @@ import {
   cellCentre,
   freshBindings,
   MENU_NOTES,
+  MENU_STEP,
   REDUCED_MOTION_RATE,
 } from "./config.js"
-import { THEMES, THEME_IDS } from "./palette.js"
+import { THEMES, THEME_IDS, DOT_SHAPES } from "./palette.js"
 import { resolveTuning } from "./scales.js"
 import { clamp, lerp } from "./math.js"
 import {
@@ -181,6 +182,15 @@ export class Game {
   // Whether a settled board points out a move when nothing has happened for a while.
   get hintsOn() {
     return this.settings.hints !== "off"
+  }
+
+  // The shape a dot of this colour carries, or null while shapes are off. A second signal
+  // for anyone who cannot rely on the colours; see DOT_SHAPES.
+  shapeFor(colour) {
+    if (this.settings.shapes !== "on") {
+      return null
+    }
+    return DOT_SHAPES[colour % DOT_SHAPES.length] || null
   }
 
   // ---- persistence --------------------------------------------------------
@@ -1010,10 +1020,13 @@ export class Game {
             id: "modes",
             kind: "buttons",
             columns: 2,
-            hint: this.mode.blurb,
             options: GAME_MODES.map((mode) => ({
               action: `mode:${mode.id}`,
               label: mode.name,
+              // The cell's own, not the running game's: mid-game the grid does not preview
+              // what it is pointing at, so the mode being pointed at has to say what it is
+              // itself.
+              hint: mode.blurb,
               // Marks the one last played, so a returning player can see where they
               // left off without it being pressed for them.
               marked: mode.id === this.settings.mode,
@@ -1094,6 +1107,16 @@ export class Game {
         options: [
           { id: "on", label: "On", hint: "A settled board points out a move eventually" },
           { id: "off", label: "Off", hint: "Never points anything out" },
+        ],
+      },
+      { id: "head:shapes", label: "Shapes", kind: "heading" },
+      {
+        id: "shapes",
+        kind: "options",
+        selected: this.settings.shapes === "on" ? 0 : 1,
+        options: [
+          { id: "on", label: "On", hint: "Each colour carries a shape of its own as well" },
+          { id: "off", label: "Off", hint: "Colour alone tells the dots apart" },
         ],
       },
       { id: "head:motion", label: "Motion", kind: "heading" },
@@ -1348,15 +1371,24 @@ export class Game {
             return known
           }
           // Placeholder cells are not offered, so they are not counted.
-          return index + entry.options.slice(0, this.menuOption).filter(Boolean).length
+          return this.#positionalNote(
+            index + entry.options.slice(0, this.menuOption).filter(Boolean).length,
+          )
         }
         // A row of settings is pointed at by the value it holds rather than by a cursor
         // of its own.
-        return index + (entry.kind === "options" ? entry.selected : 0)
+        return this.#positionalNote(index + (entry.kind === "options" ? entry.selected : 0))
       }
       index += this.#itemCount(entry)
     }
-    return index
+    return this.#positionalNote(index)
+  }
+
+  // An item's place on its page, as semitones. A whole tone apart rather than a semitone:
+  // neighbouring semitones are the hardest interval to tell apart, and telling one item
+  // from the next is the whole job.
+  #positionalNote(place) {
+    return place * MENU_STEP
   }
 
   #itemCount(row) {
@@ -1538,6 +1570,11 @@ export class Game {
         this.#storeSettings()
         this.#playCursor()
         break
+      case "shapes":
+        this.settings.shapes = option === 1 ? "off" : "on"
+        this.#storeSettings()
+        this.#playCursor()
+        break
       case "hints":
         this.settings.hints = option === 1 ? "off" : "on"
         this.hint = null
@@ -1562,13 +1599,18 @@ export class Game {
   // mode's, and the menu blips move to its tuning, so walking the grid is also seeing
   // and hearing what each one is. Nothing is stored until a game actually starts.
   #previewMode(mode) {
+    // Nothing at all while a game is in progress. Mid-game the mode grid is a way to start
+    // a different game rather than a way to look at one: taking `mode` from under a live
+    // board would change the rules it is being played by, and rescaling the layout would
+    // draw the board it already has at the wrong size - too small, or over its own edges.
+    if (this.phase === PHASE.PLAYING) {
+      return
+    }
     this.mode = mode
     this.layout = boardLayout(mode.cols, mode.rows)
     this.tuning = resolveTuning(mode.tuning)
     Sound.setTuning(this.tuning)
-    if (this.phase !== PHASE.PLAYING) {
-      this.dealAttractBoard()
-    }
+    this.dealAttractBoard()
   }
 
   setSound(on) {

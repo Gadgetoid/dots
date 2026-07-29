@@ -8,7 +8,7 @@
 
 import { VIEW_W, VIEW_H, CONFIG, cellCentre } from "./config.js"
 import { PHASE } from "./game.js"
-import { THEMES } from "./palette.js"
+import { THEMES, DOT_SHAPES } from "./palette.js"
 import { clamp, easeOutCubic, lerp } from "./math.js"
 
 // The strip under the board, which holds the pause button and anything the board
@@ -178,6 +178,8 @@ export class GameView {
         // chain's single unbroken shape, and a highlight on each would show through
         // it as a row of patches.
         sheen: linked ? 0 : theme.id === "dark" ? 0.18 : 0.1,
+        // A shape of its own, where the colours alone are not enough to go on.
+        shape: game.shapeFor(dot.colour),
         // A linked dot is inside the chain's own body, which is what glows: lighting
         // it again here only doubles the light in the same place.
         glow: 0,
@@ -194,6 +196,7 @@ export class GameView {
         color: colours.bright,
         alpha: 0.5 + 0.5 * fade,
         glow: 0.6,
+        shape: game.shapeFor(going.colour),
       })
     }
   }
@@ -751,7 +754,7 @@ export class GameView {
         })
       }
       if (option.preview) {
-        this.#drawThemePreview(option.preview, box, chosen ? theme.accent : null)
+        this.#drawThemePreview(option.preview, box, chosen ? theme.accent : null, game.shapeFor(0))
       } else {
         renderer.text(option.label, box.x + box.w / 2, box.y + box.h / 2, {
           color: chosen ? theme.panel : theme.text.normal,
@@ -766,7 +769,7 @@ export class GameView {
 
   // A theme as three by three dots on its own background: what the option does rather
   // than what it is called, which is the point of a preview.
-  #drawThemePreview(themeId, box, ring) {
+  #drawThemePreview(themeId, box, ring, shapes) {
     const renderer = this.renderer
     const preview = THEMES[themeId]
     if (!preview) {
@@ -785,8 +788,12 @@ export class GameView {
     for (let row = 0; row < cells; row++) {
       for (let col = 0; col < cells; col++) {
         const colours = preview.dots[(row * cells + col) % preview.dots.length]
+        const which = (row * cells + col) % preview.dots.length
         renderer.disc(left + (col + 0.5) * cell, top + (row + 0.5) * cell, radius, {
           color: colours.base,
+          // The preview wears the shapes too when they are on, so the setting shows what
+          // it does rather than only saying it.
+          shape: shapes ? DOT_SHAPES[which] : null,
         })
       }
     }

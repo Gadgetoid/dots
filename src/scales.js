@@ -118,6 +118,12 @@ export const RANDOM_ROOTS = ["F3", "G3", "A3", "Bb3", "C4", "D4"]
 // The game's default voice, and what the 32blit-era sound effectively was.
 export const DEFAULT_TUNING = { root: "D4", scale: "minorPentatonic" }
 
+// What the menus are tuned to, which is deliberately not the mode's own root. Walking the
+// mode grid re-tunes the board to whichever mode the cursor is over, and a menu whose
+// pitches moved with it would have no note of its own for anything: the same item would
+// sound different depending on what had been looked at just before it.
+export const MENU_ROOT = "D4"
+
 // How many octaves a run may climb before it stops rising. A twenty dot chain would
 // otherwise finish somewhere only a dog would enjoy.
 const OCTAVE_LIMIT = 2

@@ -214,6 +214,32 @@ test("a chain being spent draws, and so does the score it leaves", () => {
   }
 })
 
+test("with shapes on, every dot is drawn with one", () => {
+  const game = new Game()
+  game.settings.shapes = "on"
+  game.start("classic")
+  settle(game)
+  const calls = drawn(game)
+  assertSane(calls, "shapes on")
+
+  // Every dot on the board, and nothing else, asks for a shape. The faint markers in the
+  // empty cells are not dots and the particles are not either.
+  const shaped = calls.filter((call) => call.kind === "disc" && call.opts.shape)
+  assert.equal(shaped.length, game.board.count, "one shaped disc per dot")
+  for (const call of shaped) {
+    assert.ok(call.opts.shape.sides >= 0, "with a side count")
+  }
+
+  const off = new Game()
+  off.start("classic")
+  settle(off)
+  assert.equal(
+    drawn(off).some((call) => call.kind === "disc" && call.opts.shape),
+    false,
+    "and none at all with the setting off",
+  )
+})
+
 test("a hint draws, wobbling or ringed", () => {
   for (const motion of ["full", "reduced"]) {
     const game = new Game()

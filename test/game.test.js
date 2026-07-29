@@ -8,8 +8,9 @@ import assert from "node:assert/strict"
 import { Game, PHASE } from "../src/game.js"
 import { CONFIG } from "../src/config.js"
 import { modeById } from "../src/modes/index.js"
-import { MENU_NOTES } from "../src/config.js"
+import { MENU_NOTES, MENU_STEP } from "../src/config.js"
 import { Sound } from "../src/audio.js"
+import { DOT_SHAPES, DOT_COLOURS } from "../src/palette.js"
 
 const FRAME = 1 / 60
 
@@ -280,7 +281,11 @@ test("a setting's note moves with the value it holds", () => {
     game.settings.brightness = level
     heard.push(game.menuNote())
   }
-  assert.deepEqual(heard, [heard[0], heard[0] + 1, heard[0] + 2], "each value is its own note")
+  assert.deepEqual(
+    heard,
+    [heard[0], heard[0] + MENU_STEP, heard[0] + MENU_STEP * 2],
+    "each value is its own note, a step apart",
+  )
 })
 
 test("the same menu item plays the same note whenever it is reached", () => {
@@ -480,6 +485,60 @@ test("a reduced-motion hint names its dots without moving them", () => {
   for (const dot of game.hint.dots) {
     assert.equal(dot.wobble.value, 0, "nothing wobbles")
     assert.equal(dot.wobble.velocity, 0)
+  }
+})
+
+test("every dot colour has a shape, and the confusable pairs do not share one", () => {
+  assert.equal(DOT_SHAPES.length, DOT_COLOURS, "one shape per colour")
+
+  // Which colours get mistaken for each other. Red-green deficiency is the common case by
+  // a long way: it takes red for teal, red for orange, and purple for blue. Those pairs
+  // are the whole reason the shapes are assigned the way they are, so each has to be
+  // properly distinguishable - a different number of corners, not the same shape turned.
+  const confused = [
+    [0, 1], // purple, blue
+    [2, 3], // teal, red
+    [3, 4], // red, orange
+    [2, 4], // teal, orange
+  ]
+  for (const [a, b] of confused) {
+    const one = DOT_SHAPES[a]
+    const other = DOT_SHAPES[b]
+    assert.notEqual(
+      one.sides,
+      other.sides,
+      `colours ${a} and ${b} are confusable, so they cannot both be ${one.sides}-sided`,
+    )
+  }
+
+  // And where two colours do share a side count, they are turned well apart.
+  for (let a = 0; a < DOT_SHAPES.length; a++) {
+    for (let b = a + 1; b < DOT_SHAPES.length; b++) {
+      if (DOT_SHAPES[a].sides !== DOT_SHAPES[b].sides || DOT_SHAPES[a].sides < 3) {
+        continue
+      }
+      const apart = Math.abs(DOT_SHAPES[a].turn - DOT_SHAPES[b].turn)
+      const sector = (Math.PI * 2) / DOT_SHAPES[a].sides
+      // Half a sector is as far apart as two polygons of the same order can be turned:
+      // beyond that they start coming back into line with each other.
+      assert.ok(
+        Math.abs(apart % sector) > sector * 0.4,
+        `colours ${a} and ${b} are both ${DOT_SHAPES[a].sides}-sided and barely turned apart`,
+      )
+    }
+  }
+})
+
+test("shapes are off until asked for, and then every colour has one", () => {
+  const game = new Game()
+  assert.equal(game.shapeFor(0), null, "off unless asked for")
+
+  game.settings.shapes = "on"
+  for (let colour = 0; colour < DOT_COLOURS; colour++) {
+    const shape = game.shapeFor(colour)
+    assert.ok(shape, `colour ${colour} has one`)
+    assert.equal(typeof shape.sides, "number")
+    assert.equal(typeof shape.turn, "number")
   }
 })
 

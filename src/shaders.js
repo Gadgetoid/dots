@@ -37,20 +37,39 @@ export const DISC_VS = `#version 300 es
   layout(location=1) in vec2 aUV;       // -1..1 across the quad
   layout(location=2) in vec4 aShape;    // wobble amount, wobble axis, ring half-width, sheen
   layout(location=3) in vec4 aColor;
-  out vec2 vUV; out vec4 vShape; out vec4 vColor;
+  layout(location=4) in vec4 aForm;     // polygon sides, its turn, how far toward it
+  out vec2 vUV; out vec4 vShape; out vec4 vColor; out vec3 vForm;
   ${PROJECT}
   void main() {
-    vUV = aUV; vShape = aShape; vColor = aColor;
+    vUV = aUV; vShape = aShape; vColor = aColor; vForm = aForm.xyz;
     gl_Position = project(aPos);
   }`
 export const DISC_FS = `#version 300 es
   precision highp float;
-  in vec2 vUV; in vec4 vShape; in vec4 vColor;
+  in vec2 vUV; in vec4 vShape; in vec4 vColor; in vec3 vForm;
   out vec4 frag;
+  // How far out the edge is at this angle, for a dot bent toward a regular polygon. The
+  // polygon is scaled so its corners sit on the circle and its sides bow inward, so the
+  // dot never grows - it is dented, which is what keeps a board of these reading as dots.
+  //
+  // A colour whose shape is round asks for no sides and gets the circle back untouched.
+  float form(float angle, float sides, float turn, float amount) {
+    if (sides < 3.0 || amount <= 0.0) {
+      return 1.0;
+    }
+    float segment = 6.2831853 / sides;
+    // Half a sector, named for what it is rather than "half", which is a reserved word in
+    // GLSL ES and will not compile.
+    float sector = segment * 0.5;
+    // The angle to the nearest of the polygon's edges, folded into one sector.
+    float across = mod(angle - turn + sector, segment) - sector;
+    return mix(1.0, cos(sector) / cos(across), amount);
+  }
   void main() {
     float radius = length(vUV);
     float angle = atan(vUV.y, vUV.x);
     float wobble = 1.0 + vShape.x * cos(2.0 * (angle - vShape.y));
+    wobble *= form(angle, vForm.x, vForm.y, vForm.z);
     // Signed distance to the deformed edge, in quad units, then in pixels.
     float d = radius / max(wobble, 0.2) - 1.0;
     float aa = max(fwidth(d), 1e-5);

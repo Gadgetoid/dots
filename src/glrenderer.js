@@ -46,6 +46,10 @@ import {
 const SCENE_W = VIEW_W * 2
 const SCENE_H = VIEW_H * 2
 
+// A dot with no shape of its own: a circle, which is what the shader draws when it is
+// asked for no sides.
+const NO_FORM = [0, 0, 0, 0]
+
 // How far a ribbon joint may be pushed out where two segments meet at an angle.
 // The chain is a smoothed curve so this is only ever reached by a spark streak.
 const MITER_LIMIT = 2.4
@@ -156,12 +160,13 @@ const LAYOUTS = {
     glowBlend: "max",
   },
   disc: {
-    stride: 12,
+    stride: 16,
     attrs: [
       [0, 2],
       [1, 2],
       [2, 4],
       [3, 4],
+      [4, 4],
     ],
     blend: "over",
   },
@@ -598,11 +603,12 @@ export class WebGLRenderer extends Renderer {
     const axis = wobble ? wobble.axis : 0
     const extent = r * (1 + Math.abs(amount) + 0.02)
     const shape = [amount, axis, 0, opts.sheen ?? 0]
+    const form = this.#form(opts.shape)
     this.#emit("disc", colour, opts.glow || 0, (layer, col) =>
       this.#quad(layer, x, y, extent, (write, dx, dy) => {
         // The uv runs -1..1 over the dot itself, so the shader's unit circle is
         // the dot however much padding the quad carries for the wobble.
-        write(dx * (extent / r), dy * (extent / r), shape, col)
+        write(dx * (extent / r), dy * (extent / r), shape, col, form)
       }),
     )
   }
@@ -700,6 +706,23 @@ export class WebGLRenderer extends Renderer {
         this.#corners(corner)
       }
     })
+  }
+
+  // A dot's shape, as the shader wants it: how many sides, how far round they are turned,
+  // and how far to bend the circle toward them.
+  //
+  // The bend is divided by how much difference that many sides makes at all, so every shape
+  // dents its edges in by the same fraction of the radius: a triangle moves its edges far
+  // further than a hexagon does for the same mix, and a board where the triangles shout and
+  // the hexagons whisper is a board where only some of the shapes do their job.
+  #form(shape) {
+    if (!shape || !(shape.sides >= 3)) {
+      return [0, 0, 0, 0]
+    }
+    const strength = shape.strength ?? CONFIG.SHAPE_STRENGTH
+    const half = Math.PI / shape.sides
+    const reach = 1 - Math.cos(half)
+    return [shape.sides, shape.turn || 0, clamp(strength / reach, 0, 1), 0]
   }
 
   ring(x, y, r, opts = {}) {
@@ -919,10 +942,10 @@ export class WebGLRenderer extends Renderer {
   // emit takes the shader's own attributes after the position. The layout is the
   // disc pipeline's: position, uv, a four-float shape and a colour.
   #quad(layer, x, y, extent, write) {
-    this.#reserve(layer, 6 * 12)
+    this.#reserve(layer, 6 * 16)
     const data = layer.data
     const corner = (dx, dy) => {
-      const emit = (u, v, shape, col) => {
+      const emit = (u, v, shape, col, form = NO_FORM) => {
         let i = layer.count
         data[i++] = x + dx * extent
         data[i++] = y + dy * extent
@@ -936,6 +959,10 @@ export class WebGLRenderer extends Renderer {
         data[i++] = col[1]
         data[i++] = col[2]
         data[i++] = col[3]
+        data[i++] = form[0]
+        data[i++] = form[1]
+        data[i++] = form[2]
+        data[i++] = form[3]
         layer.count = i
       }
       write(emit, dx, dy)

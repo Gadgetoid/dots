@@ -149,6 +149,22 @@ const SHOTS = [
     }`,
   },
   {
+    // The mode grid opened from a game in progress. The board behind it is the game being
+    // played and has to stay exactly that: previewing a mode here would rescale it and
+    // change the rules under it.
+    file: "modes-paused.png",
+    theme: "dark",
+    frames: 20,
+    pose: `(game, art) => {
+      game.start("long")
+      game.settle(3)
+      game.player.score = 3120
+      game.togglePause()
+      art.press(game, "modes")
+      game.menuAdjust(3)
+    }`,
+  },
+  {
     // Everything a player can change about how the game looks, sounds and plays, over a
     // board frosted behind it.
     file: "settings.png",
@@ -214,6 +230,27 @@ const SHOTS = [
       // position is the only way to be sure of that whatever survived where.
       for (const dot of game.board.dots) {
         dot.colour = (dot.col + dot.row) % 2
+      }
+    }`,
+  },
+  {
+    // Shapes on: every colour bent slightly toward a polygon of its own, so the board can
+    // be read without relying on the colours. The most confusable pairs get the shapes
+    // that look least alike - see DOT_SHAPES.
+    file: "shapes.png",
+    theme: "dark",
+    frames: 30,
+    pose: `(game) => {
+      game.settings.shapes = "on"
+      game.start("classic")
+      game.settle(3)
+      game.player.score = 1450
+      // A chain in hand as well, so the shapes read against the one body that has none.
+      const chain = game.board.longestChain()
+      game.player.cursor = { col: chain[0].col, row: chain[0].row }
+      game.startChain(0)
+      for (let i = 1; i < chain.length; i++) {
+        game.extendTo(0, chain[i].col, chain[i].row)
       }
     }`,
   },

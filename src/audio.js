@@ -1,0 +1,269 @@
+// Tiny synthesised sound effects, created lazily on the first user gesture.
+//
+// The engine is Geometry II's: one master gain, then a soft-clip shaper so a pile
+// of effects is squashed rather than clipped, and every voice is a couple of
+// oscillators or a filtered noise burst. What is different is the voicing. This
+// game is quiet and slow, so every voice here is a sine or a triangle through a
+// gentle low-pass, with a few milliseconds of attack on the front of it: an
+// envelope that starts at full level clicks, and a click is the one thing a mellow
+// sound cannot have.
+//
+// Popping a chain plays one blip per dot, walking up a pentatonic scale as the
+// chain unzips, each one detuned a hair from the last. That is the game's signature
+// sound and it is deliberately the same voice the ore pickup used in Geometry II.
+
+import { randRange } from "./math.js"
+import { CONFIG } from "./config.js"
+
+// A minor pentatonic in semitones, so a chain of any length walks up something
+// that sounds intentional. Past the end it keeps climbing in octaves.
+const SCALE = [0, 3, 5, 7, 10, 12, 15, 17, 19, 22, 24, 27, 29, 31, 34, 36]
+const semitone = (steps) => Math.pow(2, steps / 12)
+// Root of the pop run. Low enough that a long chain does not end up shrill.
+const POP_ROOT = 392
+// Pitch spread on each blip, about a tenth of a semitone either way, so a run
+// shimmers instead of sounding sequenced.
+const POP_DETUNE = 0.006
+
+export const Sound = {
+  enabled: false,
+  ctx: null,
+  unlocked: false,
+  chain: null,
+  // 0..1, on top of MASTER_VOLUME.
+  volume: 1,
+
+  ensureContext() {
+    if (!this.ctx) {
+      try {
+        this.ctx = new (window.AudioContext || window.webkitAudioContext)()
+      } catch {
+        /* audio is best-effort */
+      }
+    }
+    if (!this.ctx) {
+      return
+    }
+    // Safari and Chrome's autoplay policy hold the context in a non-running state
+    // until it is resumed from a user gesture. Resume whenever it isn't running,
+    // and play a one-shot silent buffer, which Safari needs to unlock output.
+    if (this.ctx.state !== "running" && this.ctx.resume) {
+      this.ctx.resume().catch(() => {})
+    }
+    if (!this.unlocked) {
+      try {
+        const source = this.ctx.createBufferSource()
+        source.buffer = this.ctx.createBuffer(1, 1, 22050)
+        source.connect(this.ctx.destination)
+        source.start(0)
+        this.unlocked = true
+      } catch {
+        /* ignore */
+      }
+    }
+  },
+
+  setVolume(value) {
+    this.volume = Math.max(0, Math.min(1, value))
+    if (this.chain) {
+      this.chain.gain.gain.value = CONFIG.MASTER_VOLUME * this.volume
+    }
+  },
+
+  // Where every voice plays: the master gain, a low-pass that takes the edge off
+  // everything, then the soft clip. The filter is what makes the set sound like
+  // one instrument rather than a handful of oscillators.
+  output() {
+    if (!this.ctx) {
+      return null
+    }
+    if (!this.chain || this.chain.ctx !== this.ctx) {
+      const gain = this.ctx.createGain()
+      gain.gain.value = CONFIG.MASTER_VOLUME * this.volume
+      const warmth = this.ctx.createBiquadFilter()
+      warmth.type = "lowpass"
+      warmth.frequency.value = 3800
+      warmth.Q.value = 0.4
+      gain.connect(warmth).connect(this.softClip()).connect(this.ctx.destination)
+      this.chain = { ctx: this.ctx, gain }
+    }
+    return this.chain.gain
+  },
+
+  // A shaper that is exactly linear below AUDIO_SOFT_CLIP and bends smoothly
+  // toward full scale above it, so it can never put out more than full scale and
+  // never colours anything quieter than the threshold.
+  softClip() {
+    const shaper = this.ctx.createWaveShaper()
+    const threshold = CONFIG.AUDIO_SOFT_CLIP
+    const points = 2048
+    const curve = new Float32Array(points)
+    for (let i = 0; i < points; i++) {
+      const x = (i / (points - 1)) * 2 - 1
+      const size = Math.abs(x)
+      const shaped =
+        size <= threshold
+          ? size
+          : threshold + (1 - threshold) * Math.tanh((size - threshold) / (1 - threshold))
+      curve[i] = Math.sign(x) * shaped
+    }
+    shaper.curve = curve
+    shaper.oversample = "none"
+    return shaper
+  },
+
+  // One voice. `attack` is why these do not click: the level ramps up over a few
+  // milliseconds and then decays away, which is the difference between a note and
+  // a tick. `delay` schedules it ahead, so a chain can be laid out in one go.
+  voice(freq, duration, { wave = "sine", volume = 0.05, endFreq, attack = 0.012, delay = 0 } = {}) {
+    if (!this.enabled) {
+      return
+    }
+    this.ensureContext()
+    if (!this.ctx) {
+      return
+    }
+    try {
+      const osc = this.ctx.createOscillator()
+      const gain = this.ctx.createGain()
+      const start = this.ctx.currentTime + delay
+      osc.type = wave
+      osc.frequency.setValueAtTime(freq, start)
+      if (endFreq) {
+        osc.frequency.exponentialRampToValueAtTime(Math.max(30, endFreq), start + duration)
+      }
+      gain.gain.setValueAtTime(0.0001, start)
+      gain.gain.exponentialRampToValueAtTime(volume, start + attack)
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + duration)
+      osc.connect(gain).connect(this.output())
+      osc.start(start)
+      osc.stop(start + duration + 0.02)
+    } catch {
+      /* ignore */
+    }
+  },
+
+  // Filtered noise, for anything with a body rather than a pitch: a dot landing,
+  // a board settling. Low-passed and quiet, so it reads as a soft knock.
+  noise(duration, { volume = 0.03, freq = 400, q = 0.7, type = "lowpass", delay = 0 } = {}) {
+    if (!this.enabled) {
+      return
+    }
+    this.ensureContext()
+    if (!this.ctx) {
+      return
+    }
+    try {
+      const start = this.ctx.currentTime + delay
+      const length = Math.max(1, Math.floor(this.ctx.sampleRate * duration))
+      const buffer = this.ctx.createBuffer(1, length, this.ctx.sampleRate)
+      const data = buffer.getChannelData(0)
+      for (let i = 0; i < length; i++) {
+        data[i] = Math.random() * 2 - 1
+      }
+      const source = this.ctx.createBufferSource()
+      source.buffer = buffer
+      const filter = this.ctx.createBiquadFilter()
+      filter.type = type
+      filter.frequency.value = freq
+      filter.Q.value = q
+      const gain = this.ctx.createGain()
+      gain.gain.setValueAtTime(0.0001, start)
+      gain.gain.exponentialRampToValueAtTime(volume, start + 0.008)
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + duration)
+      source.connect(filter).connect(gain).connect(this.output())
+      source.start(start)
+      source.stop(start + duration + 0.02)
+    } catch {
+      /* ignore */
+    }
+  },
+
+  // ---- the game's voices --------------------------------------------------
+  // A dot joining the chain: a soft marimba-ish tap, climbing the scale as the
+  // chain grows so building one is itself a tune.
+  link(index) {
+    const step = SCALE[Math.min(index, SCALE.length - 1)]
+    this.voice(POP_ROOT * semitone(step) * randRange(1 - POP_DETUNE, 1 + POP_DETUNE), 0.22, {
+      wave: "triangle",
+      volume: 0.035,
+      attack: 0.008,
+    })
+  },
+
+  // One dot popping. `index` is its place in the chain and `delay` when it goes,
+  // so the whole run is scheduled the moment the chain is spent and the audio
+  // lands exactly with the particles.
+  pop(index, delay = 0) {
+    const step = SCALE[Math.min(index, SCALE.length - 1)]
+    const pitch = semitone(step) * randRange(1 - POP_DETUNE, 1 + POP_DETUNE)
+    this.voice(POP_ROOT * pitch, 0.16, {
+      wave: "sine",
+      volume: 0.055,
+      endFreq: POP_ROOT * pitch * 1.5,
+      attack: 0.006,
+      delay,
+    })
+    // A breath of air under the note, which is what makes it a pop rather than a
+    // beep. Quiet enough that a long chain does not turn into a hiss.
+    this.noise(0.09, { volume: 0.014, freq: 1500, q: 0.5, type: "bandpass", delay })
+  },
+
+  // Dropping a chain without spending it: the link tone, reversed.
+  cancel() {
+    this.voice(POP_ROOT * 0.75, 0.18, { wave: "sine", volume: 0.03, endFreq: POP_ROOT * 0.5 })
+  },
+
+  // A dot landing. Barely there on its own; a refilled board is a soft rain of
+  // them, which is most of the game's texture.
+  land(weight = 1) {
+    this.noise(0.07, { volume: 0.012 * weight, freq: 220 + 120 * weight, q: 0.9 })
+    this.voice(120 * randRange(0.94, 1.06), 0.08, {
+      wave: "sine",
+      volume: 0.012 * weight,
+      attack: 0.004,
+    })
+  },
+
+  // Banking a multiplier: a fifth above the run that earned it.
+  multiplier(level) {
+    const step = SCALE[Math.min(level + 2, SCALE.length - 1)]
+    this.voice(POP_ROOT * 2 * semitone(step), 0.5, { wave: "sine", volume: 0.03, attack: 0.03 })
+  },
+
+  // The board with no move left: two notes falling away, slowly.
+  fail() {
+    this.voice(POP_ROOT * 0.5, 0.9, { wave: "sine", volume: 0.045, attack: 0.05, endFreq: 150 })
+    this.voice(POP_ROOT * 0.5 * semitone(3), 1.1, {
+      wave: "triangle",
+      volume: 0.028,
+      attack: 0.08,
+      endFreq: 130,
+      delay: 0.12,
+    })
+  },
+
+  // A board cleared outright, which is what the puzzle mode is for.
+  clear() {
+    for (let i = 0; i < 4; i++) {
+      this.voice(POP_ROOT * semitone(SCALE[i + 2]), 0.55, {
+        wave: "sine",
+        volume: 0.035,
+        attack: 0.02,
+        delay: i * 0.09,
+      })
+    }
+  },
+
+  menuMove() {
+    this.voice(POP_ROOT * 1.5, 0.07, { wave: "sine", volume: 0.02, attack: 0.005 })
+  },
+
+  menuConfirm() {
+    this.voice(POP_ROOT, 0.12, { wave: "sine", volume: 0.03, endFreq: POP_ROOT * 1.5 })
+  },
+
+  menuBack() {
+    this.voice(POP_ROOT, 0.12, { wave: "sine", volume: 0.026, endFreq: POP_ROOT * 0.67 })
+  },
+}

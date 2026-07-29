@@ -168,11 +168,10 @@ export class GameView {
       const radius = layout.radius * (1 + dot.swell)
       this.renderer.disc(at.x, at.y, radius, {
         color: linked ? colours.bright : colours.base,
-        // A dot in the chain shows only a little of its wobble: the rest of the chain
-        // is not deforming with it, and a dot squashing hard inside one body reads as
-        // a dent in it.
+        // Only a hint wobbles a dot now, and a dot in a chain is part of one shape whose
+        // outline is meant to be straight, so a linked one never does.
         wobble: {
-          amount: dot.wobbleAmount * (linked ? CONFIG.WOBBLE_LINKED : 1),
+          amount: linked || game.reducedMotion ? 0 : dot.wobbleAmount,
           axis: dot.wobbleAxis,
         },
         // A dot at rest is a bead and is lit like one. A linked one is part of the

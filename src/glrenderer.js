@@ -585,9 +585,16 @@ export class WebGLRenderer extends Renderer {
   disc(x, y, r, opts = {}) {
     const colour = this.#colour(opts)
     const wobble = opts.wobble
-    // The wobble stretches the shape, so the quad has to be big enough to hold
-    // the deformed dot or the edge would be clipped square.
-    const amount = wobble ? clamp(wobble.amount, -CONFIG.WOBBLE_MAX, CONFIG.WOBBLE_MAX) : 0
+    // The wobble stretches the shape, so the quad has to be big enough to hold the
+    // deformed dot or the edge would be clipped square.
+    //
+    // A wobble that is not a number is treated as none. clamp lets a NaN straight
+    // through - neither comparison in it is true of one - and from there it reaches the
+    // vertex positions and the dot disappears entirely. A dot drawn without its wobble is
+    // a far smaller wrong than a dot not drawn.
+    const amount = Number.isFinite(wobble?.amount)
+      ? clamp(wobble.amount, -CONFIG.WOBBLE_MAX, CONFIG.WOBBLE_MAX)
+      : 0
     const axis = wobble ? wobble.axis : 0
     const extent = r * (1 + Math.abs(amount) + 0.02)
     const shape = [amount, axis, 0, opts.sheen ?? 0]

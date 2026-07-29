@@ -65,8 +65,68 @@ export function collapse(grid, cols, rows) {
 // three times it saves over joining numbers with separators.
 export const gridKey = (grid) => String.fromCharCode.apply(null, grid)
 
-// Every distinct set of cells one legal chain could remove, each as the ordered path
-// that takes them.
+// Which columns can ever affect each other, as a group number per column.
+//
+// Two columns can only interact if they hold a colour in common: a chain is one colour and
+// cardinally connected, and the only thing that moves a dot is gravity, which works down a
+// column. So a board whose columns share no colours is not one puzzle but several side by side,
+// and the positions of the whole are the product of the positions of each - which is why one
+// more full column of a new colour costs eight times as much and not a little more.
+//
+// An empty column belongs to no group.
+export function columnGroups(grid, cols, rows) {
+  const colours = []
+  for (let col = 0; col < cols; col++) {
+    const here = new Set()
+    for (let row = 0; row < rows; row++) {
+      const value = grid[col + row * cols]
+      if (value !== EMPTY) {
+        here.add(value)
+      }
+    }
+    colours.push(here)
+  }
+  const group = new Array(cols).fill(-1)
+  let groups = 0
+  for (let col = 0; col < cols; col++) {
+    if (group[col] >= 0 || colours[col].size === 0) {
+      continue
+    }
+    const stack = [col]
+    group[col] = groups
+    while (stack.length > 0) {
+      const from = stack.pop()
+      for (let other = 0; other < cols; other++) {
+        if (group[other] >= 0 || colours[other].size === 0) {
+          continue
+        }
+        for (const colour of colours[from]) {
+          if (colours[other].has(colour)) {
+            group[other] = groups
+            stack.push(other)
+            break
+          }
+        }
+      }
+    }
+    groups++
+  }
+  return { group, groups }
+}
+
+// One group's columns on their own board, so it can be judged by itself.
+export function columnsOnly(grid, cols, rows, keep) {
+  const out = new Int8Array(grid.length).fill(EMPTY)
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      if (keep(col)) {
+        out[col + row * cols] = grid[col + row * cols]
+      }
+    }
+  }
+  return out
+}
+
 // Every distinct set of cells one legal chain could remove, each as the ordered path that
 // takes them, biggest first. `limit` caps how many are returned; see MOVE_LIMIT.
 //

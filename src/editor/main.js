@@ -409,6 +409,13 @@ function render() {
   out.verdict.className = "verdict good"
   out.numbers.innerHTML =
     row("dots", dots) +
+    (found.decomposed > 1
+      ? row(
+          "independent puzzles",
+          found.decomposed,
+          "these columns share no colours, so they never interact: one board, several unrelated puzzles",
+        )
+      : "") +
     row(found.exact ? "par" : "par, at least", found.par) +
     row("floor", found.floor, found.forced ? "every order pays the same" : "") +
     row("orders paying par", found.parPaths) +

@@ -56,6 +56,15 @@ const SHAPES = {
   bars: ["......", "......", "......", "######", "######", "######", "######"],
   spire: ["......", "..##..", "..##..", "..##..", ".####.", "######", "######"],
   gate: ["......", "......", "#.##.#", "#.##.#", "#.##.#", "######", "######"],
+  // The bigger shapes, for the hard end. Judging one of these was out of reach before the
+  // search valued outcomes instead of chains; they carry more dots, so more chains, so more
+  // ways to go wrong several moves later.
+  keep: ["......", "#.##.#", "#.##.#", "######", "######", "######", "######"],
+  citadel: ["......", "##..##", "##..##", "######", "######", "######", "######"],
+  ziggurat: ["......", "..##..", ".####.", ".####.", "######", "######", "######"],
+  cliff: ["......", "###...", "###...", "####..", "#####.", "######", "######"],
+  well: ["......", "##..##", "##..##", "##..##", "##..##", "######", "######"],
+  mesa: ["......", "......", "######", "######", "######", "######", "######"],
 }
 
 function arg(name, fallback) {
@@ -171,6 +180,13 @@ const WANTS = {
     found.band >= 3 && found.parPaths === 1 && found.moves >= 4 && found.greedy.score < found.par,
   cruel: (found) =>
     found.band >= 4 && found.parPaths === 1 && found.firstSilent > 0 && !found.greedy.clears,
+  // Past the current top of the ladder, which is what a level added to the end has to be.
+  crueller: (found) =>
+    found.difficulty > 11.5 &&
+    found.parPaths === 1 &&
+    found.firstSilent > 0 &&
+    !found.greedy.clears &&
+    found.moves >= 5,
 }
 
 const tries = Number(arg("tries", 1500))
@@ -244,10 +260,12 @@ for (let attempt = 0; attempt < tries; attempt++) {
     continue
   }
   const found = analyse(layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain, SCORING, {
-    seconds: 2,
-    budget: 150000,
+    seconds: 4,
+    budget: 400000,
   })
-  if (!found.clearable) {
+  // Three-valued now: only a definite yes is worth judging, and only an exact answer is worth
+  // shipping, since the level test recomputes par and floor.
+  if (found.clearable !== true || !found.exact) {
     continue
   }
   clearable++

@@ -21,11 +21,22 @@
 // | --min N     | keep boards measuring at least this hard (default 11.5)               |
 // | --seconds N | how long one board may be judged for (default 45)                     |
 // | --tries N   | stop after this many starting points (default 0, meaning never)       |
-// | --workers N | how many at once (default one per core, less one)                     |
+// | --workers N | how many at once (default half the cores)                             |
 // | --shape S   | only this silhouette                                                  |
 // | --from N    | start at this number, to carry on where a run left off                |
 // | --show N    | print starting point N and stop, to see or reproduce one              |
 // | --maxdots N | skip silhouettes with more dots than this (default 26)                |
+// | --duty N    | work only N percent of the time, to run cooler (default 100)          |
+// | --minutes N | stop after this long (default 0, meaning never)                       |
+//
+// Three ways to stop it, all of them clean - the boards in hand are finished, the summary is
+// written, and the number to carry on from is printed:
+//
+//   touch found/stop     from another terminal, whenever
+//   Ctrl-C               drops that same file rather than killing the run
+//   --minutes N          decides in advance
+//
+// Ctrl-C twice stops without waiting, and then the resume point is whatever the summary last said.
 //
 // Boards already in the ladder are skipped: data/verified-boards.json holds their identities, and a
 // climb that wandered onto one would spend its leash re-proving a board that has been proved.
@@ -125,7 +136,9 @@ const OPTIONS = {
   min: Number(arg("min", 11.5)),
   seconds: Number(arg("seconds", 45)),
   tries: Number(arg("tries", 0)),
-  workers: Number(arg("workers", Math.max(1, os.cpus().length - 1))),
+  workers: Number(arg("workers", Math.max(1, Math.floor(os.cpus().length / 2)))),
+  duty: Number(arg("duty", 100)),
+  minutes: Number(arg("minutes", 0)),
   shape: arg("shape", null),
   from: Number(arg("from", 0)),
   maxDots: Number(arg("maxdots", 26)),
@@ -376,7 +389,28 @@ function wanted(found, min) {
 }
 
 // ---- one worker's share ----------------------------------------------------
-function hunt({ first, stride, min, seconds, tries, shape, maxDots, steps }) {
+function hunt({ first, stride, min, seconds, tries, shape, maxDots, steps, out, duty, until }) {
+  // Whether to stop, checked between boards: a climb is up to `steps` boards and a board can take
+  // `seconds`, so a check per climb could be minutes away from noticing. The file is only looked at
+  // once a second, since asking the filesystem between boards that take a tenth of one is silly.
+  const stopFile = path.join(out, "stop")
+  let looked = 0
+  let asked = false
+  const stopping = () => {
+    if (asked) {
+      return true
+    }
+    if (until && Date.now() > until) {
+      asked = true
+      return true
+    }
+    if (Date.now() - looked > 1000) {
+      looked = Date.now()
+      asked = fs.existsSync(stopFile)
+    }
+    return asked
+  }
+
   let started = 0
   let judged = 0
   let tooBig = 0
@@ -435,6 +469,8 @@ function hunt({ first, stride, min, seconds, tries, shape, maxDots, steps }) {
   }
 
   for (let done = 0; tries === 0 || done < tries; done++, number += stride) {
+    // When this climb began, so the rest between climbs can be as long as the climb was.
+    const climbStarted = Date.now()
     const made = candidate(number, shape)
     if (!made) {
       continue
@@ -456,7 +492,7 @@ function hunt({ first, stride, min, seconds, tries, shape, maxDots, steps }) {
     if (score == null) {
       continue
     }
-    for (let stale = 0, taken = 0; stale < steps;) {
+    for (let stale = 0, taken = 0; stale < steps && !stopping();) {
       const next = step(layout, random)
       if (next === null) {
         stale++
@@ -482,8 +518,26 @@ function hunt({ first, stride, min, seconds, tries, shape, maxDots, steps }) {
       tooBig = 0
       told = Date.now()
     }
+    if (stopping()) {
+      break
+    }
+    rest(Date.now() - climbStarted, duty)
   }
   parentPort.postMessage({ kind: "done", started, judged, tooBig, reached: number })
+}
+
+// Rest as long as the last board took to judge, scaled by the duty cycle, so a long run can be told
+// to leave the machine some air. Half duty is half the heat and half the boards, which on a hot day
+// is the trade worth having. Synchronous on purpose: this is a worker whose whole job is one board
+// after another, and there is nothing else here for an await to let through.
+function rest(worked, duty) {
+  if (duty >= 100 || worked <= 0) {
+    return
+  }
+  const idle = Math.round(worked * (100 / duty - 1))
+  if (idle > 0) {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, idle)
+  }
 }
 
 // ---- the run ---------------------------------------------------------------
@@ -514,6 +568,8 @@ function main() {
   }
   const out = path.resolve(OPTIONS.out)
   fs.mkdirSync(out, { recursive: true })
+  // Left over from a previous run, this would stop the new one before it started.
+  fs.rmSync(path.join(out, "stop"), { force: true })
 
   const found = []
   let starts = 0
@@ -535,11 +591,11 @@ function main() {
     )
     fs.writeFileSync(
       path.join(out, "summary.txt"),
-      `${found.length} kept, hardest first, measuring ${OPTIONS.min} or more.\n` +
+      `Carry on with --from ${reached}${OPTIONS.shape ? ` --shape ${OPTIONS.shape}` : ""}.\n` +
+        `${found.length} kept, hardest first, measuring ${OPTIONS.min} or more.\n` +
         `${starts} started from, ${judged} judged, ${tooBig} too big to judge, ` +
         `${alike} dropped as too like a find already kept, ` +
-        `${Math.round((Date.now() - started) / 1000)}s so far, reached ${reached}.\n` +
-        `Carry on with --from ${reached}.\n\n${lines.join("\n")}\n`,
+        `${Math.round((Date.now() - started) / 1000)}s so far.\n\n${lines.join("\n")}\n`,
     )
   }
   const fileFor = (c) => `${c.difficulty.toFixed(2)}-${c.shape}-${c.number}-${c.steps}.json`
@@ -583,11 +639,15 @@ function main() {
         shape: OPTIONS.shape,
         maxDots: OPTIONS.maxDots,
         steps: OPTIONS.steps,
+        out,
+        duty: OPTIONS.duty,
+        until: OPTIONS.minutes > 0 ? Date.now() + OPTIONS.minutes * 60000 : 0,
       },
     })
     running++
     worker.on("message", (message) => {
       if (message.kind === "found") {
+        reached = Math.max(reached, message.candidate.number)
         keep(message.candidate)
         return
       }
@@ -613,6 +673,23 @@ function main() {
       }
     })
   }
+
+  // Ctrl-C is a request to stop, not a reason to lose the run: it drops the same stop file the
+  // workers watch for, so they finish the board in hand and exit, and the summary and the resume
+  // point are written the way they are on any other ending. A second one gives up waiting.
+  let stopping = false
+  process.on("SIGINT", () => {
+    if (stopping) {
+      console.log("\nstopping now.")
+      process.exit(130)
+    }
+    stopping = true
+    fs.writeFileSync(path.join(out, "stop"), `asked to stop at ${new Date().toISOString()}\n`)
+    console.log(
+      `\nfinishing the boards in hand, then stopping. Carry on with --from ${reached}. ` +
+        `Ctrl-C again to stop without waiting.`,
+    )
+  })
 
   console.log(
     `${OPTIONS.workers} workers, keeping anything measuring ${OPTIONS.min} or harder, ` +

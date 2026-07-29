@@ -1,0 +1,25 @@
+{
+  "shape": "mesa",
+  "number": 87,
+  "steps": 0,
+  "layout": [
+    "......",
+    "......",
+    "111111",
+    "555541",
+    "335441",
+    "335542",
+    "332222"
+  ],
+  "par": 4060,
+  "floor": 150,
+  "difficulty": 13.26,
+  "band": 5,
+  "paths": 1,
+  "moves": 6,
+  "silent": "18/74",
+  "greedy": "strands",
+  "dots": 30,
+  "states": 3755601,
+  "decomposed": 0
+}

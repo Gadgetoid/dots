@@ -1,3 +1,10 @@
-1 kept, recovered: candidate 18 of mesa, reproduced with --show 18 --shape mesa and re-judged.
+6 kept, hardest first, measuring 8 or more.
+0 started from, 0 judged, 0 too big to judge, 6 dropped as too like a find already kept, 824s so far, reached 70.
+Carry on with --from 70.
 
-13.22  mesa  par 6058  floor 150  paths 1  chains 6  silent 17/66  greedy strands  dots 30  13.22-mesa-18.json
+ 13.26  band 5  mesa        par   4060  floor   150  paths  1  chains 6  silent   18/74  greedy strands   dots 30  13.26-mesa-87-0.json
+ 13.13  band 5  mesa        par   2681  floor   150  paths  1  chains 7  silent    9/43  greedy strands   dots 30  13.13-mesa-70-1.json
+ 12.97  band 5  mesa        par   4882  floor   180  paths  1  chains 6  silent  25/113  greedy strands   dots 30  12.97-mesa-75-1.json
+ 12.94  band 5  mesa        par   3650  floor   150  paths  1  chains 6  silent   14/77  greedy strands   dots 30  12.94-mesa-74-1.json
+ 12.09  band 5  mesa        par   6741  floor   180  paths  1  chains 5  silent    5/83  greedy strands   dots 30  12.09-mesa-76-1.json
+ 10.68  band 4  mesa        par   5623  floor   150  paths  1  chains 4  silent  29/117  greedy 3743      dots 30  10.68-mesa-73-1.json

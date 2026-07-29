@@ -69,13 +69,15 @@
 //   - a board that could not be judged inside the leash scores nothing, rather than scoring
 //     whatever the unfinished walk came to. Same reason.
 //
-// Work is handed out by the parent, a climb at a time, because only the parent knows what each
-// silhouette has yielded: it gives the next climb to whichever shape has produced least, then to
-// whichever has been tried least. Left to themselves the workers spend the night on the smallest
+// Work is handed out by the parent, a climb at a time, because only the parent knows what every
+// silhouette has had: it gives the next climb to whichever shape has been tried least, then to
+// whichever has produced least. Left to themselves the workers spend the night on the smallest
 // silhouette there is - a board costs about 1.5x more to judge per extra dot, so the cheapest shape
-// gets through a hundred climbs for another's one. Where each shape has got to is written to
-// state.json beside the finds, so running it again with the same --out carries on rather than
-// re-walking ground already covered.
+// gets through a hundred climbs for another's one. Equal effort each is also what stops one shape
+// taking a whole run: see nextJob, where ranking by what a shape has produced instead of by what it
+// has been given turns out to hand everything to whichever shape cannot score at all. Where each
+// shape has got to is written to state.json beside the finds, so running it again with the same
+// --out carries on rather than re-walking ground already covered.
 //
 // Still deterministic: a starting point and the whole climb from it are a pure function of the
 // number, so no two workers do the same work, `--from` carries on where the last run stopped, and
@@ -889,15 +891,23 @@ function main() {
     fs.writeFileSync(statePath, `${JSON.stringify({ shapes: plan }, null, 1)}\n`)
   }
 
-  // Which shape to hand out next: the one that has yielded least, then the one tried least, with a
-  // nudge of randomness so several workers asking at once do not all pile onto the same one. A
-  // broad run therefore spreads itself over the silhouettes instead of following whichever is
-  // cheapest to judge - a board costs about 1.5x more per extra dot, so left to itself the search
-  // spends the night on the smallest shape there is.
+  // Which shape to hand out next: the one tried least, then the one that has yielded least, with a
+  // nudge of randomness so several workers asking at once do not all pile onto the same one. A broad
+  // run therefore spreads itself over the silhouettes instead of following whichever is cheapest to
+  // judge - a board costs about 1.5x more per extra dot, so left to itself the search spends the
+  // night on the smallest shape there is.
+  //
+  // Climbs come before finds, and that order is the whole of it. Whether a shape has yielded is the
+  // more useful thing to steer by right up until a shape cannot yield at all - and at any given
+  // --min and --max some shape usually cannot. Such a shape never gets a find, so it is permanently
+  // the one that has yielded least, so it takes every climb going once the others have one each. A
+  // ten dot silhouette asked for 9.4 took 1,751,246 of a run's 1,752,436 starting points that way,
+  // and the run found nothing after its first two minutes. Ranking by effort spent gives every
+  // silhouette an equal share, so a shape that cannot score costs a run 1/N of itself and no more.
   const nextJob = () => {
     const name = [...shapeNames].sort(
       (a, b) =>
-        plan[a].finds - plan[b].finds || plan[a].climbs - plan[b].climbs || Math.random() - 0.5,
+        plan[a].climbs - plan[b].climbs || plan[a].finds - plan[b].finds || Math.random() - 0.5,
     )[0]
     const number = plan[name].next++
     plan[name].climbs++

@@ -143,10 +143,6 @@ export function analyse(layout, cols, rows, minChain, rules, options = {}) {
       return known
     }
     states++
-    // Placed before the recursion so a position reached again while it is still being
-    // valued is not walked twice. The graph has no cycles, so this is only ever read by a
-    // later sibling, never by this position's own descendants.
-    memo.set(id, { best: null, worst: null, paths: 0, depth: 0 })
     let best = null
     let worst = null
     let paths = 0
@@ -355,7 +351,7 @@ function biggestRegion(position, cols, rows) {
 // positions, which is the whole-board walk. So there is nothing to be saved here for par, and par
 // comes from that walk or is a bound.
 function partsClearable(start, cols, rows, minChain, limit, deadline) {
-  const { group, groups } = columnGroups(start, cols, rows)
+  const { group, groups } = columnGroups(start)
   if (groups < 2) {
     return { groups, clearable: null }
   }
@@ -440,7 +436,6 @@ export function parRoute(layout, cols, rows, minChain, rules, budget = 40000000)
       exhausted = true
       return { best: null, cells: null, next: null }
     }
-    memo.set(id, { best: null, cells: null, next: null })
     let found = { best: null, cells: null, next: null }
     for (const outcome of outcomesFrom(position, cols, rows, minChain, MOVE_LIMIT).outcomes) {
       const after = rules.multiplierAfter(multiplier, outcome.cells.length)

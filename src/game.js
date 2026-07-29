@@ -867,7 +867,12 @@ export class Game {
   #openPage(page) {
     this.pageReturn = this.page
     this.page = page
-    this.menuIndex = 0
+    // A page whose first row is a heading - the controls page - would otherwise
+    // open with the cursor on a label that does nothing when pressed.
+    this.menuIndex = Math.max(
+      this.menuRows().findIndex((row) => row.kind !== "heading"),
+      0,
+    )
   }
 
   #closePage() {

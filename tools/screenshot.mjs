@@ -114,6 +114,44 @@ const SHOTS = [
     }`,
   },
   {
+    // The rebinding page, which is the longest menu there is: worth a shot to see
+    // that it still fits the field.
+    file: "controls.png",
+    theme: "dark",
+    frames: 20,
+    pose: `(game) => {
+      game.start("classic")
+      game.settle(2)
+      game.togglePause()
+      game.menuIndex = game.menuRows().findIndex((row) => row.id === "controls")
+      game.menuConfirm()
+      game.menuMove(1)
+      game.menuMove(1)
+    }`,
+  },
+  {
+    file: "over.png",
+    theme: "light",
+    // Long enough to cover the pause a dead board sits there for before the game
+    // says so.
+    frames: 140,
+    pose: `(game) => {
+      game.start("clearout")
+      game.settle(2)
+      game.player.score = 8640
+      // Most of the board taken off, which is what the end of a clear-out looks
+      // like, and then what is left dealt so nothing matches.
+      game.board.remove(game.board.dots.slice(0, game.board.count - 7))
+      game.board.collapse()
+      game.settle(3)
+      // A checkerboard, so no two neighbours can possibly match: colouring by
+      // position is the only way to be sure of that whatever survived where.
+      for (const dot of game.board.dots) {
+        dot.colour = (dot.col + dot.row) % 2
+      }
+    }`,
+  },
+  {
     // The brightness setting at its lowest, which is the whole frame scaled in the
     // composite pass: the shot is the only way to see that the board is still
     // legible once it has been turned down for the evening.

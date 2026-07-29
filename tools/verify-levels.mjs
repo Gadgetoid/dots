@@ -14,6 +14,9 @@
 //   node tools/verify-levels.mjs --all      # re-verify everything from scratch
 //   node tools/verify-levels.mjs --check    # verify nothing; say what is missing, and exit 1 if any
 //
+// The file is written as each board is proved, so a run stopped part way through keeps what it got
+// to and the next one carries on from there. See `save`.
+//
 // Run it after adding a level or after anything that changes what the analysis returns - which means
 // bumping MEASURE in src/analysis.js, since a cache cannot notice that a bug was fixed.
 
@@ -42,6 +45,39 @@ export function loadCache() {
   } catch {
     return { fingerprint: null, boards: {} }
   }
+}
+
+// Write the file, as each board is proved rather than once at the end. A board can take ten
+// minutes, so a run that is stopped or killed part way through should keep what it has already
+// proved.
+//
+// Two things this has to be careful about. It merges with what is on disk rather than replacing
+// it, so a second run proving other boards at the same time does not lose them - and the run's own
+// answers win, since they are the fresher of the two. And it writes through a temporary file in
+// the same directory, so an interrupted write cannot leave a half a file behind: renaming over the
+// old one either happens or does not, where writing over it in place has a middle where the file
+// is neither. A corrupt cache reads as no cache, which is every board proved again.
+//
+// `live` is the boards the ladder uses, in the order it plays them.
+function save(fingerprint, boards, live) {
+  const onDisk = loadCache()
+  const merged =
+    onDisk.fingerprint === fingerprint ? { ...onDisk.boards, ...boards } : { ...boards }
+  // Written in ladder order, which does two things at once. A board the ladder no longer uses is
+  // left out, so the file is what the ladder is and not a history of it. And the file is the same
+  // file however the run arrived at it: written in the order boards were proved, one board
+  // re-proved on its own would move to the end and the whole file would read as changed.
+  const kept = {}
+  for (const id of live) {
+    if (merged[id]) {
+      kept[id] = merged[id]
+    }
+  }
+  fs.mkdirSync(path.dirname(CACHE), { recursive: true })
+  const partial = `${CACHE}.${process.pid}`
+  fs.writeFileSync(partial, `${JSON.stringify({ fingerprint, boards: kept }, null, 1)}\n`)
+  fs.renameSync(partial, CACHE)
+  return kept
 }
 
 // A board is proved if it is in the cache under the fingerprint that is current.
@@ -102,6 +138,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.log("the measure has changed, so nothing already written down counts. Verifying all.")
   }
   const boards = stale ? {} : { ...cache.boards }
+  const live = new Set(
+    LEVELS.map((level) => boardId(parse(level.layout, PUZZLE_COLS, PUZZLE_ROWS))),
+  )
 
   let missing = 0
   let verified = 0
@@ -120,6 +159,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const started = Date.now()
     boards[id] = verify(level)
     verified++
+    save(fingerprint, boards, live)
     console.log(
       `${String(index + 1).padStart(2)} ${level.name.padEnd(13)} par ${String(boards[id].par).padStart(5)} ` +
         `floor ${String(boards[id].floor).padStart(4)} diff ${boards[id].difficulty.toFixed(2).padStart(5)} ` +
@@ -132,20 +172,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     process.exit(missing === 0 ? 0 : 1)
   }
 
-  // Boards no level uses any more are dropped: the file is what the ladder is, not a history of it.
-  const live = new Set(
-    LEVELS.map((level) => boardId(parse(level.layout, PUZZLE_COLS, PUZZLE_ROWS))),
-  )
-  for (const id of Object.keys(boards)) {
-    if (!live.has(id)) {
-      delete boards[id]
-    }
-  }
-
-  fs.mkdirSync(path.dirname(CACHE), { recursive: true })
-  fs.writeFileSync(CACHE, `${JSON.stringify({ fingerprint, boards }, null, 1)}\n`)
+  // Once more at the end, for the run that proved nothing and so never wrote: names may have
+  // changed under boards that had not, and a level dropped from the ladder is dropped from here.
+  const written = save(fingerprint, boards, live)
   console.log(
-    `${verified} verified, ${Object.keys(boards).length} in ${path.relative(ROOT, CACHE)}` +
+    `${verified} verified, ${Object.keys(written).length} in ${path.relative(ROOT, CACHE)}` +
       `${verified === 0 ? " (nothing had changed)" : ""}`,
   )
 }

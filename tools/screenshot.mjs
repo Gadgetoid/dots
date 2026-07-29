@@ -139,9 +139,13 @@ const SHOTS = [
     file: "modes.png",
     theme: "dark",
     frames: 30,
+    // Hovering the puzzle mode, whose first level is six dots along the bottom of the
+    // board: the shot is the only way to see that the frosted panel really does show
+    // what a mode looks like behind it.
     pose: `(game, art) => {
       art.press(game, "modes")
-      game.menuAdjust(3)
+      game.menuAdjust(6)
+      game.settle(1)
     }`,
   },
   {

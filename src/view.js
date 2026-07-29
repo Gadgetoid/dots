@@ -521,10 +521,17 @@ export class GameView {
     const height = contentHeight + headerHeight + PANEL_PAD
     const y = clamp((VIEW_H - height) / 2, 12, Math.max(12, VIEW_H - height - 12))
 
-    // The board stays visible behind the panel, dimmed rather than hidden: a menu is
-    // over the game, not instead of it.
+    // A menu goes over a finished frame rather than into it, which is what lets the
+    // panel frost itself against a blurred copy of the board: the game stays visible
+    // behind the menu instead of being replaced by it.
+    renderer.beginOverlay()
     renderer.panel(0, 0, VIEW_W, VIEW_H, { fill: theme.scrim.color, alpha: theme.scrim.alpha })
-    renderer.panel(x, y, width, height, { fill: theme.panel, radius: 18 })
+    renderer.panel(x, y, width, height, {
+      frost: true,
+      fill: theme.panel,
+      alpha: theme.frost,
+      radius: 18,
+    })
     renderer.panel(x, y, width, height, { stroke: theme.panelEdge, width: 1.5, radius: 18 })
 
     // Headings are drawn from the middle of their line, so what sets how far the first
@@ -605,7 +612,9 @@ export class GameView {
       renderer.panel(box.x, box.y, box.w, box.h, {
         fill: filled ? theme.accent : theme.cell,
         radius: 14,
-        alpha: filled ? 1 : 0.75,
+        // Steadier than the panel behind it: the panel is glass on purpose, but a label
+        // wants a ground that is not moving under it.
+        alpha: filled ? 1 : 0.92,
       })
       if (under) {
         renderer.panel(box.x, box.y, box.w, box.h, {
@@ -705,7 +714,7 @@ export class GameView {
       renderer.panel(box.x, box.y, box.w, box.h, {
         fill: chosen ? theme.accent : theme.cell,
         radius: 12,
-        alpha: chosen ? 1 : 0.7,
+        alpha: chosen ? 1 : 0.9,
       })
       if (onRow && chosen) {
         renderer.panel(box.x, box.y, box.w, box.h, {

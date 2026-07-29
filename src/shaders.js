@@ -240,6 +240,33 @@ export const PANEL_FS = `#version 300 es
     frag = vec4(vColor.rgb * a, a);
   }`
 
+// Frosted glass: a rounded panel that shows a blurred copy of what is behind it,
+// tinted toward its own colour. The blur is of the scene as it stood before the menu
+// was drawn, which is why the menu is recorded as a separate layer - the frame has to
+// be finished and blurred before a panel can sample it.
+//
+// It samples by gl_FragCoord rather than by an interpolated coordinate, because what it
+// wants is the pixel underneath itself, and the blurred copy is in the same space as the
+// target being drawn into.
+export const FROST_FS = `#version 300 es
+  precision highp float;
+  uniform sampler2D uBehind;
+  uniform vec2 uSize;        // the target's size in pixels, to turn a fragment into a uv
+  in vec2 vLocal; in vec4 vShape; in vec4 vColor;
+  out vec4 frag;
+  void main() {
+    vec2 inner = max(vShape.xy - vShape.z, vec2(0.0));
+    vec2 q = abs(vLocal) - inner;
+    float d = min(max(q.x, q.y), 0.0) + length(max(q, vec2(0.0))) - vShape.z;
+    float aa = max(fwidth(d), 1e-5);
+    float cov = 1.0 - smoothstep(-aa, aa, d);
+    vec3 behind = texture(uBehind, gl_FragCoord.xy / uSize).rgb;
+    // The alpha carries how much of the panel's own colour to lay over what is behind
+    // it: none of it would be a window, all of it would be a wall.
+    vec3 col = mix(behind, vColor.rgb, vColor.a);
+    frag = vec4(col * cov, cov);
+  }`
+
 // Text from the monospace atlas, whose coverage is stored in the red channel.
 export const TEXT_VS = `#version 300 es
   precision highp float;

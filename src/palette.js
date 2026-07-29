@@ -34,9 +34,12 @@ const DARK = {
   cursorActive: "#f2f5ff",
   accent: "#5fd7ff",
   warn: "#ff6b6b",
-  // What is laid over the board while a menu is up. It has to darken, which on a dark
-  // field is very nearly the field itself.
-  scrim: { color: "#0a0c12", alpha: 0.8 },
+  // What is laid over the board while a menu is up: enough to push it back, not enough
+  // to hide it. The panel itself is frosted, so the board reads through both.
+  scrim: { color: "#0a0c12", alpha: 0.45 },
+  // How much of the panel's own colour is laid over the blurred board behind it. None
+  // would be a window, all of it a wall.
+  frost: 0.78,
   // How much light the whole theme throws into the bloom pass. Dark is where the
   // glow belongs, so it gets all of it.
   bloom: 1,
@@ -73,7 +76,10 @@ const LIGHT = {
   warn: "#d92b3f",
   // A little ink rather than a lot of the background: dimming a white field with white
   // does not dim it, it bleaches whatever is on it.
-  scrim: { color: "#181b25", alpha: 0.22 },
+  scrim: { color: "#181b25", alpha: 0.12 },
+  // Higher than the dark theme's: dark text needs a paler ground under it than light
+  // text needs over a dark one.
+  frost: 0.82,
   // A glow laid over white does not read as light, it reads as desaturation: these
   // dot colours already have a channel at full scale, so adding to them only lifts
   // the other two and turns red into pink. The light theme therefore takes a little

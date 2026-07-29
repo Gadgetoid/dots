@@ -32,6 +32,7 @@ import {
   SPRITE_FS,
   PANEL_VS,
   PANEL_FS,
+  FROST_FS,
   TEXT_VS,
   TEXT_FS,
   FSTRI_VS,
@@ -193,6 +194,18 @@ const LAYOUTS = {
     ],
     blend: "over",
   },
+  // The same vertices as a panel; only the fragment differs, so a frosted panel is
+  // built by the same code and drawn by a different program.
+  frost: {
+    stride: 12,
+    attrs: [
+      [0, 2],
+      [1, 2],
+      [2, 4],
+      [3, 4],
+    ],
+    blend: "over",
+  },
   text: {
     stride: 8,
     attrs: [
@@ -240,8 +253,13 @@ export class WebGLRenderer extends Renderer {
     // it. Builders write straight in; nothing reaches the GPU until endFrame.
     this.layers = {
       scene: this.#freshLayer(),
+      // Drawn after the scene has been finished and blurred, which is what lets a
+      // frosted panel sample what is behind it.
+      overlay: this.#freshLayer(),
       glow: this.#freshLayer(),
     }
+    // Which of the two the primitives are being recorded into.
+    this.target = "scene"
 
     this.#buildGpuState()
 
@@ -286,6 +304,7 @@ export class WebGLRenderer extends Renderer {
       ribbon: program(gl, RIBBON_VS, RIBBON_FS),
       sprite: program(gl, SPRITE_VS, SPRITE_FS),
       panel: program(gl, PANEL_VS, PANEL_FS),
+      frost: program(gl, PANEL_VS, FROST_FS),
       text: program(gl, TEXT_VS, TEXT_FS),
       blur: program(gl, FSTRI_VS, BLUR_FS),
       blit: program(gl, FSTRI_VS, BLIT_FS),
@@ -368,6 +387,7 @@ export class WebGLRenderer extends Renderer {
   // ---- frame lifecycle ----------------------------------------------------
   beginFrame(time) {
     this.time = time
+    this.target = "scene"
     for (const layer of Object.values(this.layers)) {
       layer.count = 0
       layer.commands.length = 0
@@ -380,9 +400,16 @@ export class WebGLRenderer extends Renderer {
     this.clearColour = parseColour(color)
   }
 
+  // Everything from here goes over a finished frame rather than into it. Called by the
+  // view before it draws a menu, so a frosted panel has something blurred to show.
+  beginOverlay() {
+    this.target = "overlay"
+  }
+
   endFrame() {
     const gl = this.gl
     this.#closeCommand(this.layers.scene)
+    this.#closeCommand(this.layers.overlay)
     this.#closeCommand(this.layers.glow)
 
     const c = this.clearColour
@@ -391,6 +418,15 @@ export class WebGLRenderer extends Renderer {
     gl.clearColor(c[0], c[1], c[2], 1)
     gl.clear(gl.COLOR_BUFFER_BIT)
     this.#replay(this.layers.scene, false)
+
+    // Anything drawn over the finished frame, with a blurred copy of that frame ready
+    // for whatever wants to frost itself against it.
+    if (this.layers.overlay.commands.length > 0) {
+      this.#blurBehind()
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.scene.fbo)
+      gl.viewport(0, 0, this.scene.w, this.scene.h)
+      this.#replay(this.layers.overlay, false)
+    }
 
     // The glow layer starts from nothing: it is light to be added, so anywhere
     // the view asked for none must contribute none.
@@ -445,7 +481,7 @@ export class WebGLRenderer extends Renderer {
   // once for the scene and again into the glow layer when the primitive glows,
   // with its colour scaled by how much.
   #emit(progName, colour, glow, build) {
-    const scene = this.layers.scene
+    const scene = this.layers[this.target]
     this.#use(scene, progName)
     build(scene, colour)
     if (glow > 0) {
@@ -480,6 +516,10 @@ export class WebGLRenderer extends Renderer {
           gl.activeTexture(gl.TEXTURE0)
           gl.bindTexture(gl.TEXTURE_2D, this.atlasTex)
           gl.uniform1i(this.#uniform(prog, "uAtlas"), 0)
+        }
+        if (command.prog === "frost") {
+          this.#bindTex(prog, "uBehind", this.blurA.tex, 0)
+          gl.uniform2f(this.#uniform(prog, "uSize"), this.scene.w, this.scene.h)
         }
         boundProg = prog
       }
@@ -746,6 +786,10 @@ export class WebGLRenderer extends Renderer {
     return normals
   }
 
+  // `frost` draws the panel as frosted glass instead of a flat fill: what is behind it
+  // shows through blurred, tinted toward the fill by `alpha`. Only meaningful between
+  // beginOverlay and the end of the frame, since that is when there is a blurred copy
+  // of the frame to sample.
   panel(x, y, w, h, opts = {}) {
     const stroke = opts.stroke != null
     const colour = this.#colour({
@@ -761,7 +805,7 @@ export class WebGLRenderer extends Renderer {
     const shape = [halfW, halfH, radius, border]
     const cx = x + halfW
     const cy = y + halfH
-    this.#emit("panel", colour, opts.glow || 0, (layer, col) => {
+    this.#emit(opts.frost ? "frost" : "panel", colour, opts.glow || 0, (layer, col) => {
       this.#reserve(layer, 6 * 12)
       const data = layer.data
       const corner = (dx, dy) => {
@@ -880,6 +924,25 @@ export class WebGLRenderer extends Renderer {
   }
 
   // ---- post processing ----------------------------------------------------
+  // A blurred copy of the frame as it stands, for anything drawn over it to frost
+  // against. Shares the scratch targets with the glow blur, which happens later and
+  // overwrites them.
+  #blurBehind() {
+    const gl = this.gl
+    gl.disable(gl.BLEND)
+    gl.bindVertexArray(this.emptyVao)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.blurA.fbo)
+    gl.viewport(0, 0, this.blurA.w, this.blurA.h)
+    gl.useProgram(this.progs.blit)
+    this.#bindTex(this.progs.blit, "uTex", this.scene.tex, 0)
+    gl.drawArrays(gl.TRIANGLES, 0, 3)
+    for (let pass = 0; pass < 2; pass++) {
+      this.#blurPass(this.blurA, this.blurB, [1.6 / this.blurA.w, 0])
+      this.#blurPass(this.blurB, this.blurA, [0, 1.6 / this.blurA.h])
+    }
+    gl.enable(gl.BLEND)
+  }
+
   #blurGlow() {
     const gl = this.gl
     gl.disable(gl.BLEND)

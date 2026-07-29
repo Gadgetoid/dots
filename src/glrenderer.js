@@ -303,6 +303,8 @@ export class WebGLRenderer extends Renderer {
     const gl = this.gl
     this.uniformCache = new Map()
     this.vboCapacity = 0
+    // Every handle from the old context is dead, so nothing here is deleted; it is dropped.
+    this.atlasTex = null
     this.progs = {
       disc: program(gl, DISC_VS, DISC_FS),
       chain: program(gl, CHAIN_VS, CHAIN_FS),
@@ -360,6 +362,10 @@ export class WebGLRenderer extends Renderer {
 
   #initAtlas() {
     const gl = this.gl
+    // Called again when a font settles, so the atlas this replaces goes with it.
+    if (this.atlasTex) {
+      gl.deleteTexture(this.atlasTex)
+    }
     const atlas = buildAtlas()
     this.atlas = atlas
     const ctx = atlas.canvas.getContext("2d")
@@ -569,7 +575,10 @@ export class WebGLRenderer extends Renderer {
       }
       gl.drawArrays(gl.TRIANGLES, 0, command.floats / layout.stride)
     }
-    gl.blendEquation(gl.FUNC_ADD) // MAX is per-pipeline; leave it as everything expects
+    // Both are global state that the blur and composite passes after this do not set for
+    // themselves: MAX is per-pipeline, and a clip belongs to the layer that asked for it.
+    gl.blendEquation(gl.FUNC_ADD)
+    gl.disable(gl.SCISSOR_TEST)
     gl.bindVertexArray(null)
   }
 
@@ -601,14 +610,14 @@ export class WebGLRenderer extends Renderer {
     // The wobble stretches the shape, so the quad has to be big enough to hold the
     // deformed dot or the edge would be clipped square.
     //
-    // A wobble that is not a number is treated as none. clamp lets a NaN straight
-    // through - neither comparison in it is true of one - and from there it reaches the
-    // vertex positions and the dot disappears entirely. A dot drawn without its wobble is
-    // a far smaller wrong than a dot not drawn.
+    // A wobble that is not a number is treated as none, in both halves. clamp lets a NaN
+    // straight through - neither comparison in it is true of one - and from there it
+    // reaches the vertex positions and the dot disappears entirely. A dot drawn without
+    // its wobble is a far smaller wrong than a dot not drawn.
     const amount = Number.isFinite(wobble?.amount)
       ? clamp(wobble.amount, -CONFIG.WOBBLE_MAX, CONFIG.WOBBLE_MAX)
       : 0
-    const axis = wobble ? wobble.axis : 0
+    const axis = Number.isFinite(wobble?.axis) ? wobble.axis : 0
     const extent = r * (1 + Math.abs(amount) + 0.02)
     const shape = [amount, axis, 0, opts.sheen ?? 0]
     const form = this.#form(opts.shape)

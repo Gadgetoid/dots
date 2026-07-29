@@ -3,7 +3,13 @@
 // The game never touches a drawing context. It calls these high-level primitives
 // in view space (the fixed 600x800 field from config.js), which is exactly what a
 // GPU backend wants. WebGLRenderer (glrenderer.js) is the only implementation; to
-// add another, implement this same interface and swap it in `main.js`.
+// add another, implement everything here and swap it in `main.js`. test/view.test.js
+// records against this same list, so a call the view makes that a backend has not
+// implemented is caught there.
+//
+// Besides the methods, a backend carries a `canvas` and three values the view sets
+// before each frame: `brightness` multiplies the whole composite, `glowIntensity` is
+// how much of the blurred glow layer is added back, and `vignette` darkens the corners.
 //
 // Options bags use these keys:
 //   color     CSS colour string
@@ -12,8 +18,12 @@
 //   width     line thickness, or border thickness for a stroked panel
 //   wobble    { amount, axis } jelly deformation, discs only
 //   sheen     0..1 highlight on a disc, so it reads as a bead
+//   shape     { sides, turn, strength } bends a disc toward a polygon; see DOT_SHAPES
 //   radius    corner radius, panels only
 //   fill      / stroke: which of the two a panel draws
+//   frost     panels only: draw as frosted glass over a blurred copy of the frame
+//   falloff   how hard a point's light falls off toward its edge
+//   taper     [head, tail] alpha along a ribbon's length
 //   size      / align / baseline / bold: text
 export class Renderer {
   // False while the backend cannot draw (e.g. a lost GPU context), so the loop can
@@ -23,6 +33,11 @@ export class Renderer {
   }
   beginFrame(_time) {} // start a frame; optional
   endFrame() {} // post-processing and present; optional
+  // Everything from here goes over the finished frame rather than into it, which is
+  // what lets a panel frost itself against a blurred copy of it. `hidesScene` says the
+  // overlay covers the frame completely, so the scene's own glow must not bleed
+  // through it.
+  beginOverlay(_opts) {}
   clearFrame(_color) {
     throw new Error("not implemented")
   }
@@ -59,4 +74,11 @@ export class Renderer {
   measureText(_str, _size) {
     return 0
   }
+  // Confine what follows to a rectangle in view space, until clipOff. What the
+  // scrolling level picker draws inside.
+  clip(_x, _y, _w, _h) {}
+  clipOff() {}
+  // The letterboxed rectangle the field is drawn into, in CSS pixels, set by the view
+  // on a resize.
+  setContentRect(_x, _y, _w, _h, _dpr) {}
 }

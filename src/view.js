@@ -24,6 +24,11 @@ const OUTCOMES = {
   won: "Board cleared",
 }
 
+// A button in the mode grid, and the gap between them. Big enough to be an obvious
+// target for a thumb, which is the whole reason the modes are a grid and not a list.
+const GRID_CELL_H = 48
+const GRID_GAP = 8
+
 // The pause button, in the strip under the board. A touch player has no escape key,
 // so this is the only way into the menu for them, and it is where a thumb already is.
 const PAUSE_BUTTON = { w: 46, h: 34, x: VIEW_W - 28 - 46, y: HUD_BOTTOM - 4 }
@@ -528,6 +533,8 @@ export class GameView {
         })
       } else if (row.kind === "options") {
         this.#drawOptions(game, theme, row, index, x, rowY, width, rowHeight)
+      } else if (row.kind === "grid") {
+        this.#drawGrid(game, theme, row, index, x, rowY, width)
       } else {
         this.#drawRow(game, theme, row, index, x, rowY, width, rowHeight)
       }
@@ -549,6 +556,10 @@ export class GameView {
     }
     if (row.kind === "options") {
       return row.options.some((option) => option.preview) ? 58 : 40
+    }
+    if (row.kind === "grid") {
+      const lines = Math.ceil(row.options.length / (row.columns || 1))
+      return lines * (GRID_CELL_H + GRID_GAP) + 6
     }
     return 32
   }
@@ -584,6 +595,44 @@ export class GameView {
     if (row.current) {
       renderer.disc(x + width - 34, middle, 4, { color: theme.accent, glow: 0.6 })
     }
+  }
+
+  // A block of buttons: the mode grid. Two across rather than a list of rows, because
+  // a button the width of a thumb reads as something to press and a line of text reads
+  // as something to consider. The one under the cursor is filled, since pressing it is
+  // what happens next; the mode last played carries a dot.
+  #drawGrid(game, theme, row, index, x, rowY, width) {
+    const renderer = this.renderer
+    const columns = row.columns || 1
+    const cellW = (width - 52 - GRID_GAP * (columns - 1)) / columns
+    row.options.forEach((option, optionIndex) => {
+      const box = {
+        x: x + 26 + (optionIndex % columns) * (cellW + GRID_GAP),
+        y: rowY + Math.floor(optionIndex / columns) * (GRID_CELL_H + GRID_GAP),
+        w: cellW,
+        h: GRID_CELL_H,
+      }
+      const under = index === game.menuIndex && optionIndex === row.selected
+      this.menuHits.push({ index, option: optionIndex, ...box })
+      renderer.panel(box.x, box.y, box.w, box.h, {
+        fill: under ? theme.accent : theme.cell,
+        radius: 12,
+        alpha: under ? 1 : 0.75,
+      })
+      renderer.text(option.label, box.x + box.w / 2, box.y + box.h / 2, {
+        color: under ? theme.panel : theme.text.normal,
+        size: 16,
+        align: "center",
+        baseline: "middle",
+        bold: under,
+      })
+      if (option.current) {
+        renderer.disc(box.x + box.w - 12, box.y + 12, 3.5, {
+          color: under ? theme.panel : theme.accent,
+          glow: under ? 0 : 0.6,
+        })
+      }
+    })
   }
 
   // A row of options, each its own pressable box. The chosen one is filled; the row is
@@ -717,6 +766,11 @@ export class GameView {
           },
         ]
       }
+      case "modes":
+        return [
+          { text: "New game", colour: theme.text.bright, size: 26, bold: true },
+          { text: "Choose a mode", colour: theme.text.dim, size: 13 },
+        ]
       case "controls":
         return [{ text: "Controls", colour: theme.text.bright, size: 26, bold: true }]
       default:

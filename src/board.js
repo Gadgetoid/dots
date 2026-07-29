@@ -164,15 +164,18 @@ export class Board {
   }
 
   // ---- dealing ------------------------------------------------------------
-  #newColour(col, row) {
+  // `phase` is "fill" for the board a game opens on and "refill" for topping one up
+  // afterwards. A mode that deals from what is already on the board has to know the
+  // difference: at the opening deal there is nothing there to deal from.
+  #newColour(col, row, phase) {
     if (this.pickColour) {
-      return this.pickColour(this, col, row)
+      return this.pickColour(this, col, row, phase)
     }
     return Math.floor(this.random() * this.colours)
   }
 
-  #newDot(col, row) {
-    const dot = new Dot(col, row, this.#newColour(col, row))
+  #newDot(col, row, phase) {
+    const dot = new Dot(col, row, this.#newColour(col, row, phase))
     dot.special = dealSpecial(dot.colour, this.specialChance, this.random)
     this.put(col, row, dot)
     this.dots.push(dot)
@@ -186,7 +189,7 @@ export class Board {
     this.dots.length = 0
     for (let row = this.rows - 1; row >= 0; row--) {
       for (let col = 0; col < this.cols; col++) {
-        this.#newDot(col, row)
+        this.#newDot(col, row, "fill")
       }
     }
     // The whole board drops in, staggered by column and by height.
@@ -435,7 +438,7 @@ export class Board {
         if (this.at(col, row)) {
           continue
         }
-        const dot = this.#newDot(col, row)
+        const dot = this.#newDot(col, row, "refill")
         dot.y = -1 - CONFIG.SPAWN_HEIGHT - above * CONFIG.SPAWN_STAGGER
         above++
       }

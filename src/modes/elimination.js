@@ -24,17 +24,26 @@ export const ELIMINATION = {
   // the list. A mode about grinding colours out of existence has earned it.
   tuning: { root: "G3", scale: "insen" },
 
-  pickColour(board) {
-    const counts = board.colourCounts()
-    const surviving = []
-    for (let colour = 0; colour < counts.length; colour++) {
-      if (counts[colour] > 0) {
-        surviving.push(colour)
+  pickColour(board, col, row, phase) {
+    const everything = () => board.colours && [...Array(board.colours).keys()]
+    // Only a refill obeys what is left in play. The opening deal cannot: the board is
+    // empty when it starts, so the first dot would set the only surviving colour and
+    // every dot after it would see that one colour surviving - a board of 36 dots, all
+    // the same. The original game had it the same way round, obeying counts in its
+    // refill and not in its first deal.
+    let pool = everything()
+    if (phase === "refill") {
+      const counts = board.colourCounts()
+      const surviving = []
+      for (let colour = 0; colour < counts.length; colour++) {
+        if (counts[colour] > 0) {
+          surviving.push(colour)
+        }
+      }
+      if (surviving.length > 0) {
+        pool = surviving
       }
     }
-    // The opening deal has an empty board and therefore no survivors, so the first
-    // board is dealt from everything and the pool only ever shrinks from there.
-    const pool = surviving.length > 0 ? surviving : [...Array(board.colours).keys()]
     return pool[Math.floor(board.random() * pool.length)]
   },
 }

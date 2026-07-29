@@ -127,9 +127,6 @@ export class Game {
     this.banner = null
 
     this.dealAttractBoard()
-    // The title screen opens with the cursor on a mode rather than on the section
-    // heading above them, which is a label and does nothing when pressed.
-    this.menuIndex = this.#currentModeRow()
     this.#restoreState()
   }
 
@@ -168,7 +165,6 @@ export class Game {
       // dealt for the title: deal the remembered mode's instead.
       if (this.phase === PHASE.TITLE) {
         this.dealAttractBoard()
-        this.menuIndex = this.#currentModeRow()
       }
     }
     if (bindings) {
@@ -268,8 +264,8 @@ export class Game {
     this.phase = PHASE.TITLE
     this.page = "title"
     this.rebinding = null
+    this.menuIndex = 0
     this.dealAttractBoard()
-    this.menuIndex = this.#currentModeRow()
   }
 
   // Move on to the next authored level, keeping the score. What a mode with levels
@@ -795,10 +791,24 @@ export class Game {
   menuRows() {
     switch (this.page) {
       case "title":
+        return [{ id: "modes", label: "New game", kind: "action" }, ...this.#settingRows()]
+      case "modes":
         return [
-          { id: "head:mode", label: "Choose a mode", kind: "heading" },
-          ...this.#modeRows(),
-          ...this.#settingRows(),
+          {
+            id: "mode",
+            kind: "grid",
+            columns: 2,
+            selected: Math.max(GAME_MODES.indexOf(this.mode), 0),
+            hint: this.mode.blurb,
+            options: GAME_MODES.map((mode) => ({
+              id: mode.id,
+              label: mode.name,
+              // Marks the one last played, so a returning player can see where they
+              // left off without it being pressed for them.
+              current: mode.id === this.settings.mode,
+            })),
+          },
+          { id: "back", label: "Back", kind: "action" },
         ]
       case "pause":
         return [
@@ -824,7 +834,8 @@ export class Game {
           label: this.currentLevel ? "Start over" : "Play again",
           kind: "action",
         })
-        rows.push({ id: "title", label: "Choose a mode", kind: "action" })
+        rows.push({ id: "modes", label: "Choose a mode", kind: "action" })
+        rows.push({ id: "title", label: "Title", kind: "action" })
         return rows
       }
       case "controls":
@@ -832,21 +843,6 @@ export class Game {
       default:
         return []
     }
-  }
-
-  // Every mode, as a row that starts it. The title screen is the mode picker: it is
-  // the only choice that has to be made before playing, so it is the page rather than
-  // a value on it, and a tap goes straight from choosing to playing.
-  #modeRows() {
-    return GAME_MODES.map((mode) => ({
-      id: `mode:${mode.id}`,
-      label: mode.name,
-      kind: "action",
-      hint: mode.blurb,
-      // Marks the one that would be played by default, so a returning player can see
-      // where they left off.
-      current: mode.id === this.settings.mode,
-    }))
   }
 
   #settingRows() {
@@ -927,6 +923,16 @@ export class Game {
     if (rows.length === 0) {
       return
     }
+    // A grid is one row holding a block of buttons, so up and down move a line inside
+    // it and only leave it when there is no line left to move to.
+    const here = rows[this.menuIndex]
+    if (here && here.kind === "grid") {
+      const next = here.selected + delta * (here.columns || 1)
+      if (next >= 0 && next < here.options.length) {
+        this.#chooseOption(here, next)
+        return
+      }
+    }
     let index = this.menuIndex
     // Headings are labels rather than rows, so the cursor steps over them.
     for (let guard = 0; guard < rows.length; guard++) {
@@ -943,6 +949,15 @@ export class Game {
 
   menuAdjust(delta) {
     const row = this.menuRows()[this.menuIndex]
+    if (row && row.kind === "grid") {
+      // Left and right step across the grid, and off the end of a line onto the next,
+      // so every button is reachable however narrow the block is.
+      const next = clamp(row.selected + delta, 0, row.options.length - 1)
+      if (next !== row.selected) {
+        this.#chooseOption(row, next)
+      }
+      return
+    }
     if (!row || row.kind !== "options") {
       return
     }
@@ -958,6 +973,11 @@ export class Game {
   menuConfirm() {
     const row = this.menuRows()[this.menuIndex]
     if (!row) {
+      return
+    }
+    if (row.kind === "grid") {
+      // A button in the grid is the choice and the confirmation at once.
+      this.#activateOption(row, row.selected)
       return
     }
     if (row.kind === "options") {
@@ -983,11 +1003,14 @@ export class Game {
       return
     }
     this.menuIndex = index
-    if (row.kind === "options" && option != null && option !== row.selected) {
-      this.#chooseOption(row, option)
+    if (row.kind === "grid" && option != null) {
+      this.#activateOption(row, option)
       return
     }
     if (row.kind === "options") {
+      if (option != null && option !== row.selected) {
+        this.#chooseOption(row, option)
+      }
       return
     }
     this.menuConfirm()
@@ -1062,13 +1085,11 @@ export class Game {
   }
 
   #activate(row) {
-    // A mode row is the choice and the confirmation at once: pressing one plays it.
-    if (row.id.startsWith("mode:")) {
-      Sound.menuConfirm()
-      this.start(row.id.slice(5))
-      return
-    }
     switch (row.id) {
+      case "modes":
+        Sound.menuConfirm()
+        this.#openPage("modes")
+        break
       case "start":
       case "again":
         Sound.menuConfirm()
@@ -1111,6 +1132,10 @@ export class Game {
   // at once: a setting a player is looking at is a setting they can see the effect of.
   #chooseOption(row, option) {
     switch (row.id) {
+      case "mode":
+        this.#previewMode(GAME_MODES[clamp(option, 0, GAME_MODES.length - 1)])
+        Sound.menuMove()
+        break
       case "theme":
         this.settings.theme = THEME_IDS[option] || THEME_IDS[0]
         this.#storeSettings()
@@ -1129,11 +1154,28 @@ export class Game {
     }
   }
 
-  // Which mode the title screen's cursor should start on: the one last played.
-  #currentModeRow() {
-    const rows = this.menuRows()
-    const wanted = rows.findIndex((row) => row.id === `mode:${this.settings.mode}`)
-    return wanted >= 0 ? wanted : rows.findIndex((row) => row.kind !== "heading")
+  // Press one of a block of buttons. Only the mode grid has any, and pressing one is
+  // both choosing that mode and starting it.
+  #activateOption(row, option) {
+    if (row.id !== "mode") {
+      return
+    }
+    const mode = GAME_MODES[clamp(option, 0, GAME_MODES.length - 1)]
+    Sound.menuConfirm()
+    this.start(mode.id)
+  }
+
+  // Look at a mode without committing to it: the board behind the menu becomes that
+  // mode's, and the menu blips move to its tuning, so walking the grid is also seeing
+  // and hearing what each one is. Nothing is stored until a game actually starts.
+  #previewMode(mode) {
+    this.mode = mode
+    this.layout = boardLayout(mode.cols, mode.rows)
+    this.tuning = resolveTuning(mode.tuning)
+    Sound.setTuning(this.tuning)
+    if (this.phase !== PHASE.PLAYING) {
+      this.dealAttractBoard()
+    }
   }
 
   setSound(on) {

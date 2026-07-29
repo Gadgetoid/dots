@@ -23,7 +23,11 @@
 //                   Omitted, the mode plays in the default tuning.
 //
 // And the optional hooks:
-//   pickColour(board, col, row)   what to deal into a cell, for a mode that cares
+//   pickColour(board, col, row, phase)
+//                                 what to deal into a cell, for a mode that cares.
+//                                 `phase` is "fill" for the board a game opens on and
+//                                 "refill" for topping one up afterwards, which a mode
+//                                 dealing from what is on the board has to tell apart.
 //   onSettled(board)              once the board has stopped moving. May return a
 //                                 list of dots it changed, which the game will
 //                                 make a noise and a wobble about.

@@ -134,6 +134,18 @@ const SHOTS = [
     }`,
   },
   {
+    // The mode grid, which is what "new game" opens: the one page whose whole job is
+    // to be pressed.
+    file: "modes.png",
+    theme: "dark",
+    frames: 30,
+    pose: `(game) => {
+      game.menuIndex = game.menuRows().findIndex((row) => row.id === "modes")
+      game.menuConfirm()
+      game.menuAdjust(3)
+    }`,
+  },
+  {
     // The rebinding page, which is the longest menu there is: worth a shot to see
     // that it still fits the field.
     file: "controls.png",
@@ -235,7 +247,11 @@ const browser = await puppeteer.launch({
 let problems = 0
 try {
   for (const shot of SHOTS) {
-    const page = await browser.newPage()
+    // A context of its own per shot: the game remembers its settings in IndexedDB, so
+    // sharing one would leave each shot inheriting the mode and theme of the shot
+    // before it, and the pictures would depend on the order they were taken in.
+    const context = await browser.createBrowserContext()
+    const page = await context.newPage()
     await page.setViewport({ width: W, height: H, deviceScaleFactor: 1 })
     page.on("console", (message) => {
       if (message.type() === "error") {
@@ -277,6 +293,7 @@ try {
     await page.screenshot({ path: path.join(OUT, shot.file) })
     console.log(`wrote screenshots/${shot.file}`)
     await page.close()
+    await context.close()
   }
 } finally {
   await browser.close()

@@ -222,7 +222,45 @@ test("clearing the last level wins the mode", () => {
   assert.equal(game.level, LEVELS.length - 1, "it did not roll on past the end")
 })
 
-test("elimination only ever deals colours that are still on the board", () => {
+test("a mode is told whether it is the opening deal or a refill", () => {
+  const phases = []
+  const board = new Board({
+    cols: 2,
+    rows: 2,
+    colours: 3,
+    random: mulberry32(1),
+    pickColour: (_board, _col, _row, phase) => {
+      phases.push(phase)
+      return 0
+    },
+  })
+  board.fill()
+  assert.ok(phases.length === 4 && phases.every((phase) => phase === "fill"))
+  phases.length = 0
+  board.remove([board.at(0, 0)])
+  board.collapse()
+  board.refill()
+  assert.ok(phases.length > 0 && phases.every((phase) => phase === "refill"))
+})
+
+test("elimination's opening deal uses the whole pool", () => {
+  // The board is empty when the first dot is dealt, so a mode that deals from what is
+  // in play has nothing to go on: without the phase, the first dot set the only
+  // surviving colour and every dot after it saw one colour surviving. That dealt a
+  // board of 36 dots, all the same.
+  const board = new Board({
+    cols: 6,
+    rows: 6,
+    colours: 5,
+    random: mulberry32(4),
+    pickColour: ELIMINATION.pickColour.bind(ELIMINATION),
+  })
+  board.fill()
+  const used = board.colourCounts().filter((count) => count > 0).length
+  assert.equal(used, 5, "every colour was dealt")
+})
+
+test("elimination refills only with colours that are still on the board", () => {
   const board = new Board({
     cols: 6,
     rows: 6,

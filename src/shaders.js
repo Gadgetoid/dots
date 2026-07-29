@@ -222,7 +222,13 @@ export const PANEL_FS = `#version 300 es
     // Named for what it is - the box the corner arcs are struck from - because
     // "half" is a reserved word in GLSL ES and will not compile.
     vec2 inner = max(vShape.xy - vShape.z, vec2(0.0));
-    float d = length(max(abs(vLocal) - inner, vec2(0.0))) - vShape.z;
+    vec2 q = abs(vLocal) - inner;
+    // Both halves of the rounded-box distance: the outside term measures out of the
+    // corner, and the inside term is what makes the field negative within the box. With
+    // only the outside term the distance is zero everywhere inside a box with square
+    // corners, which is exactly half covered - so every panel drawn without a radius,
+    // the curtain over the top of the board among them, came out half transparent.
+    float d = min(max(q.x, q.y), 0.0) + length(max(q, vec2(0.0))) - vShape.z;
     float aa = max(fwidth(d), 1e-5);
     float cov;
     if (vShape.w > 0.0) {

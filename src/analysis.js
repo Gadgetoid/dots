@@ -32,13 +32,15 @@
 
 import {
   parse,
-  collapse,
+  unpack,
+  without,
   movesFrom,
   outcomesFrom,
   columnGroups,
   columnsOnly,
+  coloursIn,
   isEmpty,
-  gridKey,
+  positionKey,
   EMPTY,
   MOVE_LIMIT,
 } from "./solver.js"
@@ -85,7 +87,7 @@ export function analyse(layout, cols, rows, minChain, rules, options = {}) {
   const start = parse(layout, cols, rows)
   // Outcomes, not moves: two chains of the same length leaving the same board are the same play
   // and are valued once. See outcomesFrom, which is where the symmetry of a board goes.
-  const listOf = (grid) => outcomesFrom(grid, cols, rows, minChain, MOVE_LIMIT)
+  const listOf = (position) => outcomesFrom(position, cols, rows, minChain, MOVE_LIMIT)
 
   // One walk of the graph, answering everything at once. `best` and `worst` are the most
   // and least a clearing order pays from here; `paths` is how many reach `best`. A null
@@ -102,8 +104,8 @@ export function analyse(layout, cols, rows, minChain, rules, options = {}) {
   let trapCount = 0
   let silentTrapCount = 0
 
-  const from = (grid, key, multiplier) => {
-    if (isEmpty(grid)) {
+  const from = (position, key, multiplier) => {
+    if (isEmpty(position)) {
       return { best: 0, worst: 0, paths: 1, depth: 0 }
     }
     if (states >= budget || (states % 512 === 0 && Date.now() > walkDeadline)) {
@@ -124,7 +126,7 @@ export function analyse(layout, cols, rows, minChain, rules, options = {}) {
     let worst = null
     let paths = 0
     let depth = 0
-    const here = listOf(grid)
+    const here = listOf(position)
     if (here.truncated) {
       truncated = true
     }
@@ -166,7 +168,7 @@ export function analyse(layout, cols, rows, minChain, rules, options = {}) {
     walkDeadline = Math.min(deadline, Date.now() + STATS_SECONDS * 1000)
   }
 
-  const root = from(start, gridKey(start), 1)
+  const root = from(start, positionKey(start), 1)
 
   // The opening moves, and how many of them lose the level on the spot - split by whether
   // the loss is one a player would see. This is the trap measure that reaches the difficulty,
@@ -266,14 +268,8 @@ export function analyse(layout, cols, rows, minChain, rules, options = {}) {
 // a collapse can bring two of them together several moves later, so a player cannot know it is
 // a mistake, and neither can anything short of the search. Those are the traps worth weighting,
 // and the ones a hard level is made of.
-function announces(grid) {
-  const counts = new Map()
-  for (const colour of grid) {
-    if (colour !== EMPTY) {
-      counts.set(colour, (counts.get(colour) || 0) + 1)
-    }
-  }
-  for (const count of counts.values()) {
+function announces(position) {
+  for (const count of coloursIn(position).values()) {
     if (count === 1) {
       return true
     }
@@ -284,7 +280,8 @@ function announces(grid) {
 // The largest connected run of one colour, which is what the search cost is governed by:
 // every connected subset of a region is a distinct move, so a big blob of one colour is
 // expensive out of all proportion to the number of dots on the board.
-function biggestRegion(grid, cols, rows) {
+function biggestRegion(position, cols, rows) {
+  const grid = unpack(position, cols, rows)
   const seen = new Uint8Array(grid.length)
   let biggest = 0
   for (let cell = 0; cell < grid.length; cell++) {
@@ -334,14 +331,14 @@ function biggestRegion(grid, cols, rows) {
 // merged multiset over every order it could be played in - which is a small search over how many
 // of each length are left, and nothing to do with where the dots were.
 function decompose(start, cols, rows, minChain, rules, limit, deadline) {
-  const { group, groups } = columnGroups(start, cols, rows)
+  const { group, groups } = columnGroups(start)
   if (groups < 2) {
     return null
   }
   // What each group can be cleared with, as sorted length lists.
   const perGroup = []
   for (let index = 0; index < groups; index++) {
-    const board = columnsOnly(start, cols, rows, (col) => group[col] === index)
+    const board = columnsOnly(start, (col) => group[col] === index)
     const shapes = clearingShapes(board, cols, rows, minChain, limit, deadline)
     if (!shapes || shapes.size === 0) {
       // One group that cannot be cleared, or could not be judged, settles the whole board.
@@ -383,8 +380,8 @@ const MERGE_LIMIT = 20000
 function clearingShapes(start, cols, rows, minChain, limit, deadline) {
   const memo = new Map()
   let gaveUp = false
-  const from = (grid, key) => {
-    if (isEmpty(grid)) {
+  const from = (position, key) => {
+    if (isEmpty(position)) {
       return new Map([["", []]])
     }
     if (Date.now() > deadline) {
@@ -397,7 +394,7 @@ function clearingShapes(start, cols, rows, minChain, limit, deadline) {
     }
     memo.set(key, new Map())
     const shapes = new Map()
-    const here = outcomesFrom(grid, cols, rows, minChain, limit)
+    const here = outcomesFrom(position, cols, rows, minChain, limit)
     if (here.truncated) {
       gaveUp = true
       return new Map()
@@ -415,7 +412,7 @@ function clearingShapes(start, cols, rows, minChain, limit, deadline) {
     memo.set(key, shapes)
     return shapes
   }
-  const shapes = from(start, gridKey(start))
+  const shapes = from(start, positionKey(start))
   return gaveUp ? null : shapes
 }
 
@@ -473,15 +470,15 @@ export function greedily(layout, cols, rows, minChain, rules) {
 }
 
 function playGreedily(start, cols, rows, minChain, rules) {
-  let grid = new Int8Array(start)
+  let position = start
   let multiplier = 1
   let score = 0
   let moves = 0
   for (;;) {
-    if (isEmpty(grid)) {
+    if (isEmpty(position)) {
       return { clears: true, score, moves }
     }
-    const options = movesFrom(grid, cols, rows, minChain, MOVE_LIMIT).moves
+    const options = movesFrom(position, cols, rows, minChain, MOVE_LIMIT).moves
     if (options.length === 0) {
       return { clears: false, score, moves }
     }
@@ -489,10 +486,6 @@ function playGreedily(start, cols, rows, minChain, rules) {
     score += rules.scoreChain(cells.length) * multiplier
     multiplier = rules.multiplierAfter(multiplier, cells.length)
     moves++
-    const next = new Int8Array(grid)
-    for (const cell of cells) {
-      next[cell] = EMPTY
-    }
-    grid = collapse(next, cols, rows)
+    position = without(position, cells, cols, rows)
   }
 }

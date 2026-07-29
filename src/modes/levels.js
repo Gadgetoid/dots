@@ -24,7 +24,7 @@
 // several clearing orders paying very differently; from the thirteenth one order pays par and
 // the obvious play misses it or strands the board.
 
-import { parse } from "../solver.js"
+import { parse, unpack } from "../solver.js"
 
 export const PUZZLE_COLS = 6
 export const PUZZLE_ROWS = 7
@@ -35,7 +35,7 @@ const grids = new WeakMap()
 export function levelGrid(level) {
   let grid = grids.get(level)
   if (!grid) {
-    grid = parse(level.layout, PUZZLE_COLS, PUZZLE_ROWS)
+    grid = unpack(parse(level.layout, PUZZLE_COLS, PUZZLE_ROWS), PUZZLE_COLS, PUZZLE_ROWS)
     grids.set(level, grid)
   }
   return grid

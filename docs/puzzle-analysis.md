@@ -91,8 +91,8 @@ Four separate costs, each of which has bitten:
 
 A chain is a path, so the obvious enumeration walks paths. But the same set of cells is reached by
 many orders, and only the set matters. Worse, the count of legal chains through a large region is
-enormous on its own: **a 24-cell block of one colour has 149,613 of them**, taking 3.4 seconds to
-list - for one position.
+enormous on its own: **a 24-cell block of one colour has 149,613 of them** - for one position, and
+every one of them wanting a board built and keyed.
 
 Three things bound it, in `movesFrom`:
 
@@ -111,12 +111,17 @@ leave the same board**: the score is a function of the length, so is the multipl
 is a function of the board. So a snake through a field has four ways round that are all one play,
 and taking five cells from a column leaves the same board wherever along it they were taken.
 
+Precisely: two chains have the same outcome exactly when, for every maximal same-colour run of a
+column, they remove the same _number_ of cells from it. Which cell of a run goes is what nothing
+can tell apart, because what is left of the run is the same length in the same place either way.
+
 `outcomesFrom` keeps one chain per (resulting board, length) and the search walks those. Measured:
 
-| Board                    | Chains | Outcomes |
-| ------------------------ | ------ | -------- |
-| A reported 24-dot board  | 274    | 124      |
-| Three rows of one colour | 3000+  | 1181     |
+| Board                              | Chains  | Outcomes |
+| ---------------------------------- | ------- | -------- |
+| Three rows of one colour           | 3000+   | 1181     |
+| A 24-cell block, uncapped          | 149,613 | 7214     |
+| The busiest position of the twenty | 151     | 98       |
 
 ### 3. Independent parts: a product that need not be walked
 
@@ -133,10 +138,21 @@ and runs in the order chains are actually played, so the parts cannot simply be 
 3. Value the merged multiset over every order it could be played in - a small search over how many
    of each length remain, with nothing to do with where the dots were.
 
-Step 3 is a DP over (remaining counts, multiplier) so it holds whatever the multiplier rule is. The
-intuition, for the rule as it stands: chains under 4 reset the multiplier so they belong first, and
-chains of 4 or more should run in ascending order, since swapping an adjacent pair _a ≤ b_ changes
-the total by _b³ - a³ ≥ 0_.
+Step 3 is a DP over (remaining counts, multiplier) so it holds whatever the multiplier rule is. For
+the rule as it stands the answer has a closed form, which is worth knowing because it is what the
+DP is finding:
+
+> shorts ascending, then longs ascending, then the largest short.
+
+Every chain of 4 or more raises the multiplier, so with only those the multiplier runs 1, 2, 3 …
+whatever the order, and by the rearrangement inequality the biggest chain belongs where the
+multiplier is: ascending. A chain of 3 or fewer resets it, so it belongs where the ramp has not
+started - except for the last chain of all, where the reset costs nothing and the largest short
+chain can be cashed at the top of the ramp instead. Lengths 3, 4, 5 pay 341 played 3, 4, 5 and 395
+played 4, 5, 3.
+
+Checked against every ordering of all 24,309 multisets of up to nine chains of lengths 2 to 9: no
+disagreement.
 
 | Columns of distinct colours | Before           | After       |
 | --------------------------- | ---------------- | ----------- |
@@ -148,33 +164,87 @@ Six of the twenty shipped levels decompose, and their par and floor are unchange
 is the check that matters. The editor reports the decomposition too, since a level that is several
 unrelated puzzles side by side is worth telling its author about.
 
-### 4. Housekeeping
+### 4. How a position is held
 
-The memo key is one character per cell (`String.fromCharCode`), which is three times faster to
-build than joining numbers with separators: 139ms against 404ms per 400,000 keys, and one is built
-per position and per move.
+**One word per column, four bits per cell, packed up from the floor.** A colour is stored as its
+code plus one, so nought means nothing there and a column's word is exactly as long as the dots
+standing in it. Two things follow:
+
+- **Collapsing stops being an operation.** A column that has had a dot taken out of it is the bits
+  above the gap shifted down over it, and only the columns a chain actually touched are rebuilt.
+- **A position keys as two characters a column** - twelve for this board, against forty-two for a
+  cell each. One key is built per position and per move, so it is the most-run line here.
+
+Worth **1.40x** end to end: the twenty-level report takes 8.3s against 11.7s a cell at a time,
+with every number it prints unchanged.
+
+Four bits rather than three, which would also fit seven rows. Both need two characters a column -
+21 bits and 28 bits round up the same - so the shorter field buys nothing unless columns are
+packed _across_ the character boundary, eight characters against twelve. That costs a shifting
+loop, and measures slower than the wider field it saves: 71ms against 53ms per 400,000 keys. Four
+bits also holds every digit a layout may use, where three stops at seven colours.
+
+Neighbours are what a chain is made of, and the packing knows only about columns, so `movesFrom`
+spreads a position back out into a flat grid - once per position, however many chains come off it.
+That is the only place it happens, apart from the picker's preview.
 
 ### Measured and rejected
 
-A board mirrored left to right is the same game - every rule is left-right symmetric and gravity is
-untouched by the mirror - so positions could be keyed on whichever way round reads smaller. Worth
-46% on a field of one colour, **0.6% across the twenty shipped levels**, and it costs a second key
-everywhere. Not kept.
+**Mirroring.** A board mirrored left to right is the same game - every rule is left-right
+symmetric and gravity is untouched by the mirror - so positions could be keyed on whichever way
+round reads smaller. Worth 37% on a field of one colour, **0.6% across the twenty shipped
+levels**, and it costs a second key everywhere. Not kept.
+
+**Deduping on the run signature.** Since an outcome is exactly a count of cells taken from each
+same-colour run, that count could be the key instead of the collapsed board. It is a correct key
+and a slower one: building it costs more than the collapse and the key it saves.
+
+**Caching the outcome list on the board.** A position is valued once per multiplier standing on
+it, and each of those rebuilds the same list of outcomes. Holding the list against the board alone
+halves the enumerations - and is worth 1.16x, because the lists are large and keeping them all
+costs more than rebuilding them. Not kept.
+
+And nothing else is coming from symmetry. Mirroring and relabelling the colours are the only two
+transformations that commute with the rules - gravity rules out the vertical and rotational ones -
+and relabelling cannot help inside one board's search, since a game tree keeps its colours. Across
+the boards the level hunt draws it is worth 0.4%: the space is much too big for two draws to be
+relabellings of each other.
+
+Nor from a better algorithm. This is Clickomania with a path constraint on chains, and Clickomania
+is NP-complete with as few as two columns and five colours (Biedl, Demaine, Demaine, Fleischer,
+Jacobsen and Munro, 2002); requiring a chain to be traceable makes listing the moves a
+Hamiltonian-path question on a grid subgraph, NP-complete in general (Itai, Papadimitriou and
+Szwarcfiter, 1982) and polynomial only for solid ones (Umans and Lenhart, 1997). Walking the graph
+and valuing each position once is the right shape, and the only lever on it is how wide the graph
+is - which is what the decomposition and the outcome quotient are for.
 
 ## When the answer is not exact
 
 A search that ran out of time, or out of moves it could list, has proved nothing. So `clearable` is
 three-valued, and this matters: a truncated move list might have omitted the very move that clears
-the board, so "cannot be cleared" would be a lie. `exact` says whether par and floor are the real
-numbers or lower and upper bounds.
+the board, so "cannot be cleared" would be a lie.
 
-The editor uses that:
+There are two flags, and they are not the same flag:
+
+- `exact` covers **par and floor**, which a board split into independent parts answers exactly
+  however long the whole-board walk takes.
+- `statsExact` covers **everything else** - how many orders pay par, how long one is, which
+  openings are traps, and so the difficulty - because all of that comes from the whole-board walk,
+  which is cut short as soon as the parts have answered. Six full columns of distinct colours have
+  a par of 7203 exactly and a chain count of six against the eighteen it really takes, and read as
+  stranding on 35 of 36 openings when no opening on that board can strand anything.
+
+The editor uses both:
 
 - `solve()` first, because finding **one** clearing order proves clearable and stops at the first,
   where par has to value every position there is.
-- par shown as "at least" where the walk could not finish.
+- par shown as "at least" where the walk could not finish, and the counts not shown at all where
+  `statsExact` is false.
 - no layout offered for pasting unless the answer is exact, since the level test recomputes both
   numbers and would disagree.
+
+The level hunt gates on `statsExact` too. Without it a run fills up with boards that measured hard
+only because their walk stopped early: every position it never reached counts as a trap.
 
 ## How difficulty is measured
 
@@ -210,38 +280,80 @@ rather than authored by eye.
 The shipped twenty run from 2.03 to 11.48 and the level test asserts the order, that only the first
 two are forced, and that the back half has one best order which greed does not find.
 
+**The size term is a property of the search, not of the board**, which is worth being explicit
+about because it has two consequences. A candidate cannot be scored without being walked in full;
+and anything optimising difficulty is rewarded for finding boards that are expensive to search,
+which is what the level hunt has to be built around.
+
+It could be otherwise. Across the twenty, the dot count alone predicts the positions searched at
+_r_ = 0.972 - `log10(states) ≈ 0.2122 × dots - 0.1188` - and substituting the fit moves no level
+by more than 0.35. But the twenty are monotone by margins smaller than that, so the substitution
+inverts three neighbouring pairs and moves four band edges. The ladder is what the term is
+calibrated against, so the term stays.
+
 ## Searching for levels
 
 Silhouettes are drawn by hand, because a shape is the part a player looks at and no search knows
 what looks good. The colours are searched, because none of the qualities above can be seen in a
 layout.
 
-**The space is not enumerable.** With five colours and ignoring which colour is which:
+**The space is not enumerable.** With five colours and ignoring which colour is which, a
+silhouette of _n_ dots has 5ⁿ/120 colourings. A board of this size is judged in one to three
+seconds; the last column is generously rounded down to a millisecond, which is a thousand times
+faster than it is:
 
-| Silhouette | Dots | Colourings | At 250 judged/second |
-| ---------- | ---- | ---------- | -------------------- |
-| bullseye   | 18   | 3.2e10     | 4 years              |
-| comb       | 24   | 5.0e14     | 63,000 years         |
-| mesa       | 30   | 7.8e18     | 1.0e9 years          |
-| keep       | 32   | 1.9e20     | 2.5e10 years         |
+| Silhouette | Dots | Colourings | At 1000 judged/second |
+| ---------- | ---- | ---------- | --------------------- |
+| bullseye   | 18   | 3.2e10     | 1 year                |
+| comb       | 24   | 5.0e14     | 16,000 years          |
+| mesa       | 30   | 7.8e18     | 2.5e8 years           |
+| keep       | 32   | 1.9e20     | 6.1e9 years           |
 
-So the search walks a **structured subset**: colours grown as connected regions rather than
-scattered. That is both a far better prior - one in three of those boards can be cleared, against
-one in twenty of scattered ones - and closer to what a person would draw, since it comes out as
-areas of colour rather than confetti.
+So the boards it does draw are a **structured subset**: colours grown as connected regions rather
+than scattered. That is both a far better prior - 98% of those can be cleared against 8.5% of
+scattered ones, measured over 2,406 and 1,648 of them - and closer to what a person would draw,
+since it comes out as areas of colour rather than confetti.
+
+That prior is so good that it leaves the search with nothing cheap to reject on. Of 4,000 drawn,
+**none** is thrown out for having a colour with one dot in it, and one clearing order throws out
+**2%**. Everything else reaches the full walk, which is the whole cost of a run.
+
+### Drawing at random does not work
+
+Two matched eight-minute runs, same leash and same test for a keep:
+
+|                           | Judged | Too big to judge | Kept at 11.5 or more | Best  |
+| ------------------------- | ------ | ---------------- | -------------------- | ----- |
+| Random boards             | 147    | 47               | **0**                | -     |
+| Climbing, one cell a step | 184    | 21               | **26**               | 12.54 |
+
+12.54 is above the 11.48 the shipped ladder tops out at.
+
+So a number is not a board but a **starting point**, and the search walks uphill from it:
+recolour one dot to a colour already beside it, judge, keep the change unless it measured easier,
+and start somewhere else after `--steps` without an improvement.
+
+The two things that make the climb work are both about its own cost. Difficulty counts the
+positions searched, so a board that is expensive to judge scores well by being expensive - and an
+unrestrained climb heads straight for boards that cannot be judged at all. A first attempt that
+recoloured a whole region at a time managed 35 judgements in eight minutes and kept nothing. So:
+
+- **One dot at a time**, never leaving a colour with a single dot and never growing a
+  single-colour region past ten. One dot because a region at a time merges regions; a neighbour's
+  colour because it keeps the board reading as areas, which is the prior the drawing is built on.
+- **A board that ran out of leash scores nothing**, rather than scoring what the unfinished walk
+  came to. An unfinished walk reads as harder than the board is: every position it never reached
+  counts as a trap.
 
 What makes a long run worth leaving on:
 
-- **Deterministic.** A candidate is a pure function of its number, so nothing is tried twice,
-  workers interleave by number, and `--from` carries on where the last run stopped. `--show N`
-  reproduces any candidate.
-- **Cheap rejections first**, in order of cost: a colour with one dot (free), then one clearing
-  order, then greed. Proving a board cannot be cleared means exhausting its graph - the slowest
-  case and the commonest - so it is never the first question asked.
-- **Written as found.** `--out` is a directory: a file per find named for how hard it measured, plus
-  a summary rewritten each time, both safe to read while it runs.
-
-Roughly one candidate in 300 measures past 11.5.
+- **Deterministic.** A starting point and the whole climb from it are a pure function of the
+  number, so no two workers do the same work, `--from` carries on where the last run stopped, and
+  `--show N` reproduces a starting point.
+- **Written as found.** `--out` is a directory: a file per find named for how hard it measured,
+  plus a summary rewritten each time, both safe to read while it runs.
+- **One find per family.** A climb's next find is its last find with a dot moved, so a find is
+  only kept if it differs from every find already kept by `--apart` cells.
 
 ## Known limits
 

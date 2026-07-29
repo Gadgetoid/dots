@@ -143,9 +143,10 @@ makes a level hard, and those come out of the collapse several moves deep.
 
 Which is why the thirteen newer levels were searched for. The silhouettes in
 `tools/find-levels.mjs` are drawn by hand, since no search knows what looks good; the colours
-are searched, since none of the above can be seen in a layout. Growing regions of colour
-rather than scattering dots took the share of candidates that can be cleared at all from one
-in twenty to one in three.
+are searched, since none of the above can be seen in a layout. Growing regions of colour rather
+than scattering dots took the share that can be cleared at all from 8.5% to 98%, and the search
+climbs from those rather than drawing more of them: a matched pair of eight minute runs kept 26
+boards climbing and none drawing.
 
 ```
 node tools/levels.mjs                    # the table for the shipped set

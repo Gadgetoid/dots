@@ -118,6 +118,20 @@ export function positionKey(position) {
   return String.fromCharCode.apply(null, keyBuffer)
 }
 
+// A board's identity, as text that survives a file: the packed columns in hex, low column first.
+//
+// positionKey is for memos and is built from raw sixteen bit values, which are not all printable and
+// not all valid on their own in a JSON string. This is for writing down - the cache of boards that
+// have already been judged, which both the level test and the search read - so it trades a little
+// length for being copyable, greppable and diffable.
+export function boardId(position) {
+  let id = ""
+  for (const column of position) {
+    id += (column >>> 0).toString(16).padStart(8, "0")
+  }
+  return id
+}
+
 // The position a move leaves, given the cells it takes as indices into the unpacked grid.
 // Everything above a gap shifts down over it, which is the whole of gravity here.
 let takenBuffer = new Int32Array(0)

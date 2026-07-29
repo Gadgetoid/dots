@@ -26,6 +26,9 @@
 // | --from N    | start at this number, to carry on where a run left off                |
 // | --show N    | print starting point N and stop, to see or reproduce one              |
 // | --maxdots N | skip silhouettes with more dots than this (default 26)                |
+//
+// Boards already in the ladder are skipped: data/verified-boards.json holds their identities, and a
+// climb that wandered onto one would spend its leash re-proving a board that has been proved.
 // | --steps N   | steps without an improvement before starting again (default 20)       |
 // | --apart N   | how many cells a find must differ from every other find by (default 4)|
 //
@@ -72,7 +75,8 @@ import { isMainThread, Worker, workerData, parentPort } from "node:worker_thread
 import { fileURLToPath } from "node:url"
 
 import { analyse, greedily } from "../src/analysis.js"
-import { solve } from "../src/solver.js"
+import { loadCache } from "./verify-levels.mjs"
+import { solve, parse, boardId } from "../src/solver.js"
 import { PUZZLE_COLS, PUZZLE_ROWS } from "../src/modes/levels.js"
 import { PUZZLE } from "../src/modes/puzzle.js"
 import { CONFIG } from "../src/config.js"
@@ -349,6 +353,11 @@ function apart(one, other) {
   return count
 }
 
+// The boards already in the ladder, by identity. A climb that wanders onto one of them would spend
+// its whole leash re-proving a board that has been proved, and then report it as a find - so it is
+// skipped, which is the other half of what the verified file is for.
+const SHIPPED = new Set(Object.keys(loadCache().boards))
+
 // What a candidate has to be to be worth keeping. Difficulty is the gate; the rest is what the
 // shipped levels at the hard end all have, and what makes one worth playing.
 function wanted(found, min) {
@@ -380,6 +389,10 @@ function hunt({ first, stride, min, seconds, tries, shape, maxDots, steps }) {
   // unfinished walk came to, since an unfinished walk reads as harder than the board is and the
   // climb would head straight for more of them.
   const judge = (layout, shapeName, from, taken) => {
+    // Already a level: proved, shipped, and not a find. Cheapest test there is, so it goes first.
+    if (SHIPPED.has(boardId(parse(layout, PUZZLE_COLS, PUZZLE_ROWS)))) {
+      return null
+    }
     if (!solve(layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain, 40000).solved) {
       return null
     }

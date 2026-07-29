@@ -13,6 +13,7 @@ import { LEVELS, PUZZLE_COLS, PUZZLE_ROWS } from "../src/modes/levels.js"
 import { PUZZLE } from "../src/modes/puzzle.js"
 import { solve, parse, columnGroups, describe as shapeOf } from "../src/solver.js"
 import { analyse, parRoute } from "../src/analysis.js"
+import { loadCache, provenBoard } from "../tools/verify-levels.mjs"
 import { Game, PHASE } from "../src/game.js"
 import { Board } from "../src/board.js"
 import { modeRefills, defaultOutcome } from "../src/modes/index.js"
@@ -122,14 +123,82 @@ const SCORING = {
     length >= CONFIG.MULTIPLIER_CHAIN ? Math.min(multiplier + 1, CONFIG.MULTIPLIER_MAX) : 1,
 }
 
-// One walk of each level's positions, which answers everything written down about it at once.
-// Twenty of these take about twenty seconds, and they are worth it: a par that has drifted from
-// its layout misleads every player who aims at it, and neither number can be checked by eye.
-const ANALYSED = LEVELS.map((level) =>
-  // Generous: the last level is thirty dots and takes most of a minute to value on its own, which
-  // is most of what this file spends its time on.
-  analyse(level.layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain, SCORING, { seconds: 300 }),
+// What is known about each level, from the cache where it has been proved and from a walk where it
+// has not.
+//
+// Walking all of them takes minutes and grows with the ladder, on data that mostly has not changed,
+// so tools/verify-levels.mjs does that work once and writes down what it proved - against the
+// board's own identity and a fingerprint of the rules and weights that judged it. A level whose
+// board and fingerprint are both in the file is taken as proved.
+//
+// Three things stop that being a way to believe a stale number forever:
+//
+//   - the fingerprint. Change what a chain pays, or how difficulty is weighed, and nothing in the
+//     file counts. MEASURE in src/analysis.js covers the rest: bump it when a change could alter
+//     what the analysis returns, since no fingerprint can notice that a bug was fixed.
+//   - the board's identity. Edit a layout by one dot and it is a different board, so it is walked.
+//   - the sample below. Some levels are walked every run regardless, chosen by the day, so the whole
+//     ladder is re-proved from scratch over time rather than never.
+const CACHE = loadCache()
+// How many are walked whatever the cache says. Two is a couple of seconds on the early levels and
+// most of a minute if the day lands on the biggest, and gets through thirty in a fortnight.
+const SAMPLED = 2
+const sampleFrom = Math.floor(Date.now() / 86400000) * SAMPLED
+const sampled = new Set(
+  Array.from({ length: SAMPLED }, (_, at) => (sampleFrom + at) % LEVELS.length),
 )
+
+const KNOWN = LEVELS.map((level, index) => {
+  const proved = sampled.has(index) ? null : provenBoard(CACHE, level.layout)
+  // One shape whichever way the answer arrived, so nothing below has to care which. The cache holds
+  // what was proved; the two derived from it - whether the score is forced, and what greed did - are
+  // rebuilt rather than stored, since a stored copy of something derivable is a second thing to keep
+  // in step.
+  const shape = (known, extra) => ({
+    ...known,
+    forced: known.floor === known.par,
+    greedy: {
+      clears: known.greedy !== "strands",
+      score: known.greedy === "strands" ? 0 : known.greedy,
+    },
+    ...extra,
+  })
+  if (proved) {
+    return shape(proved, { fromCache: true })
+  }
+  // A walked level has no route written down, so the replay test finds one for it.
+  const found = analyse(level.layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain, SCORING, {
+    seconds: 300,
+  })
+  return shape(
+    {
+      par: found.par,
+      floor: found.floor,
+      difficulty: found.difficulty,
+      band: found.band,
+      parPaths: found.parPaths,
+      moves: found.moves,
+      firstMoves: found.firstMoves,
+      firstSilent: found.firstSilent,
+      greedy: found.greedy.clears ? found.greedy.score : "strands",
+    },
+    { exhausted: found.exhausted, statsExact: found.statsExact, fromCache: false },
+  )
+})
+
+test("every level has been proved, by the cache or here and now", () => {
+  // A level nobody has verified is a level whose par is a guess. The tool writes them down; this is
+  // what makes forgetting to run it a failure rather than a slow leak.
+  for (const [index, level] of LEVELS.entries()) {
+    assert.ok(
+      KNOWN[index].fromCache || !KNOWN[index].exhausted,
+      `level ${index + 1} "${level.name}" is neither in data/verified-boards.json under the ` +
+        `current fingerprint nor walkable here: run node tools/verify-levels.mjs`,
+    )
+  }
+  const walked = KNOWN.filter((known) => !known.fromCache).length
+  assert.ok(walked >= SAMPLED, "and some are walked every run whatever the cache says")
+})
 
 test("a board that is several puzzles side by side is only exact about par", () => {
   // Six full columns, each its own colour, so nothing in one can ever touch another: six
@@ -157,9 +226,11 @@ test("a board that is several puzzles side by side is only exact about par", () 
 
 test("every level's par is the most it can actually score", () => {
   for (const [index, level] of LEVELS.entries()) {
-    const found = ANALYSED[index]
-    assert.equal(found.exhausted, false, `level ${index + 1} was searched to the end`)
-    assert.equal(found.statsExact, true, `level ${index + 1} was counted, not estimated`)
+    const found = KNOWN[index]
+    if (!found.fromCache) {
+      assert.equal(found.exhausted, false, `level ${index + 1} was searched to the end`)
+      assert.equal(found.statsExact, true, `level ${index + 1} was counted, not estimated`)
+    }
     assert.equal(
       level.par,
       found.par,
@@ -175,15 +246,15 @@ test("every level's floor is the least a clearing order scores", () => {
   for (const [index, level] of LEVELS.entries()) {
     assert.equal(
       level.floor,
-      ANALYSED[index].floor,
+      KNOWN[index].floor,
       `level ${index + 1} "${level.name}" is written down with a floor of ${level.floor} and ` +
-        `the least a clearing order pays is ${ANALYSED[index].floor}`,
+        `the least a clearing order pays is ${KNOWN[index].floor}`,
     )
   }
 })
 
 test("the levels are in order of difficulty, and the ladder covers its range", () => {
-  const difficulty = ANALYSED.map((found) => found.difficulty)
+  const difficulty = KNOWN.map((known) => known.difficulty)
   for (let index = 1; index < difficulty.length; index++) {
     assert.ok(
       difficulty[index] >= difficulty[index - 1],
@@ -191,15 +262,15 @@ test("the levels are in order of difficulty, and the ladder covers its range", (
         `easier than the level before it at ${difficulty[index - 1].toFixed(1)}`,
     )
   }
-  assert.ok(ANALYSED[0].band === 1, "it opens on the gentlest band")
-  assert.ok(ANALYSED.at(-1).band === 5, "and ends on the hardest")
+  assert.ok(KNOWN[0].band === 1, "it opens on the gentlest band")
+  assert.ok(KNOWN.at(-1).band === 5, "and ends on the hardest")
 })
 
 test("the opening levels are warm ups and the rest are not", () => {
   // A warm up is a level where nothing can go wrong: no order strands the board, and every
   // order that clears pays the same. Two of those is a welcome; three would be a waste of the
   // player's time.
-  const forced = ANALYSED.map((found) => found.forced)
+  const forced = KNOWN.map((known) => known.forced)
   assert.deepEqual(forced.slice(0, 2), [true, true], "the first two ask nothing")
   assert.equal(
     forced.slice(2).some(Boolean),
@@ -211,7 +282,7 @@ test("the opening levels are warm ups and the rest are not", () => {
 test("the hard half has one best order, and the obvious play does not find it", () => {
   // What the later levels are for: a single order pays par, so there is something to find, and
   // taking the longest chain every time is not it.
-  const half = ANALYSED.slice(LEVELS.length / 2)
+  const half = KNOWN.slice(LEVELS.length / 2)
   assert.ok(
     half.filter((found) => found.parPaths === 1).length >= 6,
     "at least six of the back half have exactly one best order",
@@ -220,7 +291,7 @@ test("the hard half has one best order, and the obvious play does not find it", 
     half.filter((found) => !found.greedy.clears).length >= 6,
     "and at least six of them strand the board if played greedily",
   )
-  for (const [index, found] of ANALYSED.entries()) {
+  for (const [index, found] of KNOWN.entries()) {
     if (index >= 3) {
       assert.ok(
         found.greedy.score < found.par,
@@ -536,29 +607,36 @@ function clearLevel(game, scored) {
 }
 
 test("par is reachable: an order that scores it can be played through the game", () => {
-  // The strongest check there is on par, and the only one that covers how it was worked out.
+  // The strongest check there is on par, and the only one that covers how it was worked out: find an
+  // order that scores it, and play that order through the real game.
   //
-  // Six of the twenty split into independent puzzles, and those have their par built rather than
-  // walked: each part's clearing multisets are merged and the merged multiset is valued over every
-  // order it could be played in. A construction like that deserves a witness. parRoute finds an
-  // order by the plain whole-board walk - no decomposition, no leash - so this checks the two
-  // methods against each other, and then plays the order through the real game to check both agree
-  // with what it actually pays.
+  // It has already earned its keep. par used to be built for a board that splits into independent
+  // parts by merging what each part can be cleared with, which claimed 2577 on one level where no
+  // real order beats 2450 - a part's chains cannot be reordered freely, and the merge assumed they
+  // could. Nothing but playing it would have caught that.
+  //
+  // Finding the order is the slow half, so a proved level plays the order the tool wrote down, and
+  // only a level being walked here has one found for it.
   for (const [index, level] of LEVELS.entries()) {
-    const found = parRoute(level.layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain, SCORING)
-    assert.ok(found, `level ${index + 1} "${level.name}" could be walked`)
-    assert.equal(
-      found.score,
-      level.par,
-      `level ${index + 1} "${level.name}": the walk reaches ${found.score}, par says ${level.par}`,
-    )
+    const known = KNOWN[index]
+    let route = known.route && known.route.map((chain) => chain.map(([col, row]) => ({ col, row })))
+    if (!route) {
+      const found = parRoute(level.layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain, SCORING)
+      assert.ok(found, `level ${index + 1} "${level.name}" could be walked`)
+      assert.equal(
+        found.score,
+        level.par,
+        `level ${index + 1} "${level.name}": the walk reaches ${found.score}, par says ${level.par}`,
+      )
+      route = found.route
+    }
 
     const game = new Game()
     game.progress = { puzzle: Object.fromEntries(LEVELS.slice(0, index).map((_, at) => [at, 1])) }
     game.start("puzzle", { level: index })
     settle(game)
     const before = game.player.score
-    for (const cells of found.route) {
+    for (const cells of route) {
       playChain(game, cells)
     }
     assert.equal(game.board.count, 0, `level ${index + 1} "${level.name}" was emptied`)

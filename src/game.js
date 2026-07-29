@@ -2312,7 +2312,13 @@ export class Game {
       const held = table[control]
       if (Array.isArray(held)) {
         const filtered = held.filter((entry) => entry !== value)
-        table[control] = filtered.length > 0 ? filtered : []
+        // Stripped of its last key the control is unbound, which is a control with no entry:
+        // an empty list is a value, and bindingLabel would draw it as an empty value.
+        if (filtered.length > 0) {
+          table[control] = filtered
+        } else {
+          delete table[control]
+        }
       } else if (held === value) {
         delete table[control]
       }

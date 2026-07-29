@@ -170,6 +170,16 @@ test("binding a key takes it off whatever else held it", () => {
   assert.ok(game.bindings.keys.up.includes("KeyW"), "but kept its other one")
 })
 
+test("a control stripped of its last key reads as unbound", () => {
+  const game = new Game()
+  for (const stolen of ["ArrowUp", "KeyW"]) {
+    game.rebinding = { device: "keys", control: "link" }
+    game.captureBinding("keys", stolen)
+  }
+  assert.equal(game.bindings.keys.up, undefined, "UP holds no keys, so it holds no entry")
+  assert.equal(game.bindingLabel("keys", "up"), "-", "and the row says so instead of going blank")
+})
+
 test("escape abandons a wait instead of being captured", () => {
   const game = new Game()
   const keyboard = new KeyboardInput(game)

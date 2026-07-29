@@ -1,7 +1,0 @@
-Carry on with --from 74 --shape valley.
-3 kept, hardest first, measuring 8 or more.
-5 started from, 22 judged, 0 too big to judge, 2 dropped as too like a find already kept, 331s so far.
-
- 12.27  band 5  valley      par   6340  floor   131  paths  1  chains 5  silent  22/107  greedy strands   dots 29  12.27-valley-74-4.json
- 12.15  band 5  valley      par   5370  floor   161  paths  1  chains 5  silent   12/96  greedy strands   dots 29  12.15-valley-70-1.json
- 11.55  band 5  valley      par   6683  floor   131  paths  1  chains 4  silent   10/77  greedy strands   dots 29  11.55-valley-72-2.json

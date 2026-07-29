@@ -1,6 +1,7 @@
 node_modules
 .DS_Store
 _site
-# where tools/find-levels.mjs writes what it turns up
+# where tools/find-levels.mjs writes what it turns up, one directory per run
 found
 all
+big

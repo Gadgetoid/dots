@@ -174,6 +174,9 @@ function assertOnScreen(calls, where) {
   }
 }
 
+// resize() asks the window how dense the display is.
+globalThis.window = globalThis.window || { devicePixelRatio: 1 }
+
 const FRAME = 1 / 60
 const settle = (game, seconds = 4) => {
   for (let i = 0; i < seconds * 60; i++) {
@@ -398,4 +401,46 @@ test("no menu page runs off the field", () => {
     }
     assertOnScreen(drawn(game), `${page}, cursor at the end`)
   }
+})
+
+test("resizing to the size it already is touches nothing", () => {
+  // What stops the resize loop: assigning canvas.width clears the drawing buffer even when the
+  // value is unchanged, so a resize that changes nothing has to be a resize that does nothing.
+  // The loop calls this every frame now, and a browser zoom calls it with the same numbers.
+  let assigned = 0
+  const canvas = {
+    _w: 0,
+    _h: 0,
+    get width() {
+      return this._w
+    },
+    set width(value) {
+      assigned++
+      this._w = value
+    },
+    get height() {
+      return this._h
+    },
+    set height(value) {
+      assigned++
+      this._h = value
+    },
+    getBoundingClientRect: () => ({}),
+  }
+  const renderer = new Recorder()
+  renderer.canvas = canvas
+  const view = new GameView(renderer)
+  const rect = { width: 600, height: 800 }
+
+  view.resize(rect)
+  assert.equal(assigned, 2, "the first one sizes the buffer")
+  const size = `${canvas.width}x${canvas.height}`
+  view.resize(rect)
+  view.resize(rect)
+  assert.equal(assigned, 2, "and nothing after it does")
+  assert.equal(`${canvas.width}x${canvas.height}`, size)
+
+  // A real change still lands.
+  view.resize({ width: 400, height: 700 })
+  assert.equal(assigned, 4)
 })

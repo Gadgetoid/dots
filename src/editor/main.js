@@ -189,6 +189,14 @@ const view = {
   resize() {
     const rect = canvas.getBoundingClientRect()
     const dpr = Math.min(window.devicePixelRatio || 1, 2)
+    if (
+      rect.width === this.sized?.width &&
+      rect.height === this.sized?.height &&
+      dpr === this.sized?.dpr
+    ) {
+      return
+    }
+    this.sized = { width: rect.width, height: rect.height, dpr }
     canvas.width = Math.max(1, Math.round(rect.width * dpr))
     canvas.height = Math.max(1, Math.round(rect.height * dpr))
     const scale = Math.min(rect.width / VIEW_W, rect.height / VIEW_H)
@@ -435,9 +443,11 @@ document.getElementById("fall").addEventListener("click", () => {
   showFall = !showFall
 })
 
-new ResizeObserver(() => view.resize()).observe(canvas)
+// Checked per frame, for the same reason main.js does it: a ResizeObserver whose callback
+// resizes the canvas can fire itself, and a browser zoom is what starts it.
 view.resize()
 ;(function loop() {
+  view.resize()
   draw()
   requestAnimationFrame(loop)
 })()

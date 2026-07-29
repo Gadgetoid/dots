@@ -92,19 +92,25 @@ export class GameView {
   resize(rect) {
     const dpr = Math.min(window.devicePixelRatio || 1, 2)
     const canvas = this.renderer.canvas
-    canvas.width = Math.max(1, Math.round(rect.width * dpr))
-    canvas.height = Math.max(1, Math.round(rect.height * dpr))
+    const width = Math.max(1, Math.round(rect.width * dpr))
+    const height = Math.max(1, Math.round(rect.height * dpr))
+    // Only when it has changed: assigning canvas.width clears the drawing buffer even when the
+    // value is the same one, which costs a blank frame every time this is called.
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width
+      canvas.height = height
+    }
     const scale = Math.min(rect.width / VIEW_W, rect.height / VIEW_H)
-    const width = VIEW_W * scale
-    const height = VIEW_H * scale
+    const fieldW = VIEW_W * scale
+    const fieldH = VIEW_H * scale
     this.rect = { width: rect.width, height: rect.height, scale }
     this.content = {
-      x: (rect.width - width) / 2,
-      y: (rect.height - height) / 2,
-      width,
-      height,
+      x: (rect.width - fieldW) / 2,
+      y: (rect.height - fieldH) / 2,
+      width: fieldW,
+      height: fieldH,
     }
-    this.renderer.setContentRect(this.content.x, this.content.y, width, height, dpr)
+    this.renderer.setContentRect(this.content.x, this.content.y, fieldW, fieldH, dpr)
   }
 
   // Where a canvas-space pointer lands in view space, or null if it is in the
@@ -893,14 +899,16 @@ export class GameView {
       return
     }
     this.#drawLevelPreview(option.level, box, under ? theme.panel : null)
-    // A star sits over the top right corner of the board it belongs to.
+    // A star in the top right corner of the cell, far enough in that neither the shape nor the
+    // light around it reaches the edge.
     if (option.contested) {
       this.#drawStar(
-        box.x + box.w - 20,
-        box.y + 19,
-        9,
-        option.starred ? theme.accent : under ? theme.panel : theme.text.faint,
+        box.x + box.w - 24,
+        box.y + 24,
+        11,
+        option.starred ? theme.accent : under ? theme.panel : theme.text.dim,
         option.starred,
+        under ? theme.accent : theme.cell,
       )
     }
   }
@@ -935,27 +943,27 @@ export class GameView {
     }
   }
 
-  // A five pointed star, as one closed line. Filled is the same outline drawn thick enough to
-  // meet in the middle, with a disc to close what is left, so both states are the same shape
-  // and an earned star is plainly the one that was outlined before.
+  // A star, as two triangles turned against each other.
   //
-  // An outline means there is a star here to be had: a level where how it is played changes
-  // what it pays. Levels where every clearing order pays the same have no star drawn at all,
-  // since there would be nothing to earn.
-  #drawStar(x, y, r, colour, filled) {
-    const points = []
-    for (let i = 0; i <= 10; i++) {
-      const angle = (i / 10) * Math.PI * 2 - Math.PI / 2
-      const reach = i % 2 === 0 ? r : r * 0.44
-      points.push({ x: x + Math.cos(angle) * reach, y: y + Math.sin(angle) * reach })
+  // Filled geometry, not a stroked outline: a star's points are far narrower than any stroke
+  // that would fill them, so stroking one leaves a star-shaped hole in the middle and rounds
+  // the points into blobs, and the seam where the closed path meets itself reads as a doubled
+  // point at the top. Two triangles have no seam and are solid by construction.
+  //
+  // An unearned one is the same shape with a smaller pair punched out of it in the colour
+  // behind, so it reads as the outline of the star that is there to be won.
+  #drawStar(x, y, r, colour, filled, behind) {
+    const renderer = this.renderer
+    // A third of a turn apart, and `strength` at half is the point where the shape reaches the
+    // polygon exactly: see #form in glrenderer.js.
+    const points = (radius, color, glow) => {
+      for (const turn of [0, Math.PI / 3]) {
+        renderer.disc(x, y, radius, { color, glow, shape: { sides: 3, turn, strength: 0.5 } })
+      }
     }
-    this.renderer.ribbon(points, {
-      color: colour,
-      width: filled ? r * 0.62 : 2,
-      glow: filled ? 0.5 : 0,
-    })
-    if (filled) {
-      this.renderer.disc(x, y, r * 0.34, { color: colour, glow: 0.5 })
+    points(r, colour, filled ? 0.45 : 0)
+    if (!filled) {
+      points(r * 0.62, behind, 0)
     }
   }
 

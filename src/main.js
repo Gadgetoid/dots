@@ -114,11 +114,24 @@ canvas.addEventListener(
   { passive: false },
 )
 
-function resize() {
-  view.resize(canvas.getBoundingClientRect())
+// Size is checked in the loop, not by a ResizeObserver.
+//
+// The observer's callback resizes the canvas, and a canvas resize can change the layout, which
+// fires the observer again: browsers report that as "ResizeObserver loop completed with
+// undelivered notifications" and it arrives as an uncaught error every frame. Zooming is the
+// way into it, since a zoom changes devicePixelRatio and so changes the size this wants to set.
+// A check per frame cannot feed back, and does nothing at all while nothing is moving.
+let sized = { width: 0, height: 0, dpr: 0 }
+function syncSize() {
+  const rect = canvas.getBoundingClientRect()
+  const dpr = Math.min(window.devicePixelRatio || 1, 2)
+  if (rect.width === sized.width && rect.height === sized.height && dpr === sized.dpr) {
+    return
+  }
+  sized = { width: rect.width, height: rect.height, dpr }
+  view.resize(rect)
 }
-new ResizeObserver(resize).observe(canvas)
-resize()
+syncSize()
 
 // Pause audio while the tab is hidden. Background frames are skipped in the loop, so
 // nothing simulates either.
@@ -154,6 +167,7 @@ function loop(timestamp) {
   // Polled devices are sampled before the step they drive.
   keyboard.poll(dt)
   gamepad.poll(dt)
+  syncSize()
   syncTheme()
   syncSpeech()
   game.advance(dt)

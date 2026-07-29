@@ -179,7 +179,7 @@ export const LEVELS = [
     ],
   },
   {
-    name: "The comb",
+    name: "Comb",
     par: 2048,
     floor: 96,
     layout: [
@@ -333,7 +333,7 @@ export const LEVELS = [
     ],
   },
   {
-    name: "The iris",
+    name: "Iris",
     par: 1070,
     floor: 102,
     layout: [
@@ -403,7 +403,7 @@ export const LEVELS = [
     ],
   },
   {
-    name: "The needle",
+    name: "Needle",
     par: 2024,
     floor: 88,
     layout: [
@@ -431,7 +431,7 @@ export const LEVELS = [
     ],
   },
   {
-    name: "The spindle",
+    name: "Spindle",
     par: 1086,
     floor: 118,
     layout: [
@@ -459,7 +459,7 @@ export const LEVELS = [
     ],
   },
   {
-    name: "The descent",
+    name: "Descent",
     par: 1459,
     floor: 129,
     layout: [
@@ -473,7 +473,7 @@ export const LEVELS = [
     ],
   },
   {
-    name: "The wicket",
+    name: "Wicket",
     par: 783,
     floor: 156,
     layout: [
@@ -487,7 +487,7 @@ export const LEVELS = [
     ],
   },
   {
-    name: "The quarry",
+    name: "Quarry",
     par: 2681,
     floor: 150,
     layout: [
@@ -501,7 +501,7 @@ export const LEVELS = [
     ],
   },
   {
-    name: "The ravine",
+    name: "Ravine",
     par: 5370,
     floor: 161,
     layout: [
@@ -515,7 +515,7 @@ export const LEVELS = [
     ],
   },
   {
-    name: "The anvil",
+    name: "Anvil",
     par: 6058,
     floor: 150,
     layout: [
@@ -543,7 +543,7 @@ export const LEVELS = [
     ],
   },
   {
-    name: "The chasm",
+    name: "Chasm",
     par: 6340,
     floor: 131,
     layout: [

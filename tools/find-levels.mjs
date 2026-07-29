@@ -25,6 +25,7 @@
 // | --shape S   | only this silhouette                                                  |
 // | --from N    | start at this candidate number, to carry on where a run left off       |
 // | --show N    | print candidate N and stop, to see or reproduce one                    |
+// | --maxdots N | skip candidates with more dots than this (default 26)                  |
 //
 // Every candidate is a pure function of its number, so a run repeats nothing, two workers never
 // try the same board, and stopping and restarting from the number the last run reached carries on
@@ -33,6 +34,12 @@
 // and twenty-five billion respectively. What it enumerates is a structured subset - colours grown
 // as regions rather than scattered - because a colour whose dots are spread over the board strands
 // almost every time: one in twenty of those is clearable against one in three of these.
+//
+// A word on size, since it decides what a run can do. Boards of 18 to 26 dots are judged in
+// tenths of a second to a few seconds, so thousands an hour go past and they reach about 12 on the
+// difficulty scale. Boards of 30 dots and up reach 13 and beyond, and take *minutes* each: they are
+// worth a run of their own with --shape, --maxdots and a --seconds in the hundreds, not a share of
+// a mixed one.
 //
 // DIR fills as it goes, a file per candidate named for how hard it measured so `ls` shows the best
 // last, plus a summary.txt rewritten on every find. Both are safe to read while it runs. Nothing
@@ -98,6 +105,7 @@ const OPTIONS = {
   workers: Number(arg("workers", Math.max(1, os.cpus().length - 1))),
   shape: arg("shape", null),
   from: Number(arg("from", 0)),
+  maxDots: Number(arg("maxdots", 26)),
 }
 
 // ---- one candidate, from its number ----------------------------------------
@@ -224,7 +232,7 @@ function wanted(found, min) {
 }
 
 // ---- one worker's share ----------------------------------------------------
-function hunt({ first, stride, min, seconds, tries, shape }) {
+function hunt({ first, stride, min, seconds, tries, shape, maxDots }) {
   let tried = 0
   let clearable = 0
   let judged = 0
@@ -234,6 +242,12 @@ function hunt({ first, stride, min, seconds, tries, shape }) {
   for (let done = 0; tries === 0 || done < tries; done++, number += stride) {
     const made = candidate(number, shape)
     if (!made) {
+      continue
+    }
+    // Too big to finish judging is as useless as unclearable, and costs the whole leash to find
+    // out. Around thirty dots takes minutes to value exactly, so a mixed run skips them by
+    // default; raise maxdots along with seconds to go looking there on purpose.
+    if (made.layout.join("").replace(/\./g, "").length > maxDots) {
       continue
     }
     tried++
@@ -368,6 +382,7 @@ function main() {
         seconds: OPTIONS.seconds,
         tries: OPTIONS.tries === 0 ? 0 : Math.ceil(OPTIONS.tries / OPTIONS.workers),
         shape: OPTIONS.shape,
+        maxDots: OPTIONS.maxDots,
       },
     })
     running++

@@ -60,10 +60,14 @@ export const CONFIG = {
   // ---- the chain --------------------------------------------------------
   // Subdivisions per link of the Catmull-Rom that rounds the chain's corners.
   CHAIN_SMOOTHING: 10,
-  CHAIN_WIDTH_RATIO: 0.42, // line thickness against the dot radius
+  // Line thickness as a fraction of the dot radius. Thin enough that the dots
+  // still read as dots on a cord rather than as one blob.
+  CHAIN_WIDTH_RATIO: 0.62,
   // Glow builds as the chain grows: `base` at two dots, climbing by `perDot` and
-  // holding at `max`. This is the bloom the player is playing toward.
-  CHAIN_GLOW: { base: 0.35, perDot: 0.3, max: 2.4 },
+  // holding at `max`. This is the bloom the player is playing toward, and the
+  // ceiling is where it stops: past about one the halo is wide enough to swallow
+  // the colour it came from and every long chain looks the same white.
+  CHAIN_GLOW: { base: 0.22, perDot: 0.16, max: 1.05 },
   // How fast the drawn glow chases the value above, per second, so a long chain
   // brightens smoothly and a pop does not snap dark.
   CHAIN_GLOW_RATE: 7,
@@ -72,9 +76,13 @@ export const CONFIG = {
 
   // ---- popping ----------------------------------------------------------
   // Particles per popped dot, and the ring it throws.
-  POP_SPARKS: 14,
-  POP_DUST: 6,
-  POP_SPARK_SPEED: [90, 320],
+  POP_SPARKS: 20,
+  POP_DUST: 8,
+  POP_SPARK_SPEED: [110, 380],
+  // The flash where the dot was: brief and bright, so a pop has an instant rather
+  // than only an aftermath.
+  POP_FLASH_LIFE: 0.16,
+  POP_FLASH_SIZE: 2.2, // against the dot radius
   POP_DUST_SPEED: [10, 70],
   POP_RING_LIFE: 0.42,
   POP_RING_RADIUS: 2.6, // final radius, against the dot radius
@@ -87,7 +95,7 @@ export const CONFIG = {
   SPARK_LIFE: [0.34, 0.72],
   DUST_LIFE: [0.5, 1.1],
   // How far a spark's streak reaches behind it, in seconds of its own travel.
-  SPARK_STREAK: 0.035,
+  SPARK_STREAK: 0.05,
   MAX_PARTICLES: 1400,
 
   // ---- scoring ----------------------------------------------------------
@@ -127,7 +135,7 @@ export const CONFIG = {
   ],
   // Bloom shape. The glow layer is drawn and blurred separately from the scene,
   // so this is how much of it is added back rather than a brightness threshold.
-  BLOOM_INTENSITY: 1.15,
+  BLOOM_INTENSITY: 1,
 }
 
 // Where a board of this shape sits, in view units. Everything the view draws for

@@ -24,7 +24,8 @@ export default [
     },
   },
   {
-    files: ["test/**/*.js"],
+    // The test suite and the screenshot tool run under node, not a browser.
+    files: ["test/**/*.js", "tools/**/*.mjs"],
     languageOptions: { globals: { ...globals.node } },
   },
 ]

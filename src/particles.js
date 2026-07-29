@@ -28,18 +28,22 @@ export class Particles {
     this.dust = []
     // The shockwave a pop pushes out through its neighbours.
     this.rings = []
+    // The instant of a pop: a bright bloom where the dot was, gone in a sixth of a
+    // second.
+    this.flashes = []
     // Score, rising off the chain that earned it.
     this.floaters = []
   }
 
   get count() {
-    return this.sparks.length + this.dust.length + this.rings.length
+    return this.sparks.length + this.dust.length + this.rings.length + this.flashes.length
   }
 
   clear() {
     this.sparks.length = 0
     this.dust.length = 0
     this.rings.length = 0
+    this.flashes.length = 0
     this.floaters.length = 0
   }
 
@@ -85,9 +89,15 @@ export class Particles {
     this.floaters.push({ x, y, text, colour, scale, age: 0, life: CONFIG.FLOATER_LIFE })
   }
 
-  // A dot going: a hard burst of sparks, a little dust behind it, and a ring.
-  // `scale` follows the dot radius, so the effect fits a 4x4 board and a 9x9 one.
-  pop(x, y, colour, scale) {
+  flash(x, y, colour, size) {
+    this.flashes.push({ x, y, colour, size, age: 0, life: CONFIG.POP_FLASH_LIFE })
+  }
+
+  // A dot going: the flash, a hard burst of sparks, a little dust behind it, and a
+  // ring. `scale` follows the dot radius, so the effect fits a 4x4 board and a 9x9
+  // one, and `radius` is the dot's own so the flash covers where it was.
+  pop(x, y, colour, scale, radius) {
+    this.flash(x, y, colour, radius * CONFIG.POP_FLASH_SIZE)
     for (let i = 0; i < CONFIG.POP_SPARKS; i++) {
       const speed = randRange(CONFIG.POP_SPARK_SPEED[0], CONFIG.POP_SPARK_SPEED[1]) * scale
       this.spark(x, y, colour, speed, randRange(1.6, 3.4) * scale)
@@ -126,6 +136,9 @@ export class Particles {
     for (const ring of this.rings) {
       ring.age += dt
     }
+    for (const flash of this.flashes) {
+      flash.age += dt
+    }
     for (const floater of this.floaters) {
       floater.age += dt
       floater.y -= CONFIG.FLOATER_RISE * dt * (1 - floater.age / floater.life)
@@ -134,6 +147,7 @@ export class Particles {
     compact(this.sparks, alive)
     compact(this.dust, alive)
     compact(this.rings, alive)
+    compact(this.flashes, alive)
     compact(this.floaters, alive)
   }
 }

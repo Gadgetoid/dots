@@ -28,7 +28,7 @@ const DARK = {
   background: "#12141c",
   // The empty grid: where a dot would sit, and the well it falls down.
   well: "#181b25",
-  cell: "#1d2130",
+  cell: "#272c3c",
   panel: "#1a1e2b",
   panelEdge: "#2c3346",
   text: {
@@ -44,12 +44,15 @@ const DARK = {
   // How much light the whole theme throws into the bloom pass. Dark is where the
   // glow belongs, so it gets all of it.
   bloom: 1,
+  // The bright variant is only a little brighter than the base. A dot in a chain
+  // is already carrying the glow layer, and a pale bright on top of that puts the
+  // whole chain to white: the hue has to survive its own bloom.
   dots: [
-    { base: "#b455e6", bright: "#d98cff" }, // purple
-    { base: "#3cc4ff", bright: "#8ce0ff" }, // blue
-    { base: "#2bbfae", bright: "#68f0dd" }, // teal
-    { base: "#ff5566", bright: "#ff92a0" }, // red
-    { base: "#ffa640", bright: "#ffcb85" }, // orange
+    { base: "#b455e6", bright: "#c86ff5" }, // purple
+    { base: "#3cc4ff", bright: "#5fd2ff" }, // blue
+    { base: "#2bbfae", bright: "#45d3c1" }, // teal
+    { base: "#ff5566", bright: "#ff7079" }, // red
+    { base: "#ffa640", bright: "#ffb85e" }, // orange
   ],
 }
 
@@ -74,7 +77,7 @@ const LIGHT = {
   warn: "#d92b3f",
   // A glow laid over white only greys the picture, so the light theme takes a
   // fraction of it: enough to soften a long chain, not enough to fog the board.
-  bloom: 0.35,
+  bloom: 0.5,
   dots: [
     { base: "#9900cc", bright: "#bb22ee" }, // purple
     { base: "#00ccff", bright: "#22eeff" }, // blue

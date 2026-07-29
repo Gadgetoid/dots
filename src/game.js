@@ -116,6 +116,7 @@ export class Game {
     this.overFor = 0
     this.lastChainLength = 0
 
+    this.dealAttractBoard()
     this.#restoreState()
   }
 
@@ -150,6 +151,11 @@ export class Game {
       this.mode = modeById(this.settings.mode)
       this.layout = boardLayout(this.mode.cols, this.mode.rows)
       Sound.enabled = this.settings.sound
+      // Storage answers a frame or two in, by which time a board has already been
+      // dealt for the title: deal the remembered mode's instead.
+      if (this.phase === PHASE.TITLE) {
+        this.dealAttractBoard()
+      }
     }
     if (bindings) {
       // Merge rather than replace, so a control added since the table was written
@@ -169,12 +175,19 @@ export class Game {
   }
 
   // ---- lifecycle ----------------------------------------------------------
-  start(modeId = this.settings.mode) {
-    this.mode = modeById(modeId)
-    this.settings.mode = this.mode.id
-    this.#storeSettings()
-    this.layout = boardLayout(this.mode.cols, this.mode.rows)
-    this.board = new Board({
+  // A board for the title screen to sit over, so the game shows itself rather than
+  // offering a menu on an empty field. It is dealt and left alone: nothing is
+  // playing it, and starting a mode deals a fresh one.
+  dealAttractBoard() {
+    this.board = this.#freshBoard()
+    this.board.fill()
+    if (this.mode.onSettled) {
+      this.mode.onSettled(this.board)
+    }
+  }
+
+  #freshBoard() {
+    return new Board({
       cols: this.mode.cols,
       rows: this.mode.rows,
       minChain: this.mode.minChain,
@@ -182,6 +195,14 @@ export class Game {
       pickColour: this.mode.pickColour ? this.mode.pickColour.bind(this.mode) : null,
       specialChance: this.mode.specialChance,
     })
+  }
+
+  start(modeId = this.settings.mode) {
+    this.mode = modeById(modeId)
+    this.settings.mode = this.mode.id
+    this.#storeSettings()
+    this.layout = boardLayout(this.mode.cols, this.mode.rows)
+    this.board = this.#freshBoard()
     this.board.fill()
     if (this.mode.onSettled) {
       // A mode that curates its board gets to do so before the first move, not
@@ -209,6 +230,7 @@ export class Game {
     this.page = "title"
     this.menuIndex = 0
     this.rebinding = null
+    this.dealAttractBoard()
   }
 
   #finish(outcome) {
@@ -290,7 +312,13 @@ export class Game {
       if (!going.burst) {
         going.burst = true
         const theme = this.theme.dots[going.colour % this.theme.dots.length]
-        this.particles.pop(going.x, going.y, theme.bright, this.layout.radius / 30)
+        this.particles.pop(
+          going.x,
+          going.y,
+          theme.bright,
+          this.layout.radius / 30,
+          this.layout.radius,
+        )
         Sound.pop(going.index)
         for (const neighbour of going.neighbours) {
           neighbour.nudge(CONFIG.WOBBLE_NEIGHBOUR, going.axis)
@@ -898,6 +926,11 @@ export class Game {
         this.settings.mode = next.id
         this.layout = boardLayout(next.cols, next.rows)
         this.#storeSettings()
+        // The board behind the title is the mode being chosen, so it changes with
+        // it: a nine across board looks different before it is started.
+        if (this.phase !== PHASE.PLAYING) {
+          this.dealAttractBoard()
+        }
         Sound.menuMove()
         break
       }

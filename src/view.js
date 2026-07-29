@@ -10,9 +10,8 @@ import { VIEW_W, VIEW_H, CONFIG, cellCentre } from "./config.js"
 import { PHASE } from "./game.js"
 import { catmullRom, clamp, lerp } from "./math.js"
 
-// The strip at the top of the field the score sits in, and the one at the bottom
-// for the mode line. Both are outside the board region config.js fits the grid to.
-const HUD_TOP = 78
+// Where the mode line sits, under the board. The score bar above it needs no
+// constant: it is measured from the top of the field.
 const HUD_BOTTOM = VIEW_H - 74
 
 const TITLE = "DOTS"
@@ -144,7 +143,7 @@ export class GameView {
         sheen: theme.id === "dark" ? 0.18 : 0.1,
         // Only what is held glows, so the board is calm until the player picks
         // something up and the bloom is entirely theirs.
-        glow: linked ? game.players[dot.claim ?? 0].glow * 0.5 : 0,
+        glow: linked ? game.players[dot.claim ?? 0].glow * 0.35 : 0,
       })
     }
     // A dot on its way out shrinks into its own burst.
@@ -239,6 +238,18 @@ export class GameView {
         glow: 0.35,
       })
     }
+    // The light of the dot going, which the sparks come out of. Every particle
+    // pipeline adds rather than covers, so what order these four run in makes no
+    // difference to the picture.
+    for (const flash of particles.flashes) {
+      const fade = 1 - flash.age / flash.life
+      this.renderer.point(flash.x, flash.y, flash.size * (0.55 + 0.45 * fade), {
+        color: flash.colour,
+        alpha: fade * 0.85,
+        falloff: 1.4,
+        glow: 1.4 * fade,
+      })
+    }
     for (const ring of particles.rings) {
       const t = ring.age / ring.life
       this.renderer.ring(ring.x, ring.y, lerp(2, ring.radius, t), {
@@ -272,30 +283,29 @@ export class GameView {
     const player = game.player
     const best = game.best[game.mode.id] || 0
 
-    renderer.text("SCORE", 28, 34, { color: theme.text.faint, size: 12 })
-    renderer.text(String(player.score), 28, 64, {
-      color: theme.text.bright,
-      size: 34,
-      bold: true,
-    })
-    renderer.text("BEST", VIEW_W - 28, 34, { color: theme.text.faint, size: 12, align: "right" })
-    renderer.text(String(Math.max(best, player.score)), VIEW_W - 28, 60, {
-      color: theme.text.dim,
-      size: 22,
-      align: "right",
-    })
-
-    // The multiplier only appears once it is worth something, and glows, since it
-    // is the thing a long chain earned.
-    if (player.multiplier > 1) {
-      const colour = theme.accent
-      renderer.text(`x${player.multiplier}`, VIEW_W / 2, HUD_TOP - 24, {
-        color: colour,
-        size: 26,
-        align: "center",
-        bold: true,
-        glow: 0.9,
+    // The title screen has no score to show, and a zero under a panel that says
+    // START is just noise.
+    if (game.phase !== PHASE.TITLE) {
+      renderer.text("SCORE", 28, 34, { color: theme.text.faint, size: 12 })
+      const score = String(player.score)
+      renderer.text(score, 28, 64, { color: theme.text.bright, size: 34, bold: true })
+      renderer.text("BEST", VIEW_W - 28, 34, { color: theme.text.faint, size: 12, align: "right" })
+      renderer.text(String(Math.max(best, player.score)), VIEW_W - 28, 60, {
+        color: theme.text.dim,
+        size: 22,
+        align: "right",
       })
+      // The multiplier only appears once it is worth something, and glows, since it
+      // is what a long chain earned. It sits beside the score rather than above the
+      // board, which is where the page's own buttons are.
+      if (player.multiplier > 1) {
+        renderer.text(`x${player.multiplier}`, 28 + renderer.measureText(score, 34) + 12, 62, {
+          color: theme.accent,
+          size: 22,
+          bold: true,
+          glow: 0.7,
+        })
+      }
     }
 
     // What the chain in hand is worth, where the 32blit version put it: beside the
@@ -334,10 +344,12 @@ export class GameView {
     })
   }
 
+  // The clock, under the score rather than over the board: the page's own buttons
+  // sit above the field and a bar up there would be behind them.
   #drawTimer(game, theme) {
     const width = 180
     const x = (VIEW_W - width) / 2
-    const y = 30
+    const y = 84
     const left = game.timeLeft / game.mode.timeLimit
     this.renderer.panel(x, y, width, 6, { fill: theme.cell, radius: 3 })
     if (left > 0) {
@@ -349,7 +361,7 @@ export class GameView {
         glow: left < 0.2 ? 1.2 : 0.4,
       })
     }
-    this.renderer.text(`${Math.ceil(game.timeLeft)}`, VIEW_W / 2, y + 30, {
+    this.renderer.text(`${Math.ceil(game.timeLeft)}`, VIEW_W / 2, y - 8, {
       color: left < 0.2 ? theme.warn : theme.text.dim,
       size: 14,
       align: "center",
@@ -369,7 +381,10 @@ export class GameView {
     const heading = this.#menuHeading(game)
     const headerHeight = heading.length * 30 + 18
     const width = 460
-    const height = contentHeight + headerHeight + 56
+    // The hint lives inside the panel: under it, it lands on the board behind and
+    // is unreadable on a busy field.
+    const hintHeight = 34
+    const height = contentHeight + headerHeight + hintHeight + 46
     const x = (VIEW_W - width) / 2
     const y = clamp((VIEW_H - height) / 2, 24, VIEW_H - height - 24)
 
@@ -410,7 +425,7 @@ export class GameView {
       this.menuHits.push({ index, x: x + 14, y: rowY - 2, w: width - 28, h: rowHeight - 4 })
       if (selected) {
         renderer.panel(x + 14, rowY - 2, width - 28, rowHeight - 4, {
-          fill: theme.cell,
+          fill: theme.panelEdge,
           radius: 8,
         })
       }
@@ -448,14 +463,13 @@ export class GameView {
       rowY += rowHeight
     })
 
-    // The hint under the panel: what the selected row is for, or how to work the
-    // menu at all.
+    // What the selected row is for, or how to work the menu at all.
     const row = rows[game.menuIndex]
     const hint = game.rebinding
       ? "PRESS A KEY OR BUTTON. ESCAPE TO CANCEL"
       : (row && row.hint) || "MOVE TO CHOOSE, PRESS TO CONFIRM"
-    renderer.text(hint, VIEW_W / 2, y + height + 26, {
-      color: theme.text.faint,
+    renderer.text(hint, VIEW_W / 2, y + height - 14, {
+      color: game.rebinding ? theme.accent : theme.text.faint,
       size: 12,
       align: "center",
     })
@@ -468,7 +482,7 @@ export class GameView {
     switch (game.page) {
       case "title":
         return [
-          { text: TITLE, colour: theme.text.bright, size: 44, bold: true, glow: 0.8 },
+          { text: TITLE, colour: theme.text.bright, size: 44, bold: true, glow: 0.45 },
           { text: "LINK DOTS OF A COLOUR TO POP THEM", colour: theme.text.dim, size: 13 },
         ]
       case "over": {

@@ -1,0 +1,211 @@
+// Capture screenshots of the real game through the real WebGL backend, so what a
+// shot shows is what it ships with and a change to the look is one command away
+// from being seen.
+//
+// Also the smoke test: it fails on a shader that will not compile, a module that
+// will not load or an exception in the first frames, none of which a unit test can
+// see. Any console error or page error is reported and sets the exit code.
+//
+// Needs a browser and puppeteer-core, neither of which the game depends on:
+//
+//   npm install --no-save puppeteer-core
+//   node tools/screenshot.mjs
+//
+// Output lands in screenshots/.
+
+import puppeteer from "puppeteer-core"
+import http from "node:http"
+import fs from "node:fs"
+import path from "node:path"
+import { fileURLToPath } from "node:url"
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
+const OUT = path.join(ROOT, "screenshots")
+
+// Where to find a browser. CHROME overrides it.
+const CHROME_CANDIDATES = [
+  process.env.CHROME,
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  "/usr/bin/chromium",
+  "/usr/bin/google-chrome",
+].filter(Boolean)
+
+// The field is 600x800, so that is the size a shot is honest at.
+const W = 600
+const H = 800
+
+const MIME = {
+  ".html": "text/html",
+  ".js": "text/javascript",
+  ".css": "text/css",
+  ".png": "image/png",
+}
+
+// One entry per shot. `pose` runs in the page with the debug handle, and is
+// followed by `frames` frames of simulation so springs and particles are mid-flight
+// rather than at rest.
+const SHOTS = [
+  {
+    file: "title.png",
+    theme: "dark",
+    frames: 40,
+    pose: `(game) => {}`,
+  },
+  {
+    file: "board.png",
+    theme: "dark",
+    frames: 90,
+    pose: `(game) => {
+      game.start("classic")
+      game.settle(2)
+      // A chain along a row of one colour, however the board was dealt: find the
+      // longest run there is and link it.
+      const chain = game.board.longestChain()
+      game.player.cursor = { col: chain[0].col, row: chain[0].row }
+      game.startChain(0)
+      for (let i = 1; i < chain.length; i++) {
+        game.extendTo(0, chain[i].col, chain[i].row)
+      }
+      game.player.score = 4820
+      game.player.multiplier = 3
+    }`,
+  },
+  {
+    file: "popping.png",
+    theme: "dark",
+    frames: 8,
+    pose: `(game) => {
+      game.start("classic")
+      game.settle(2)
+      const chain = game.board.longestChain()
+      game.player.cursor = { col: chain[0].col, row: chain[0].row }
+      game.startChain(0)
+      for (let i = 1; i < chain.length; i++) {
+        game.extendTo(0, chain[i].col, chain[i].row)
+      }
+      game.player.score = 4820
+      game.popChain(0)
+    }`,
+  },
+  {
+    file: "light.png",
+    theme: "light",
+    frames: 90,
+    pose: `(game) => {
+      game.start("endless")
+      game.settle(2)
+      const chain = game.board.longestChain()
+      game.player.cursor = { col: chain[0].col, row: chain[0].row }
+      game.startChain(0)
+      for (let i = 1; i < chain.length; i++) {
+        game.extendTo(0, chain[i].col, chain[i].row)
+      }
+      game.player.score = 1290
+    }`,
+  },
+  {
+    file: "menu.png",
+    theme: "dark",
+    frames: 30,
+    pose: `(game) => {
+      game.start("long")
+      game.settle(2)
+      game.togglePause()
+    }`,
+  },
+]
+
+function serve() {
+  const server = http.createServer((request, response) => {
+    const url = new URL(request.url, "http://localhost")
+    const file = path.join(ROOT, url.pathname === "/" ? "index.html" : url.pathname)
+    if (!file.startsWith(ROOT) || !fs.existsSync(file)) {
+      response.writeHead(404).end()
+      return
+    }
+    response.writeHead(200, { "content-type": MIME[path.extname(file)] || "text/plain" })
+    fs.createReadStream(file).pipe(response)
+  })
+  return new Promise((resolve) => server.listen(0, () => resolve(server)))
+}
+
+function findBrowser() {
+  for (const candidate of CHROME_CANDIDATES) {
+    if (fs.existsSync(candidate)) {
+      return candidate
+    }
+  }
+  throw new Error(`no browser found. Tried:\n  ${CHROME_CANDIDATES.join("\n  ")}`)
+}
+
+const server = await serve()
+const port = server.address().port
+fs.mkdirSync(OUT, { recursive: true })
+
+const browser = await puppeteer.launch({
+  executablePath: findBrowser(),
+  headless: true,
+  args: [
+    "--enable-unsafe-swiftshader", // a headless browser has no GPU to speak of
+    "--use-gl=angle",
+    "--hide-scrollbars",
+    "--mute-audio",
+  ],
+})
+
+let problems = 0
+try {
+  for (const shot of SHOTS) {
+    const page = await browser.newPage()
+    await page.setViewport({ width: W, height: H, deviceScaleFactor: 1 })
+    page.on("console", (message) => {
+      if (message.type() === "error") {
+        problems++
+        console.error(`[${shot.file}] console: ${message.text()}`)
+      }
+    })
+    page.on("pageerror", (error) => {
+      problems++
+      console.error(`[${shot.file}] page error: ${error.message}`)
+    })
+    await page.goto(`http://localhost:${port}/index.html?fullscreen`, { waitUntil: "load" })
+    await page.waitForFunction("window.__dots && window.__dots.game")
+    // Pose the scene, then step the loop by hand: the game's own rAF loop is left
+    // running, but a fixed number of fixed-length frames is what makes a shot the
+    // same picture every time.
+    await page.evaluate(
+      (theme, pose, frames) => {
+        const { game, view, renderer } = window.__dots
+        game.setTheme(theme)
+        // Settling a board by hand, so a shot never catches it mid-drop unless it
+        // means to.
+        game.settle = (seconds) => {
+          for (let i = 0; i < seconds * 60; i++) {
+            game.advance(1 / 60)
+          }
+        }
+        new Function(`return (${pose})`)()(game)
+        for (let i = 0; i < frames; i++) {
+          game.advance(1 / 60)
+        }
+        view.render(game)
+        return renderer.ready
+      },
+      shot.theme,
+      shot.pose,
+      shot.frames,
+    )
+    await page.screenshot({ path: path.join(OUT, shot.file) })
+    console.log(`wrote screenshots/${shot.file}`)
+    await page.close()
+  }
+} finally {
+  await browser.close()
+  server.close()
+}
+
+if (problems > 0) {
+  console.error(`\n${problems} problem(s) reported by the page`)
+  process.exit(1)
+}
+console.log("\nno errors reported by the page")

@@ -22,6 +22,11 @@
 //               to play: a level where it clears and pays par asks nothing.
 //   difficulty  1 to 5, from the above. See DIFFICULTY.
 //
+// And two flags for how far to trust that, which are not the same flag. `exact` covers par and
+// floor; `statsExact` covers everything else, because a board that splits into independent parts
+// has its par and floor answered by the parts while the rest still comes from a whole-board walk
+// that is cut short once they have.
+//
 // The scoring rules are passed in rather than written here, so this cannot drift from what
 // the game pays.
 
@@ -217,10 +222,16 @@ export function analyse(layout, cols, rows, minChain, rules, options = {}) {
     clearable,
     par,
     floor,
-    // Whether anything about the answer is short of exact. A decomposed answer is exact even
-    // though the whole-board walk did not finish: the parts were each walked to the end.
+    // Whether par and floor are the real numbers. A decomposed answer is exact even though the
+    // whole-board walk did not finish: the parts were each walked to the end.
     truncated,
     exact: clearable === true && par != null && (decomposed > 0 || (!truncated && !exhausted)),
+    // And whether everything below is. The parts answer par and floor and nothing else: how many
+    // orders pay par, how long one is, and which openings are traps all come from the whole-board
+    // walk, which is cut short as soon as the parts have answered. A walk that stopped early
+    // undercounts the orders it found and reads every position it never reached as a trap, so
+    // anything weighing those - the difficulty most of all - has to know.
+    statsExact: clearable === true && !truncated && !exhausted,
     // How many independent boards this turned out to be, where that is how it was answered. A
     // level that is several unrelated puzzles side by side is worth telling its author about.
     decomposed,

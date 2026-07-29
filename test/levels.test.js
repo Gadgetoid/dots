@@ -129,10 +129,30 @@ const ANALYSED = LEVELS.map((level) =>
   analyse(level.layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain, SCORING, { seconds: 60 }),
 )
 
+test("a board that is several puzzles side by side is only exact about par", () => {
+  // Six full columns, each its own colour, so nothing in one can ever touch another. The parts
+  // answer par and floor between them in a moment, where walking their product - eight states a
+  // column, so a quarter of a million - does not finish. Everything else in the answer still
+  // comes from that walk, and has to say so: the chain count is six against the eighteen it
+  // really takes, and thirty-five of thirty-six openings read as traps on a board where no
+  // opening can strand anything.
+  const columns = Array.from({ length: PUZZLE_ROWS }, () =>
+    Array.from({ length: PUZZLE_COLS }, (_, col) => String(col + 1)).join(""),
+  )
+  const found = analyse(columns, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain, SCORING, {
+    seconds: 60,
+  })
+  assert.equal(found.decomposed, 6, "it is six independent puzzles")
+  assert.equal(found.par, 7203, "and the parts answer par exactly")
+  assert.equal(found.exact, true, "so par and floor can be trusted")
+  assert.equal(found.statsExact, false, "and nothing that came from the whole-board walk can be")
+})
+
 test("every level's par is the most it can actually score", () => {
   for (const [index, level] of LEVELS.entries()) {
     const found = ANALYSED[index]
     assert.equal(found.exhausted, false, `level ${index + 1} was searched to the end`)
+    assert.equal(found.statsExact, true, `level ${index + 1} was counted, not estimated`)
     assert.equal(
       level.par,
       found.par,

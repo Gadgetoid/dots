@@ -403,9 +403,13 @@ function render() {
     return
   }
 
-  out.verdict.textContent = found.exact
+  // The band comes off the difficulty, which comes off the whole-board walk, so it needs the
+  // stronger of the two flags: a split board can have an exact par and no band at all.
+  out.verdict.textContent = found.statsExact
     ? `clearable, ${BANDS[found.band] || found.band}`
-    : "clearable, but too big to score exactly"
+    : found.exact
+      ? "clearable, but too big to say how hard"
+      : "clearable, but too big to score exactly"
   out.verdict.className = "verdict good"
   out.numbers.innerHTML =
     row("dots", dots) +
@@ -418,10 +422,18 @@ function render() {
       : "") +
     row(found.exact ? "par" : "par, at least", found.par) +
     row("floor", found.floor, found.forced ? "every order pays the same" : "") +
-    row("orders paying par", found.parPaths) +
-    row("chains", found.moves) +
-    row("difficulty", found.difficulty.toFixed(1)) +
-    row("silent traps", `${found.firstSilent} of ${found.firstMoves} openings`) +
+    // Everything from here down comes from the whole-board walk, which the parts of a split board
+    // do not answer. Where it did not finish these are guesses, and saying so is the whole point.
+    (found.statsExact
+      ? row("orders paying par", found.parPaths) +
+        row("chains", found.moves) +
+        row("difficulty", found.difficulty.toFixed(1)) +
+        row("silent traps", `${found.firstSilent} of ${found.firstMoves} openings`)
+      : row(
+          "orders, chains, traps",
+          "not counted",
+          "the search did not finish, so only par and floor can be told",
+        )) +
     row("obvious play", found.greedy.clears ? found.greedy.score : "strands the board") +
     row("positions", found.positions.toLocaleString())
 

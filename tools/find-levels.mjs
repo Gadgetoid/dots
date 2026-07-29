@@ -224,6 +224,10 @@ function wanted(found, min) {
   return (
     found.clearable === true &&
     found.exact &&
+    // Everything below par comes from the whole-board walk, and a walk that stopped early reads
+    // as harder than it is: the positions it never reached all count as traps. Without this a
+    // run fills up with boards whose difficulty was never measured.
+    found.statsExact &&
     found.difficulty >= min &&
     found.parPaths === 1 &&
     found.moves >= 4 &&

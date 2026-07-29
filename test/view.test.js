@@ -390,7 +390,16 @@ test("no menu page runs off the field", () => {
   game.start("puzzle")
   // Every page, including the two with the most on them: the settings, and the controls
   // with a row per control per device.
-  for (const page of ["title", "modes", "levels", "pause", "over", "settings", "controls"]) {
+  for (const page of [
+    "title",
+    "modes",
+    "levels",
+    "pause",
+    "over",
+    "settings",
+    "controls",
+    "seed",
+  ]) {
     game.page = page
     game.menuIndex = 0
     game.menuOption = 0

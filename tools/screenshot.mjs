@@ -232,6 +232,24 @@ const SHOTS = [
     }`,
   },
   {
+    // The seed picker, with the cursor on the code rather than on Play: the board frosted
+    // behind it is the one that code deals, which is the only way to see that walking a code
+    // is seeing the board it gives.
+    file: "seed.png",
+    theme: "dark",
+    frames: 20,
+    pose: `(game, art) => {
+      art.press(game, "modes")
+      art.press(game, "mode:seeded")
+      game.openSharedSeed("314522")
+      game.seedBest = { "314522": 8240 }
+      const rows = game.menuRows()
+      game.menuIndex = rows.findIndex((row) => row.layout === "seed")
+      game.menuOption = 2
+      game.settle(1)
+    }`,
+  },
+  {
     // Everything a player can change about how the game looks, sounds and plays, over a
     // board frosted behind it.
     file: "settings.png",

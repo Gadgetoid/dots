@@ -56,3 +56,10 @@ export const saveBindings = (bindings) => save("bindings", bindings)
 // number for a whole mode.
 export const loadProgress = () => load("progress")
 export const saveProgress = (progress) => save("progress", progress)
+
+// Best score per seed, as { [code]: score }. Kept apart from `best`, which holds one number
+// for the whole seeded mode: that is the best board anyone was ever dealt, and this is what
+// a particular board has given up, which is the only figure worth comparing with another
+// player. Keyed by the code as it is written, so the record reads as itself.
+export const loadSeedBest = () => load("seedBest")
+export const saveSeedBest = (seedBest) => save("seedBest", seedBest)

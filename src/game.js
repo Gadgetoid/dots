@@ -12,7 +12,7 @@ import { Board } from "./board.js"
 import { Particles } from "./particles.js"
 import { Sound } from "./audio.js"
 import { Speech } from "./speech.js"
-import { GAME_MODES, modeById, defaultOutcome, modeRefills } from "./modes/index.js"
+import { GAME_MODES, SEEDED_MODE, modeById, defaultOutcome, modeRefills } from "./modes/index.js"
 import { SPECIAL_BY_ID } from "./specials.js"
 import {
   CONFIG,
@@ -33,7 +33,18 @@ import {
 } from "./config.js"
 import { THEMES, THEME_IDS, DOT_SHAPES } from "./palette.js"
 import { resolveTuning } from "./scales.js"
-import { clamp, lerp } from "./math.js"
+import { clamp, lerp, mulberry32 } from "./math.js"
+import {
+  SEED_DOTS,
+  SEED_COLOURS,
+  coloursFromSeed,
+  seedFromColours,
+  seedCode,
+  seedFromCode,
+  randomSeed,
+  dailySeed,
+  validSeed,
+} from "./seed.js"
 import {
   loadBest,
   saveBest,
@@ -43,6 +54,8 @@ import {
   saveSettings,
   loadBindings,
   saveBindings,
+  loadSeedBest,
+  saveSeedBest,
 } from "./persistence.js"
 
 export const PHASE = { TITLE: "title", PLAYING: "playing", OVER: "over" }
@@ -56,6 +69,10 @@ export const MAX_PLAYERS = 4
 // all of them is a clatter, not a rain.
 const LAND_AUDIBLE = 6
 const LAND_VOICES = 3
+
+// Pages opened from another page, so back closes them and returns where they came from.
+// Anything else back does is decided by the phase; see Game.menuBack.
+const NESTED_PAGES = new Set(["controls", "settings", "modes", "levels", "seed"])
 
 // The least time between two refusals being sounded. See Game.#soundBlocked.
 const BLOCKED_GAP = 0.18
@@ -99,6 +116,14 @@ export class Game {
     this.best = {}
     // How far each mode with levels has got: see levelBest.
     this.progress = {}
+    // Best score per seed code, for the seeded mode: see seedBestFor.
+    this.seedBest = {}
+    // The seed the current game was dealt from, and what the picker's dots are showing.
+    // Two, because the picker is data rebuilt every frame and cannot hold a draft of its
+    // own, and because walking away from the picker must not change the board being played.
+    // Both open on today's, which is what a player who wants a board to share wants.
+    this.seed = dailySeed()
+    this.seedDraft = this.seed
     this.phase = PHASE.TITLE
     // Which menu is open, or null while the board is being played. The title and
     // the game-over screen are menus like any other, which is why a press does the
@@ -234,11 +259,12 @@ export class Game {
 
   // ---- persistence --------------------------------------------------------
   async #restoreState() {
-    const [settings, bindings, best, progress] = await Promise.all([
+    const [settings, bindings, best, progress, seedBest] = await Promise.all([
       loadSettings(),
       loadBindings(),
       loadBest(),
       loadProgress(),
+      loadSeedBest(),
     ])
     if (settings) {
       this.settings = { ...this.settings, ...settings }
@@ -248,6 +274,12 @@ export class Game {
       // Storage answers a frame or two in, by which time a board has already been
       // dealt for the title: deal the remembered mode's instead.
       if (this.phase === PHASE.TITLE) {
+        // The code last played, so a returning player is offered their own board and not a
+        // stranger's. Only while nothing has started: a code shared in a link is applied as
+        // soon as the game is built, and storage answering afterwards must not overwrite it.
+        if (validSeed(this.settings.seed)) {
+          this.seedDraft = this.settings.seed
+        }
         this.dealAttractBoard()
       }
     }
@@ -265,6 +297,9 @@ export class Game {
     if (progress) {
       this.progress = progress
     }
+    if (seedBest) {
+      this.seedBest = seedBest
+    }
   }
 
   #storeSettings() {
@@ -278,6 +313,88 @@ export class Game {
       return null
     }
     return this.mode.levels[clamp(this.level, 0, this.mode.levels.length - 1)]
+  }
+
+  // ---- seeds --------------------------------------------------------------
+  // The code the board in play was dealt from, or the one the picker is holding where
+  // nothing has been dealt from a code at all.
+  get seedText() {
+    return seedCode(this.seed)
+  }
+
+  // The best score on a code. This is the figure worth comparing with another player: a
+  // score is only a score against the board it was made on.
+  seedBestFor(seed = this.seed) {
+    return this.seedBest[seedCode(seed)] ?? 0
+  }
+
+  // The record the game in progress is played against: the code's own where the board came
+  // from one, and the mode's otherwise.
+  get bestScore() {
+    return this.mode.seeded ? this.seedBestFor() : this.best[this.mode.id] || 0
+  }
+
+  #recordSeed(seed, scored) {
+    const code = seedCode(seed)
+    if (this.seedBest[code] >= scored) {
+      return
+    }
+    this.seedBest = { ...this.seedBest, [code]: scored }
+    saveSeedBest({ ...this.seedBest })
+  }
+
+  // Take a code into the picker and deal the board it names behind the panel. Walking a code
+  // is seeing the board it gives, the way walking the mode grid is seeing the mode; the deal
+  // is skipped mid-game for the reason #previewMode gives.
+  #showSeed(seed) {
+    this.seedDraft = seed
+    if (this.phase !== PHASE.PLAYING) {
+      this.dealAttractBoard()
+    }
+  }
+
+  #stepSeedDot(index, colour) {
+    const colours = coloursFromSeed(this.seedDraft)
+    colours[index] = (colour + SEED_COLOURS) % SEED_COLOURS
+    this.#showSeed(seedFromColours(colours))
+  }
+
+  // A digit typed straight into the code, which is how a code somebody sent is entered
+  // without pressing a dot round the colours one at a time. Returns whether the character
+  // was one a code holds, so the input layer knows whether to keep the key, and moves along
+  // so six presses type a whole code.
+  typeSeedDigit(character) {
+    if (!this.typingSeed) {
+      return false
+    }
+    const digit = Number(character)
+    if (!Number.isInteger(digit) || digit < 1 || digit > SEED_COLOURS) {
+      return false
+    }
+    this.#stepSeedDot(this.menuOption, digit - 1)
+    this.menuOption = (this.menuOption + 1) % SEED_DOTS
+    this.#playCursor()
+    return true
+  }
+
+  // Whether a typed digit has somewhere to go: the code under the cursor, and nothing else
+  // in the game takes characters.
+  get typingSeed() {
+    const row = this.menuRows()[this.menuIndex]
+    return Boolean(row && row.layout === "seed")
+  }
+
+  // A code handed over in a link. Opens the picker on it, so the page can name the board and
+  // what it has already given up before anybody plays it. Returns whether it was a code.
+  openSharedSeed(code) {
+    const seed = seedFromCode(code)
+    if (seed === null || !SEEDED_MODE) {
+      return false
+    }
+    this.#previewMode(SEEDED_MODE)
+    this.#showSeed(seed)
+    this.#openPage("seed")
+    return true
   }
 
   // ---- authored levels ----------------------------------------------------
@@ -361,6 +478,13 @@ export class Game {
     this.#dealBoard()
   }
 
+  // The seed the next board is dealt from: the one the game in progress is on, and what the
+  // picker is holding while nothing is being played, so the field behind the panel shows the
+  // board the code in front of it names.
+  get #dealSeed() {
+    return this.phase === PHASE.PLAYING ? this.seed : this.seedDraft
+  }
+
   #freshBoard() {
     return new Board({
       cols: this.mode.cols,
@@ -369,6 +493,12 @@ export class Game {
       colours: this.mode.colours,
       pickColour: this.mode.pickColour ? this.mode.pickColour.bind(this.mode) : null,
       specialChance: this.mode.specialChance,
+      // A mode that plays from a code is dealt by a generator started from it, and a fresh
+      // generator every deal: that is what makes a restart the same board again, and it is
+      // what the 32blit version did by resetting its PRNG as it loaded one. Nothing else is
+      // seeded, since a spark landing in the same place twice is not what anyone means by
+      // the same board.
+      random: this.mode.seeded ? mulberry32(this.#dealSeed) : Math.random,
     })
   }
 
@@ -392,6 +522,15 @@ export class Game {
   start(modeId = this.settings.mode, options = {}) {
     this.mode = modeById(modeId)
     this.settings.mode = this.mode.id
+    // Which code this board is dealt from. Restart and Again name none, so the one in play
+    // carries and a re-deal is the same board to have another go at; starting the mode from
+    // its picker names what the picker was holding. Remembered, so the picker opens on it
+    // again next session.
+    if (this.mode.seeded) {
+      this.seed = validSeed(options.seed) ? options.seed : this.seed
+      this.seedDraft = this.seed
+      this.settings.seed = this.seed
+    }
     this.#storeSettings()
     this.layout = boardLayout(this.mode.cols, this.mode.rows)
     // What the mode sounds like. Resolved per game, not held on the mode: a mode may ask for
@@ -507,6 +646,12 @@ export class Game {
     if (!(this.best[this.mode.id] >= score)) {
       this.best[this.mode.id] = score
       saveBest({ ...this.best })
+    }
+    // And against the code as well, where the board came from one: the mode's record is the
+    // best board anyone was ever dealt, and a code's is the only figure two players can hold
+    // up against each other.
+    if (this.mode.seeded) {
+      this.#recordSeed(this.seed, score)
     }
     if (outcome === "won") {
       Sound.clear()
@@ -1065,7 +1210,7 @@ export class Game {
   //   heading   a section title. Not selectable; the cursor steps over it.
   //   buttons   a block of big pressable cells, laid out in `columns`. This is what
   //             anything worth pressing is: one cell wide for the thing a page is for,
-  //             two for a pair, and seven in a grid for the modes. A null cell holds
+  //             two for a pair, and a grid for the modes. A null cell holds
   //             its place without drawing, which is how a button keeps the same corner
   //             of the panel on a page that has nothing to put beside it.
   //   options   a strip of settings values, any of which can be pressed directly.
@@ -1131,7 +1276,13 @@ export class Game {
         rows.push({ id: "hint", kind: "hint" })
         rows.push(
           this.#buttons([
-            this.currentLevel ? { action: "levels", label: "Puzzles" } : null,
+            // Play again is another go at the same board, so the way to a different one
+            // belongs here, in the slot the puzzle ladder uses on its own pages.
+            this.currentLevel
+              ? { action: "levels", label: "Puzzles" }
+              : this.mode.seeded
+                ? { action: "seed", label: "Another code" }
+                : null,
             { action: "modes", label: "Choose a mode" },
           ]),
         )
@@ -1191,6 +1342,32 @@ export class Game {
           { id: "hint", kind: "hint" },
           this.#buttons([{ action: "back", label: "Back" }, null]),
         ]
+      case "seed":
+        return [
+          {
+            id: "seed",
+            kind: "buttons",
+            // Drawn as the six dots it is; see #drawSeed. Everything else about it is a block
+            // of buttons, which is what gives it the whole interaction for nothing: left and
+            // right step along the code, up and down leave it, and a press acts on the dot
+            // under the cursor.
+            layout: "seed",
+            columns: SEED_DOTS,
+            options: coloursFromSeed(this.seedDraft).map((colour, index) => ({
+              action: `seedDot:${index}`,
+              label: String(colour + 1),
+              colour,
+              hint: "Press to change this dot, or type a digit",
+            })),
+          },
+          { id: "hint", kind: "hint" },
+          this.#buttons([{ action: "seedPlay", label: "Play" }], { primary: true }),
+          this.#buttons([
+            { action: "seedToday", label: "Today" },
+            { action: "seedRandom", label: "Surprise me" },
+          ]),
+          this.#buttons([{ action: "back", label: "Back" }, null]),
+        ]
       case "controls":
         return [
           ...this.#controlRows(),
@@ -1219,7 +1396,7 @@ export class Game {
   }
 
   // The settings, each a row of values with its name in the gutter beside them.
-  // Beside, because there are seven of these and a heading each would not fit the field -
+  // Beside, because there are eight of these and a heading each would not fit the field -
   // and a name at the left of the values it names reads as belonging to them anyway.
   #settingRows() {
     return [
@@ -1630,6 +1807,13 @@ export class Game {
     if (this.page === "pause") {
       return this.mode.name
     }
+    if (this.page === "seed") {
+      // Spelled out, so a code can be written down from hearing it, and what it has already
+      // given up, which is what makes a board worth another go.
+      const code = seedCode(this.seedDraft).split("").join(" ")
+      const best = this.seedBestFor(this.seedDraft)
+      return `${PAGE_TITLES.seed}. Code ${code}${best ? `, best ${best}` : ""}`
+    }
     return PAGE_TITLES[this.page] || ""
   }
 
@@ -1671,12 +1855,7 @@ export class Game {
       this.cancelRebind()
       return
     }
-    if (
-      this.page === "controls" ||
-      this.page === "settings" ||
-      this.page === "modes" ||
-      this.page === "levels"
-    ) {
+    if (NESTED_PAGES.has(this.page)) {
       this.#closePage()
       return
     }
@@ -1739,12 +1918,24 @@ export class Game {
   // pointing at a row that page does not have or a cell that row does not.
   #resetMenuCursor() {
     const rows = this.menuRows()
-    this.#goToRow(
-      Math.max(
-        rows.findIndex((row) => this.#selectable(row)),
-        0,
-      ),
-      rows,
+    this.#goToRow(this.#firstRow(rows), rows)
+  }
+
+  // Which row a page opens on. The first there is to press, except where that is not the one
+  // to press: the seed picker's code sits at the top because that is where a code belongs,
+  // and a player who takes the code offered wants Play.
+  #firstRow(rows) {
+    if (this.page === "seed") {
+      const play = rows.findIndex((row) =>
+        (row.options || []).some((cell) => cell && cell.action === "seedPlay"),
+      )
+      if (play >= 0) {
+        return play
+      }
+    }
+    return Math.max(
+      rows.findIndex((row) => this.#selectable(row)),
+      0,
     )
   }
 
@@ -1762,7 +1953,27 @@ export class Game {
         this.#openPage("levels")
         return
       }
+      // A mode dealt from a code asks which code first, the same way. Through #previewMode,
+      // which is a no-op mid-game: taking `mode` from under a live board would change the
+      // rules it is being played by, and the code is taken up when it is played.
+      if (mode.seeded) {
+        this.#previewMode(mode)
+        this.#openPage("seed")
+        return
+      }
       this.start(mode.id)
+      return
+    }
+    if (action.startsWith("seedDot:")) {
+      const index = Number(action.slice(8))
+      // Round the colours: the ends of a code mean nothing, so a dot sitting on the last
+      // colour has no reason to stop there.
+      const colour = (coloursFromSeed(this.seedDraft)[index] + 1) % SEED_COLOURS
+      this.#stepSeedDot(index, colour)
+      // Pitched by the colour it landed on, so a press says what the dot became while
+      // walking the strip says where along it you are.
+      Sound.menuMove(colour * MENU_STEP)
+      Speech.say(String(colour + 1))
       return
     }
     if (action.startsWith("level:")) {
@@ -1779,6 +1990,23 @@ export class Game {
         Sound.menuConfirm()
         this.#openPage("levels")
         break
+      case "seed":
+        Sound.menuConfirm()
+        this.#openPage("seed")
+        break
+      case "seedPlay":
+        Sound.menuConfirm()
+        this.start(SEEDED_MODE.id, { seed: this.seedDraft })
+        break
+      case "seedToday":
+      case "seedRandom": {
+        Sound.menuConfirm()
+        this.#showSeed(action === "seedToday" ? dailySeed() : randomSeed())
+        // Said outright: a code arrived at without walking to it is never announced, since
+        // #announce only speaks a change of page.
+        Speech.say(seedCode(this.seedDraft).split("").join(" "))
+        break
+      }
       case "again":
         Sound.menuConfirm()
         this.start(this.mode.id)

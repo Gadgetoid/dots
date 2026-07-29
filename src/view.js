@@ -10,6 +10,7 @@ import { VIEW_W, VIEW_H, CONFIG, cellCentre, PAGE_TITLES, LEVEL_COLUMNS } from "
 import { PHASE } from "./game.js"
 import { THEMES, DOT_SHAPES } from "./palette.js"
 import { levelGrid, PUZZLE_COLS, PUZZLE_ROWS } from "./modes/levels.js"
+import { seedCode } from "./seed.js"
 import { clamp, easeOutCubic, lerp } from "./math.js"
 
 // The strip under the board, which holds the pause button and anything the board
@@ -42,6 +43,10 @@ const MENU_W = 460
 // see the shape of what is ahead without the cells becoming too small to tell apart.
 const LEVEL_GAP = 8
 const LEVEL_LINES = 4
+
+// The seed picker's strip of dots. Tall enough for a dot with the ring that marks the cursor
+// around it and the digit it stands for under it, since the digit is what gets written down.
+const SEED_H = 108
 
 // The pause button, in the strip under the board. A touch player has no escape key,
 // so this is the only way into the menu for them, and it is where a thumb already is.
@@ -374,7 +379,7 @@ export class GameView {
   #drawHud(game, theme) {
     const renderer = this.renderer
     const player = game.player
-    const best = game.best[game.mode.id] || 0
+    const best = game.bestScore
 
     // The title screen has no score to show, and a zero under a panel that says
     // START is just noise.
@@ -468,6 +473,20 @@ export class GameView {
           glow: reached ? 0.8 : 0,
         })
       }
+    } else if (game.mode.seeded && game.phase === PHASE.PLAYING) {
+      // The code this board came from, so it is on screen the whole way through and not only
+      // on the way in. Labelled, since six digits on their own would read as another score.
+      renderer.text("Code ", 28, stripY, {
+        color: theme.text.faint,
+        size: 21,
+        baseline: "middle",
+      })
+      renderer.text(game.seedText, 28 + renderer.measureText("Code ", 21), stripY, {
+        color: theme.text.dim,
+        size: 21,
+        baseline: "middle",
+        bold: true,
+      })
     }
 
     this.pauseVisible = game.phase === PHASE.PLAYING && !game.page
@@ -618,6 +637,8 @@ export class GameView {
         // Checked before the plain block of buttons, which is what this row is in every way
         // except how it draws.
         this.#drawLevels(game, theme, row, index, x, rowY, width, rowHeight)
+      } else if (row.layout === "seed") {
+        this.#drawSeed(game, theme, row, index, x, rowY, width, rowHeight)
       } else if (row.kind === "buttons") {
         this.#drawButtons(game, theme, row, index, x, rowY, width)
       } else if (row.kind === "options") {
@@ -643,6 +664,9 @@ export class GameView {
       const cell = (MENU_W - PANEL_PAD * 2 - LEVEL_GAP * (columns - 1)) / columns
       const lines = Math.min(LEVEL_LINES, Math.ceil(row.options.length / columns))
       return lines * (cell + LEVEL_GAP)
+    }
+    if (row.layout === "seed") {
+      return SEED_H
     }
     if (row.kind === "buttons") {
       const lines = Math.ceil(row.options.length / (row.columns || row.options.length))
@@ -943,6 +967,41 @@ export class GameView {
     }
   }
 
+  // The code the seeded mode deals from: its six colours as the dots they are, with the digit
+  // each one stands for under it. Both, because the dots are what the code is and the digits
+  // are what a player types into a message; see seed.js.
+  #drawSeed(game, theme, row, index, x, rowY, width, rowHeight) {
+    const renderer = this.renderer
+    const columns = row.columns || row.options.length
+    const cell = (width - PANEL_PAD * 2) / columns
+    const radius = Math.min(cell * 0.3, 26)
+    const middle = rowY + rowHeight / 2 - 10
+    row.options.forEach((option, optionIndex) => {
+      const box = { x: x + PANEL_PAD + optionIndex * cell, y: rowY, w: cell, h: rowHeight }
+      this.menuHits.push({ index, option: optionIndex, ...box })
+      const under = index === game.menuIndex && optionIndex === game.menuOption
+      const centre = box.x + box.w / 2
+      const dots = theme.dots
+      const dot = dots[option.colour % dots.length]
+      // A ring around the one the cursor is on, not a filled cell behind it: the colour of the
+      // dot is the value being read, and a panel under it would be another colour beside it.
+      if (under) {
+        renderer.ring(centre, middle, radius + 9, { color: theme.text.bright, width: 2 })
+      }
+      renderer.disc(centre, middle, radius, {
+        color: dot.base,
+        glow: under ? 0.5 : 0,
+        shape: game.shapeFor(option.colour),
+      })
+      renderer.text(String(option.label), centre, rowY + rowHeight - 8, {
+        color: under ? theme.text.bright : theme.text.faint,
+        size: 20,
+        align: "center",
+        bold: under,
+      })
+    })
+  }
+
   // A star, as two triangles turned against each other.
   //
   // Filled geometry, not a stroked outline: a star's points are far narrower than any stroke
@@ -1027,7 +1086,7 @@ export class GameView {
         ]
       case "over": {
         const outcome = game.outcomeText
-        const best = game.best[game.mode.id] || 0
+        const best = game.bestScore
         const record = game.player.score >= best && game.player.score > 0
         const lines = [
           { text: outcome, colour: theme.text.bright, size: 30, bold: true },
@@ -1055,6 +1114,11 @@ export class GameView {
             size: 19,
           })
         }
+        // The code, on the screen most likely to be shared: it is what somebody else needs to
+        // play the board this score was made on.
+        if (game.mode.seeded) {
+          lines.push({ text: `Code ${game.seedText}`, colour: theme.text.faint, size: 19 })
+        }
         return lines
       }
       case "modes":
@@ -1073,6 +1137,21 @@ export class GameView {
           { text: PAGE_TITLES.levels, colour: theme.text.bright, size: 30, bold: true },
           {
             text: `${cleared} of ${levels.length} cleared, ${stars} of ${possible} stars`,
+            colour: theme.text.dim,
+            size: 19,
+          },
+        ]
+      }
+      case "seed": {
+        // The code as one word, which is the form to copy into a message: under the strip it
+        // is six digits with a dot over each. And what this board has already given up, which
+        // is what makes one worth opening a second time.
+        const best = game.seedBestFor(game.seedDraft)
+        const code = seedCode(game.seedDraft)
+        return [
+          { text: PAGE_TITLES.seed, colour: theme.text.bright, size: 30, bold: true },
+          {
+            text: best ? `Code ${code}, best ${best}` : `Code ${code}, not played yet`,
             colour: theme.text.dim,
             size: 19,
           },

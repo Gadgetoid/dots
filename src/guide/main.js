@@ -601,14 +601,15 @@ const MODE_TIPS = {
   classic:
     "Nothing can be lost while a move exists, so the only thing to play for is length. Walk the cursor about before committing: a chain costs nothing until you pop it.",
   rush: "The clock beats the perfect chain. Keep taking fours so the multiplier climbs, and let the sixes go if you have to hunt for them.",
-  "long-game":
-    "A pair is not a move, so two touching dots of one colour sit there as a join until the collapse brings a third along.",
+  long: "A pair is not a move, so two touching dots of one colour sit there as a join until the collapse brings a third along.",
   endless:
     "The board is dealt to hide its matches rather than to run out of them, so there is always something. Sweep the cursor and listen: the tone tells you what is there before you have finished reading the colours.",
   elimination:
     "Every colour taken off the board narrows what the rest of the game deals, which makes the board simpler and the chains shorter. Bank the multiplier while there are still five colours to work with.",
-  "clear-out":
+  clearout:
     "Most dealt boards cannot be emptied at all, so play for the fewest dots left rather than for none. Spend the awkward colours first, while there are still dots to move them with.",
+  seeded:
+    "The board is fixed, so the only variable is the order you take it in - which is what makes a score on a code worth holding up against somebody else's. Walk it before the first pop: the same dots will be there when you have finished reading them.",
   puzzle:
     "Read the whole board before the first pop: par is one particular order, and the collapse decides which orders exist. When you are stuck, ask which colour is furthest from being joined up and work back from it.",
 }

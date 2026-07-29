@@ -8,6 +8,7 @@ import assert from "node:assert/strict"
 import { Game, PHASE } from "../src/game.js"
 import { CONFIG } from "../src/config.js"
 import { modeById } from "../src/modes/index.js"
+import { seedFromCode, dailySeed } from "../src/seed.js"
 import { MENU_NOTES, MENU_STEP } from "../src/config.js"
 import { Sound } from "../src/audio.js"
 import { DOT_SHAPES, DOT_COLOURS } from "../src/palette.js"
@@ -218,7 +219,7 @@ function pageNotes(game) {
 test("every item on every page has its own note", () => {
   const game = new Game()
   game.start("puzzle")
-  for (const page of ["title", "modes", "pause", "over", "settings", "controls"]) {
+  for (const page of ["title", "modes", "pause", "over", "settings", "controls", "seed"]) {
     game.page = page
     const notes = pageNotes(game)
     assert.ok(notes.length > 1, `${page} offers something`)
@@ -241,7 +242,7 @@ test("a recurring button sounds the same wherever it is", () => {
   const game = new Game()
   game.start("puzzle")
   const heard = new Map()
-  for (const page of ["title", "modes", "pause", "over", "settings", "controls"]) {
+  for (const page of ["title", "modes", "pause", "over", "settings", "controls", "seed"]) {
     game.page = page
     const rows = game.menuRows()
     rows.forEach((row, index) => {
@@ -320,26 +321,34 @@ test("across a row is up the scale too, so a grid has a shape you can hear", () 
   }
 })
 
-test("down from the end of a short row stays in the grid", () => {
+test("the mode grid is two across, and down from its last line leaves it", () => {
   const game = new Game()
   game.menuTap(0)
   const rows = game.menuRows()
   const grid = rows.findIndex((row) => row.id === "modes")
   const modes = rows[grid].options
-  // Two across and an odd number of modes, so the last line holds one.
   assert.equal(rows[grid].columns, 2)
-  assert.equal(modes.length % 2, 1)
 
-  // Onto the last cell of the second-to-last line, which is over the gap.
   game.menuIndex = grid
-  game.menuOption = modes.length - 2
+  game.menuOption = modes.length - 1
   game.menuMove(1)
-  assert.equal(game.menuIndex, grid, "still in the grid")
-  assert.equal(game.menuOption, modes.length - 1, "on the one cell the last line has")
+  assert.notEqual(game.menuIndex, grid, "there is no line left to move onto")
+})
 
-  // And from there it leaves, since there is no line left.
+test("down from the end of a short row stays in the block", () => {
+  // A line holding fewer cells than the one above it, which the shipped pages have wherever
+  // a button keeps a corner of the panel to itself: the cursor takes the nearest cell along
+  // the short line and does not fall out of the block or land on the placeholder.
+  const game = new Game()
+  game.menuRows = () => [
+    { id: "pair", kind: "buttons", columns: 2, options: [{ action: "a" }, { action: "b" }] },
+    { id: "one", kind: "buttons", columns: 2, options: [{ action: "c" }, null] },
+  ]
+  game.menuIndex = 0
+  game.menuOption = 1
   game.menuMove(1)
-  assert.notEqual(game.menuIndex, grid)
+  assert.equal(game.menuIndex, 1, "onto the short line")
+  assert.equal(game.menuOption, 0, "and back along it, off the cell that only holds its place")
 })
 
 test("running the cursor over the board says what is under it", () => {
@@ -731,6 +740,199 @@ test("the best score is kept per mode", () => {
   advanceUntil(game, () => game.phase === PHASE.OVER, 4)
   assert.equal(game.best.classic, 1234)
   assert.equal(game.best.rush, undefined, "a different board is a different record")
+})
+
+// ---- the seeded mode ------------------------------------------------------
+// The whole point of the mode is that two people can be dealt the same dots, so these are
+// the tests it exists for.
+
+// The board as text, for comparing one deal with another.
+const dealt = (game) => game.board.grid.map((dot) => (dot ? String(dot.colour) : ".")).join("")
+
+test("the same code deals the same board, and another code does not", () => {
+  const first = new Game()
+  first.start("seeded", { seed: 4242 })
+  const second = new Game()
+  second.start("seeded", { seed: 4242 })
+  assert.equal(dealt(second), dealt(first), "one code, one board")
+
+  const other = new Game()
+  other.start("seeded", { seed: 4243 })
+  assert.notEqual(dealt(other), dealt(first), "and the next code along is its own board")
+})
+
+test("the same code deals the same colours after the same play", () => {
+  // Not just the opening deal: the refills come off the same generator, so two players who
+  // play a board the same way are still on the same board ten pops later.
+  const play = (seed) => {
+    const game = new Game()
+    game.start("seeded", { seed })
+    settle(game)
+    for (let pop = 0; pop < 10; pop++) {
+      linkLongest(game)
+      game.linkRelease(0)
+      settle(game)
+    }
+    return { board: dealt(game), score: game.player.score }
+  }
+  const first = play(777)
+  const second = play(777)
+  assert.equal(second.board, first.board, "the same dots came back")
+  assert.equal(second.score, first.score, "and the same play paid the same")
+})
+
+test("a restart deals the code again", () => {
+  const game = new Game()
+  game.start("seeded", { seed: 100 })
+  settle(game)
+  const opening = dealt(game)
+  linkLongest(game)
+  game.linkRelease(0)
+  settle(game)
+  assert.notEqual(dealt(game), opening, "the board moved on")
+  // Restart names no code, so the one in play carries: another go at the same board is what
+  // the mode is for.
+  game.start("seeded")
+  assert.equal(dealt(game), opening)
+  assert.equal(game.seed, 100)
+})
+
+test("the code carries across another mode being played in between", () => {
+  const game = new Game()
+  game.start("seeded", { seed: 55 })
+  const opening = dealt(game)
+  game.start("classic")
+  game.start("seeded")
+  assert.equal(game.seed, 55)
+  assert.equal(dealt(game), opening)
+})
+
+test("only a seeded mode is dealt from a code", () => {
+  const game = new Game()
+  game.start("classic")
+  const first = dealt(game)
+  game.start("classic")
+  assert.notEqual(dealt(game), first, "a mode with no code deals a fresh board every time")
+  // And the mode may never deal a powerup: that would cost a roll of the same generator the
+  // colours come from and shift every board every code has ever given.
+  assert.equal(modeById("seeded").specialChance, 0)
+})
+
+test("the best score is kept per code", () => {
+  const game = new Game()
+  game.start("seeded", { seed: 8888 })
+  settle(game)
+  game.player.score = 4321
+  for (const dot of game.board.dots) {
+    dot.colour = (dot.col + dot.row) % 2
+  }
+  advanceUntil(game, () => game.phase === PHASE.OVER, 4)
+  assert.equal(game.seedBestFor(8888), 4321)
+  assert.equal(game.seedBestFor(8889), 0, "another board is another record")
+  assert.equal(game.bestScore, 4321, "and it is the code's record the game is played against")
+})
+
+test("a finished seeded board offers another code, and escape comes back to it", () => {
+  const game = new Game()
+  game.start("seeded", { seed: 300 })
+  settle(game)
+  for (const dot of game.board.dots) {
+    dot.colour = (dot.col + dot.row) % 2
+  }
+  advanceUntil(game, () => game.page === "over", 4)
+  const offered = game
+    .menuRows()
+    .flatMap((row) => row.options || [])
+    .filter(Boolean)
+    .map((cell) => cell.action)
+  assert.ok(offered.includes("again"), "another go at the same board")
+  assert.ok(offered.includes("seed"), "and the way to a different one")
+
+  game.menuIndex = game
+    .menuRows()
+    .findIndex((row) => (row.options || []).some((c) => c && c.action === "seed"))
+  game.menuOption = 0
+  game.menuConfirm()
+  assert.equal(game.page, "seed")
+  game.menuBack()
+  assert.equal(game.page, "over", "and back to the score it came from")
+})
+
+test("a code from a link opens the picker on it, and a broken one is ignored", () => {
+  const game = new Game()
+  assert.equal(game.openSharedSeed("314522"), true)
+  assert.equal(game.page, "seed")
+  assert.equal(game.seedDraft, seedFromCode("314522"))
+  assert.equal(game.phase, PHASE.TITLE, "opened, not started: the page names the board first")
+
+  const ignored = new Game()
+  assert.equal(ignored.openSharedSeed("nope"), false)
+  assert.equal(ignored.page, "title")
+})
+
+test("the picker walks its code and a press steps a dot round the colours", () => {
+  const game = new Game()
+  game.menuTap(0)
+  game.openSharedSeed("111111")
+  const strip = game.menuRows().findIndex((row) => row.layout === "seed")
+  assert.ok(strip >= 0, "the page has a strip of dots")
+  // The page opens on Play, since the code offered is one press from being played.
+  assert.notEqual(game.menuIndex, strip)
+
+  game.menuIndex = strip
+  game.menuOption = 0
+  game.menuConfirm()
+  assert.equal(game.seedDraft, seedFromCode("211111"), "the first dot stepped on")
+  // Round, not stopping at the end: the ends of a code mean nothing.
+  for (let step = 0; step < 4; step++) {
+    game.menuConfirm()
+  }
+  assert.equal(game.seedDraft, seedFromCode("111111"), "and back where it started")
+
+  // Left and right walk along it, the way they walk any block of buttons.
+  game.menuAdjust(1)
+  assert.equal(game.menuOption, 1)
+  game.menuConfirm()
+  assert.equal(game.seedDraft, seedFromCode("121111"))
+})
+
+test("a digit typed into the picker fills the code in and moves along", () => {
+  const game = new Game()
+  game.openSharedSeed("111111")
+  const strip = game.menuRows().findIndex((row) => row.layout === "seed")
+  game.menuIndex = strip
+  game.menuOption = 0
+  assert.equal(game.typingSeed, true, "the code is where a typed digit goes")
+  for (const digit of "314522") {
+    assert.equal(game.typeSeedDigit(digit), true)
+  }
+  assert.equal(game.seedDraft, seedFromCode("314522"), "six presses type a whole code")
+  assert.equal(game.menuOption, 0, "and it comes round to the start")
+
+  assert.equal(game.typeSeedDigit("6"), false, "no dot is that colour")
+  assert.equal(game.typeSeedDigit("a"), false)
+  assert.equal(game.seedDraft, seedFromCode("314522"), "and a refused key changes nothing")
+
+  // Nowhere else in the game takes a character.
+  game.menuIndex = strip + 2
+  assert.equal(game.typingSeed, false)
+  assert.equal(game.typeSeedDigit("3"), false)
+})
+
+test("today's board is what the picker offers", () => {
+  const game = new Game()
+  assert.equal(game.seedDraft, dailySeed())
+  game.openSharedSeed("555555")
+  game.menuIndex = game.menuRows().findIndex((row) => row.layout === "seed")
+  // And Today puts it back, for a player who has walked away from it.
+  const rows = game.menuRows()
+  const today = rows.findIndex((row) =>
+    (row.options || []).some((cell) => cell && cell.action === "seedToday"),
+  )
+  game.menuIndex = today
+  game.menuOption = 0
+  game.menuConfirm()
+  assert.equal(game.seedDraft, dailySeed())
 })
 
 test("a menu leaves the board alone", () => {

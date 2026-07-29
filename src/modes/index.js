@@ -18,6 +18,9 @@
 //   specialChance   chance a new dot carries a powerup; see specials.js
 //   levels          authored boards, if the mode has them: clearing one moves on to
 //                   the next and keeps the score. See levels.js for the format.
+//   seeded          whether the board is dealt from a seed the player chooses, so the
+//                   same code always gives the same dots. The game supplies the seed;
+//                   see seed.js for what one is.
 //   tuning          what the mode sounds like: { root, scale } naming an entry in
 //                   scales.js, or "random" for a different voice every session.
 //                   Omitted, the mode plays in the default tuning.
@@ -40,10 +43,24 @@ import { ENDLESS } from "./endless.js"
 import { ELIMINATION } from "./elimination.js"
 import { CLEAR_OUT } from "./clear-out.js"
 import { PUZZLE } from "./puzzle.js"
+import { SEEDED } from "./seeded.js"
 
-export const GAME_MODES = [CLASSIC, RUSH, LONG_GAME, ENDLESS, ELIMINATION, CLEAR_OUT, PUZZLE]
+export const GAME_MODES = [
+  CLASSIC,
+  RUSH,
+  LONG_GAME,
+  ENDLESS,
+  ELIMINATION,
+  CLEAR_OUT,
+  PUZZLE,
+  SEEDED,
+]
 
 export const MODE_BY_ID = new Map(GAME_MODES.map((mode) => [mode.id, mode]))
+
+// The mode that plays from a seed, found by what it does: the game needs to name it to
+// start it from a shared code, and nothing outside this file knows one mode from another.
+export const SEEDED_MODE = GAME_MODES.find((mode) => mode.seeded) || null
 
 export const modeById = (id) => MODE_BY_ID.get(id) || GAME_MODES[0]
 

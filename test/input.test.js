@@ -8,8 +8,16 @@ import { DirectionRepeater, KeyboardInput } from "../src/input.js"
 import { readPad, padInUse, GamepadInput } from "../src/gamepad.js"
 import { Game } from "../src/game.js"
 import { GAMEPAD, REPEAT_DELAY, REPEAT_RATE, freshBindings } from "../src/config.js"
+import { seedCode } from "../src/seed.js"
 
-const key = (code, repeat = false) => ({ code, repeat, preventDefault() {} })
+// `character` is what the key prints, which is what the seed picker reads: a bound control
+// comes from the code and a typed digit comes from the character on the key.
+const key = (code, repeat = false, character = "") => ({
+  code,
+  repeat,
+  key: character,
+  preventDefault() {},
+})
 
 const settle = (game, seconds = 4) => {
   for (let i = 0; i < seconds * 60; i++) {
@@ -305,6 +313,7 @@ test("every menu page can be left the way it was entered", () => {
     ["pause", "levels", "levels"],
     ["pause", "settings", "settings"],
     ["settings", "controls", "controls"],
+    ["modes", "mode:seeded", "seed"],
   ]) {
     game.page = from
     game.menuIndex = 0
@@ -313,6 +322,34 @@ test("every menu page can be left the way it was entered", () => {
     escape()
     assert.equal(game.page, from, `and escape returns from ${page} to ${from}`)
   }
+})
+
+test("a board can be started from the seed picker", () => {
+  const game = new Game()
+  game.openSharedSeed("314522")
+  assert.equal(game.page, "seed")
+  pressButton(game, "seedPlay")
+  assert.equal(game.page, null, "the menu closes")
+  assert.equal(game.mode.id, "seeded")
+  assert.equal(game.seedText, "314522", "on the code the picker was holding")
+  assert.ok(game.board.count > 0, "with a board dealt")
+})
+
+test("a code can be typed at the keyboard", () => {
+  const game = new Game()
+  const keyboard = new KeyboardInput(game)
+  game.openSharedSeed("111111")
+  game.menuIndex = game.menuRows().findIndex((row) => row.layout === "seed")
+  game.menuOption = 0
+  for (const digit of "314522") {
+    keyboard.onKeyDown(key(`Digit${digit}`, false, digit))
+  }
+  assert.equal(seedCode(game.seedDraft), "314522", "six keys type a whole code")
+
+  // A character no dot is is left where it was, and nothing about the page moves.
+  keyboard.onKeyDown(key("KeyQ", false, "q"))
+  assert.equal(seedCode(game.seedDraft), "314522")
+  assert.equal(game.page, "seed")
 })
 
 test("a level can be started from the picker", () => {

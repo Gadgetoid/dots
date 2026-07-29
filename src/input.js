@@ -124,6 +124,15 @@ export class KeyboardInput {
     }
     const control = this.#controlFor(event.code)
     if (!control) {
+      // A digit typed into the seed picker, which is how a code somebody sent is entered
+      // without pressing each dot round the colours. After the bindings, so a control bound
+      // to a digit still does what it was bound to. From event.key and not event.code, since
+      // the character on the key is what is being typed.
+      if (this.game.typingSeed && event.key && event.key.length === 1) {
+        if (this.game.typeSeedDigit(event.key)) {
+          event.preventDefault()
+        }
+      }
       return
     }
     event.preventDefault()

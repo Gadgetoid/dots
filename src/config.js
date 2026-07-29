@@ -317,6 +317,10 @@ export const MENU_NOTES = {
   restart: -9,
   modes: -8, // new game, from the title screen or mid-game
   levels: -7.5, // the puzzle ladder, which sits beside new game and sounds next to it
+  seed: -7.25, // the seed picker, which sits beside the puzzle ladder and sounds next to it
+  seedPlay: -6.5,
+  seedToday: -5.5,
+  seedRandom: -5.25,
   again: -7,
   retry: -6,
   settings: -4,
@@ -346,6 +350,9 @@ export const DEFAULT_SETTINGS = {
   brightness: 2, // index into CONFIG.BRIGHTNESS_LEVELS
   sound: true,
   mode: "classic",
+  // The code last played in the seeded mode, so its picker opens on it again. Null until a
+  // code has been played, and then the picker opens on today's board; see seed.js.
+  seed: null,
   // How a button builds a chain. "hold" is the 32blit way and the default: hold it down,
   // move to gather dots, let go to pop. "toggle" splits that into two presses, for anyone
   // who would rather not hold a button down while aiming with the other hand - or at all.
@@ -375,6 +382,7 @@ export const PAGE_TITLES = {
   settings: "Settings",
   controls: "Controls",
   levels: "Puzzles",
+  seed: "Seeded",
 }
 
 // What a finished board is told it did.

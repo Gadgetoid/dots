@@ -66,7 +66,8 @@ by a pointer and this game is played as often with a pad or a keyboard.
 | Endless     | 7x7   | 2     | Deals against itself: matches are hidden, never absent |
 | Elimination | 6x6   | 2     | A colour cleared off the board never comes back        |
 | Clear out   | 6x7   | 2     | No refill, and the board is random. Whittle it down    |
-| Puzzle      | 6x7   | 2     | Twenty designed boards, cleared one after another      |
+| Puzzle      | 6x7   | 2     | Thirty-six designed boards, cleared one after another  |
+| Seeded      | 6x6   | 2     | The same board for everyone holding the code           |
 
 The last three all come from the original browser game, which had `puzzle`,
 `elimination` and an endless default. Elimination refills only with colours still in
@@ -82,8 +83,24 @@ how far a board can be whittled down and reports what was left on it, and cleari
 outright is an occasional thing worth a mention. If you want a board that is certainly
 clearable, that is what the designed levels are for.
 
+Seeded is classic rules dealt from a number, which the 32blit version had: the board and
+every colour dealt after it come from one seed, so two players holding the same code play
+the same dots and the only thing between them is the score. A code is six dots, written as
+six digits 1 to 5 the same way a level's layout is - 15,625 boards, entered by pressing the
+dots round the colours or by typing the digits, and shared as a `?seed=` link that the game
+keeps in the address bar while it is being played. The picker opens on the board of the day,
+counted in whole UTC days so everyone quoting today's code means the same one, and the best
+score is remembered per code.
+
+The 32blit game's own generator is not reproduced. It was an LFSR with a 16 bit tap, which
+gives a period of 32,767 and puts every seed on one ring at a different offset, so seed N+1
+deals seed N's board shifted along by one dot: fine for a number nudged with a d-pad, and
+not for a code people pass around. The seed feeds `mulberry32` instead, under which all
+15,625 codes give distinct boards, none of them opening without a legal move.
+
 A mode is a plain object - grid size, minimum chain length, how many colours, whether
-it refills, an optional clock, an optional tuning, optional levels - plus optional
+it refills, an optional clock, an optional tuning, optional levels, whether it deals from
+a seed - plus optional
 hooks for choosing what it deals and judging what it left. Endless uses the hooks: it
 picks colours that avoid their neighbours, so nothing is handed to you, and if that
 leaves a dead board it recolours the shortest legal run back in, somewhere in the
@@ -183,6 +200,7 @@ src/config.js       every tuneable, the layout maths and the input mapping
 src/palette.js      the two themes
 src/board.js        the grid, the linking rules, collapse and refill
 src/modes/          one file per mode, plus the puzzle levels
+src/seed.js         the code a seeded board is dealt from, and how it is written
 src/scales.js       the tunings a mode can play in
 src/specials.js     powerup registry (the contract; nothing registered yet)
 src/game.js         phases, scoring, menus, settings, per-player chain state
@@ -194,7 +212,7 @@ src/shaders.js      the GLSL, kept apart from the code that compiles it
 src/audio.js        synthesised sound
 src/input.js        keyboard and pointer
 src/gamepad.js      pads
-src/persistence.js  best scores, settings and bindings, in IndexedDB
+src/persistence.js  best scores, level and seed records, settings and bindings, in IndexedDB
 ```
 
 The view is a fixed 600x800 field letterboxed into whatever the canvas is, so every

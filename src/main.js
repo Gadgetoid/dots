@@ -7,7 +7,7 @@
 
 import { WebGLRenderer } from "./glrenderer.js"
 import { GameView } from "./view.js"
-import { Game } from "./game.js"
+import { Game, PHASE } from "./game.js"
 import { KeyboardInput, PointerInput } from "./input.js"
 import { GamepadInput } from "./gamepad.js"
 import { Sound } from "./audio.js"
@@ -25,6 +25,14 @@ if (!renderer) {
 
 const view = new GameView(renderer)
 const game = new Game()
+
+// A code shared in a link opens the seeded mode's picker on that board, so the page can name
+// it and say what it has already paid before anyone plays it. An unreadable one is ignored and
+// the game opens where it always does.
+const shared = new URLSearchParams(location.search).get("seed")
+if (shared) {
+  game.openSharedSeed(shared)
+}
 const keyboard = new KeyboardInput(game)
 const pointer = new PointerInput(game, view)
 const gamepad = new GamepadInput(game)
@@ -102,6 +110,33 @@ function syncSpeech() {
   speakToggle.setAttribute("aria-pressed", appliedSpeech ? "true" : "false")
 }
 
+// The address bar is the share button: while a seeded board is being played the code is in the
+// query, so copying the link is all anyone has to do to hand the board over. Polled like the
+// theme and the size, for the same reason - one place, and a change from any source lands the
+// same way.
+//
+// Replaced and not pushed, so the back button still leaves the game, and wrapped because a
+// browser may refuse this over file:// exactly as it may refuse storage.
+let appliedSeedLink = null
+function syncSeedLink() {
+  const code = game.mode.seeded && game.phase !== PHASE.TITLE ? game.seedText : ""
+  if (appliedSeedLink === code) {
+    return
+  }
+  appliedSeedLink = code
+  try {
+    const url = new URL(location.href)
+    if (code) {
+      url.searchParams.set("seed", code)
+    } else {
+      url.searchParams.delete("seed")
+    }
+    history.replaceState(null, "", url)
+  } catch {
+    /* ignore */
+  }
+}
+
 // The wheel turns the level picker, which is the one page taller than its window.
 canvas.addEventListener(
   "wheel",
@@ -170,6 +205,7 @@ function loop(timestamp) {
   syncSize()
   syncTheme()
   syncSpeech()
+  syncSeedLink()
   game.advance(dt)
   // The simulation still runs while a lost GPU context is being restored.
   if (renderer.ready) {

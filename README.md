@@ -148,9 +148,13 @@ rather than scattering dots took the share of candidates that can be cleared at 
 in twenty to one in three.
 
 ```
-node tools/levels.mjs        # the table for the shipped set
-node tools/find-levels.mjs   # look for more
+node tools/levels.mjs                    # the table for the shipped set
+node tools/find-levels.mjs --out found   # look for more, until stopped
 ```
+
+[docs/puzzle-analysis.md](docs/puzzle-analysis.md) is the whole of it: the rules that bound the
+problem, how a board is scored, what is worth knowing about one and why each answer is exactly
+computable, what that costs, and what the search does about the cost.
 
 ## Sound
 

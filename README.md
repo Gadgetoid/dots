@@ -1,0 +1,135 @@
+# DOTS
+
+Draw a line through dots of one colour to pop them out of existence.
+
+DOTS started life around 2013 as a RaphaelJS toy - SVG circles, a drag handler and
+a 90 second clock. It was later rewritten in C++ for the [32blit](https://32blit.com)
+handheld, which gained it a cursor, a score multiplier and a proper lose condition,
+and lost it antialiasing. This is that game again in WebGL2: the same five colours
+and the same cubed scoring, with the graphics the STM32 could never have managed.
+
+Two of the three still exist to compare against: the 32blit version is in
+[32blit-dots](https://github.com/gadgetoid/32blit-dots) and the original in
+[raphaeljs-dots](https://github.com/gadgetoid/raphaeljs-dots).
+
+## Screenshots
+
+|                                                        |                                                               |
+| ------------------------------------------------------ | ------------------------------------------------------------- |
+| ![A chain of six dots, glowing](screenshots/board.png) | ![A chain unzipping](screenshots/popping.png)                 |
+| ![The light theme, mid chain](screenshots/light.png)   | ![The board turned down for the night](screenshots/night.png) |
+
+## Playing
+
+Link two or more dots of one colour through cardinal neighbours - never diagonals -
+and pop them. A chain is worth the cube of its length, so six dots taken together
+are worth far more than three pairs. Clear four or more and the next chain scores at
+a multiplier.
+
+| Device   | Controls                                                                           |
+| -------- | ---------------------------------------------------------------------------------- |
+| Keyboard | Arrows or WASD move, SPACE links and pops, X drops the chain, ESC for the menu     |
+| Gamepad  | D-pad or left stick move, A links and pops, B drops the chain, SELECT for the menu |
+| Touch    | Drag across dots to link them, let go to pop                                       |
+
+The 32blit version held A down while moving and popped on release, so a slip of the
+thumb threw a chain away. Here a press starts the chain and it stays: moving onto a
+neighbour extends it, moving back retracts it, a second press pops it and the drop
+button is the only other thing that can spend it. Every control is rebindable from
+CONTROLS, per device.
+
+Both themes and three brightness levels are in the menu and on the buttons above the
+board. Brightness scales the whole frame in the composite pass, bloom included, for
+playing in the dark.
+
+## Modes
+
+| Mode      | Board | Chain | What is different                                      |
+| --------- | ----- | ----- | ------------------------------------------------------ |
+| CLASSIC   | 6x6   | 2     | The 32blit game. Refills until nothing matches         |
+| RUSH      | 6x6   | 2     | Ninety seconds, as the original browser game gave      |
+| LONG GAME | 8x8   | 3     | A pair is not a move                                   |
+| ENDLESS   | 7x7   | 2     | Deals against itself: matches are hidden, never absent |
+| CLEAR OUT | 6x7   | 2     | No refill. Empty the board                             |
+
+A mode is a plain object - grid size, minimum chain length, how many colours, whether
+it refills, an optional clock - plus optional hooks for choosing what it deals and
+judging what it left. ENDLESS uses both: it picks colours that avoid their
+neighbours, so nothing is handed to you, and if that leaves a dead board it recolours
+the shortest legal run back in, somewhere in the middle where it is hardest to spot.
+Adding a mode is a file in `src/modes/` and a line in `src/modes/index.js`.
+
+## How it is built
+
+```
+index.html          the page: canvas, theme and brightness buttons, help line
+src/main.js         entry point: wires the DOM, creates everything, runs the loop
+src/config.js       every tuneable, the layout maths and the input mapping
+src/palette.js      the two themes
+src/board.js        the grid, the linking rules, collapse and refill
+src/modes/          one file per mode
+src/specials.js     powerup registry (the contract; nothing registered yet)
+src/game.js         phases, scoring, menus, settings, per-player chain state
+src/particles.js    sparks, dust, rings, flashes and score floaters
+src/view.js         everything that is drawn, as renderer primitives
+src/renderer.js     the rendering contract
+src/glrenderer.js   the WebGL2 backend
+src/shaders.js      the GLSL, kept apart from the code that compiles it
+src/audio.js        synthesised sound
+src/input.js        keyboard and pointer
+src/gamepad.js      pads
+src/persistence.js  best scores, settings and bindings, in IndexedDB
+```
+
+The view is a fixed 600x800 field letterboxed into whatever the canvas is, so every
+coordinate in the game is in those units and nothing has to know the window size.
+
+Shapes are distance fields cut out of quads and antialiased with `fwidth` in the
+fragment shader, so an edge is a pixel wide at any canvas size and there is no
+multisampled target to pay for. A dot's jelly is part of that field: one damped
+oscillator per dot scales its radius by a two-lobed cosine, so linking, landing or a
+neighbour popping sets it ringing and the dot squashes and recovers.
+
+Bloom comes from an explicit glow layer rather than a bright-pass over the scene.
+Only what the view marks as glowing goes into it, which is what lets the light theme
+have a glowing chain without its white background blooming, and it means the glow
+building as a chain grows is exactly the length of the chain and nothing else.
+
+## Development
+
+```
+npm install
+npm run check      # lint, format check, tests
+```
+
+The tests run under node with no browser: the board is pure logic, a `Game` can be
+advanced frame by frame, the input mappings are pure functions, and the sound engine
+is driven against a stub audio device.
+
+What a unit test cannot see is a shader that will not compile, so the screenshot tool
+doubles as the smoke test - it poses the real game in a real browser, shoots it, and
+fails on any console or page error:
+
+```
+npm install --no-save puppeteer-core
+node tools/screenshot.mjs
+```
+
+## Still to come
+
+Powerups keyed to a dot colour, which say what they do while the cursor is over them:
+nudge a column sideways to line up a match that was one place out, pop every dot of a
+colour, that sort of thing. `src/specials.js` holds the contract and the board already
+has the operations they need; nothing is registered.
+
+And more than one player, up to four, with specials that reach across the board at
+each other. The chain, cursor, score and multiplier are already per player, a dot
+records whose chain has claimed it, and every input method takes a player index, so
+what is left is handing out the slots.
+
+## On AI
+
+Like [GEOMETRY II](https://github.com/gadgetoid/geometry) before it, this was built
+with heavy assistance from, and detailed direction of, Claude Code. The 32blit game
+and the RaphaelJS one before it are mine; this is them again, with the graphics I
+wanted at the time and did not have the CPU or the patience for.

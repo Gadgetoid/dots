@@ -8,7 +8,7 @@
 
 import { VIEW_W, VIEW_H, CONFIG, cellCentre } from "./config.js"
 import { PHASE } from "./game.js"
-import { catmullRom, clamp, lerp } from "./math.js"
+import { catmullRom, clamp, easeOutCubic, lerp } from "./math.js"
 
 // Where the mode line sits, under the board. The score bar above it needs no
 // constant: it is measured from the top of the field.
@@ -252,7 +252,7 @@ export class GameView {
     }
     for (const ring of particles.rings) {
       const t = ring.age / ring.life
-      this.renderer.ring(ring.x, ring.y, lerp(2, ring.radius, t), {
+      this.renderer.ring(ring.x, ring.y, lerp(2, ring.radius, easeOutCubic(t)), {
         color: ring.colour,
         width: ring.width * (1 - t),
         alpha: (1 - t) * 0.7,

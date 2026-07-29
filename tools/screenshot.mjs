@@ -113,6 +113,27 @@ const SHOTS = [
       game.togglePause()
     }`,
   },
+  {
+    // The brightness setting at its lowest, which is the whole frame scaled in the
+    // composite pass: the shot is the only way to see that the board is still
+    // legible once it has been turned down for the evening.
+    file: "night.png",
+    theme: "dark",
+    frames: 60,
+    pose: `(game) => {
+      game.settings.brightness = 0
+      game.start("rush")
+      game.settle(2)
+      game.timeLeft = 12
+      const chain = game.board.longestChain()
+      game.player.cursor = { col: chain[0].col, row: chain[0].row }
+      game.startChain(0)
+      for (let i = 1; i < chain.length; i++) {
+        game.extendTo(0, chain[i].col, chain[i].row)
+      }
+      game.player.score = 2360
+    }`,
+  },
 ]
 
 function serve() {

@@ -114,7 +114,6 @@ export class Game {
     this.settleFor = 0
     this.outcome = null
     this.overFor = 0
-    this.lastChainLength = 0
 
     this.dealAttractBoard()
     this.#restoreState()
@@ -219,7 +218,6 @@ export class Game {
     this.outcome = null
     this.overFor = 0
     this.settleFor = 0
-    this.lastChainLength = 0
     this.phase = PHASE.PLAYING
     this.page = null
     this.menuIndex = 0
@@ -487,7 +485,6 @@ export class Game {
     const length = chain.length
     const scored = CONFIG.chainScore(length) * player.multiplier
     player.score += scored
-    this.lastChainLength = length
 
     const neighbours = this.board.neighboursOf(chain)
     this.board.remove(chain)

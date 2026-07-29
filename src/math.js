@@ -6,8 +6,6 @@ export const TAU = Math.PI * 2
 export const clamp = (value, min, max) => (value < min ? min : value > max ? max : value)
 export const lerp = (a, b, t) => a + (b - a) * t
 export const randRange = (min, max) => min + Math.random() * (max - min)
-export const randInt = (min, max) => Math.floor(randRange(min, max + 1))
-export const pick = (array) => array[randInt(0, array.length - 1)]
 
 // Deterministic PRNG, so a mode can be handed a seed and deal the same board
 // twice. Returns a function producing 0..1, in the shape Math.random has.
@@ -22,8 +20,9 @@ export function mulberry32(seed) {
   }
 }
 
+// Fast at the start and slow at the end, which is what an expanding shockwave
+// does: most of its travel is over in the first few frames.
 export const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3)
-export const easeOutBack = (t) => 1 + 2.7 * Math.pow(t - 1, 3) + 1.7 * Math.pow(t - 1, 2)
 
 // A damped harmonic oscillator, integrated semi-implicitly so a stiff spring
 // stays stable at a long frame. `state` is mutated in place and carries

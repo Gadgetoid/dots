@@ -10,13 +10,6 @@
 // theme lifts both, since a saturated mid-tone that reads well on white goes muddy
 // on near-black.
 
-// Blend two "#rrggbb" colours, `t` running 0 at `from` to 1 at `to`.
-export function mixColour(from, to, t) {
-  const channel = (hex, at) => parseInt(hex.slice(at, at + 2), 16)
-  const blend = (at) => Math.round(channel(from, at) + (channel(to, at) - channel(from, at)) * t)
-  return `rgb(${blend(1)},${blend(3)},${blend(5)})`
-}
-
 // How many dot colours a board deals from. The themes must each list this many.
 export const DOT_COLOURS = 5
 

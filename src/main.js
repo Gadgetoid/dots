@@ -37,21 +37,30 @@ pointer.attach(canvas)
 // taken.
 window.__dots = { game, view, renderer, keyboard, pointer, gamepad, frozen: false }
 
-addEventListener("keydown", (event) => keyboard.onKeyDown(event))
-addEventListener("keyup", (event) => keyboard.onKeyUp(event))
-addEventListener("blur", () => keyboard.onBlur())
-
-// A browser only opens an audio device inside a real user gesture, and there is no
-// button in the page to be the gesture: the first touch of the board or the first key
-// is. Kept listening rather than run once, because sound may be off to begin with and
-// the gesture that turns it on is the one that has to open the device.
+// A browser only opens an audio device inside a real user gesture, and there is no button
+// in the page to be the gesture: the first touch of the board or the first key is. Sound is
+// on by default, so this is all a first-time player has to do to hear the game - the gesture
+// is noted whether or not sound is on at the time, so turning it on later needs no gesture
+// of its own. On the window rather than the canvas: the letterbox either side of the field
+// and the spoken-menus toggle are presses too.
+//
+// Kept listening rather than run once, because a device that has been opened and lost - a
+// tab suspended, output changed - is reopened by the next thing the player does.
 function unlockAudio() {
+  Sound.gestured = true
   if (game.settings.sound) {
     Sound.ensureContext()
   }
 }
-canvas.addEventListener("pointerdown", unlockAudio)
-addEventListener("keydown", unlockAudio)
+// In the capture phase, so the device is open before the press is played: the canvas has
+// its own pointer handler and it would otherwise run first, and the sound that press makes
+// would be the one sound lost.
+addEventListener("pointerdown", unlockAudio, { capture: true })
+addEventListener("keydown", unlockAudio, { capture: true })
+
+addEventListener("keydown", (event) => keyboard.onKeyDown(event))
+addEventListener("keyup", (event) => keyboard.onKeyUp(event))
+addEventListener("blur", () => keyboard.onBlur())
 
 // The page around the canvas follows the theme, so the frame and the field never
 // disagree about whether it is night. Cheap enough to check every frame, and it means

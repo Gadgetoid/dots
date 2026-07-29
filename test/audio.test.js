@@ -9,6 +9,7 @@ import test from "node:test"
 import assert from "node:assert/strict"
 
 import { Sound } from "../src/audio.js"
+import { Game } from "../src/game.js"
 
 class FakeParam {
   constructor() {
@@ -183,4 +184,44 @@ test("the volume setting reaches the master gain in place", () => {
   Sound.setVolume(0)
   assert.equal(Sound.chain.gain.gain.value, 0)
   Sound.setVolume(1)
+})
+
+test("no device is opened until a gesture has happened", () => {
+  // A browser will not open an audio device outside a user gesture, and asking early leaves
+  // a suspended context and a complaint in the console. Sound is on from the first frame now,
+  // so something has to hold the device back until the first key or touch: this is it.
+  const created = []
+  globalThis.window = {
+    AudioContext: class {
+      constructor() {
+        created.push(this)
+      }
+    },
+  }
+  Sound.ctx = null
+  Sound.chain = null
+  Sound.unlocked = false
+  Sound.enabled = true
+  Sound.gestured = false
+
+  Sound.pop(0)
+  Sound.menuMove(0)
+  assert.equal(created.length, 0, "nothing was opened")
+  assert.equal(Sound.ctx, null)
+
+  // The first press, and now it may.
+  Sound.gestured = true
+  Sound.ensureContext()
+  assert.equal(created.length, 1, "and one device is opened, once")
+  Sound.ensureContext()
+  assert.equal(created.length, 1)
+})
+
+test("the sound setting reaches the engine on a first run", () => {
+  // Nothing in storage is the case that used to be missed: the settings page said the sound
+  // was on and the engine had never been told.
+  Sound.enabled = false
+  const game = new Game()
+  assert.equal(game.settings.sound, true, "on by default")
+  assert.equal(Sound.enabled, true, "and the engine knows it")
 })

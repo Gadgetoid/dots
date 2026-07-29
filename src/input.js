@@ -186,9 +186,6 @@ export class PointerInput {
     this.pressedRow = null
     this.pressedPause = false
     this.activePointer = null
-    // Whether a gesture has already opened the audio device. A browser only allows it
-    // inside a real one, so the first touch of the board is where it happens.
-    this.unlocked = false
   }
 
   attach(canvas) {

@@ -51,7 +51,16 @@ export const Sound = {
     return this.tuning.rootHz * ratios[Math.min(Math.max(step, 0), ratios.length - 1)]
   },
 
+  // Whether a real user gesture has happened yet. A browser will not open an audio device
+  // outside one, and asking before it does leaves a suspended context and a complaint in
+  // the console, so nothing here touches the device until the first key or touch. Set by
+  // the page; see unlockAudio in main.js.
+  gestured: false,
+
   ensureContext() {
+    if (!this.gestured) {
+      return
+    }
     if (!this.ctx) {
       try {
         this.ctx = new (window.AudioContext || window.webkitAudioContext)()

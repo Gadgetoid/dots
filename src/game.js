@@ -148,6 +148,7 @@ export class Game {
     this.spokenPage = null
     this.spokenBanner = null
 
+    this.applySettings()
     this.dealAttractBoard()
     this.#resetMenuCursor()
     this.#restoreState()
@@ -216,6 +217,16 @@ export class Game {
     return DOT_SHAPES[colour % DOT_SHAPES.length] || null
   }
 
+  // Hand the settings that belong to something else to the thing that owns them. Called
+  // when the settings are first taken up and again when storage answers: a first run has
+  // nothing stored, and without this it would play silently while its own settings page
+  // said the sound was on. Nothing is heard until the first key or touch either way, since
+  // that is the gesture a browser wants before it will open an audio device.
+  applySettings() {
+    Sound.enabled = this.settings.sound
+    Speech.setEnabled(this.settings.speech === "on")
+  }
+
   // ---- persistence --------------------------------------------------------
   async #restoreState() {
     const [settings, bindings, best] = await Promise.all([
@@ -227,8 +238,7 @@ export class Game {
       this.settings = { ...this.settings, ...settings }
       this.mode = modeById(this.settings.mode)
       this.layout = boardLayout(this.mode.cols, this.mode.rows)
-      Sound.enabled = this.settings.sound
-      Speech.setEnabled(this.settings.speech === "on")
+      this.applySettings()
       // Storage answers a frame or two in, by which time a board has already been
       // dealt for the title: deal the remembered mode's instead.
       if (this.phase === PHASE.TITLE) {

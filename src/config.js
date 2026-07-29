@@ -263,6 +263,33 @@ export const RESERVED_KEYS = new Set(["Enter", "Escape"])
 // And the pad buttons that reach the menu, for the same reason.
 export const RESERVED_BUTTONS = new Set([GAMEPAD.buttons.pause, GAMEPAD.buttons.confirm])
 
+// ---------------------------------------------------------------------------
+// MENU NOTES - what the menus sound like, so they can be walked without being looked at.
+//
+// A menu item's note is a number of semitones from the tuning's root. Semitones rather
+// than steps of the mode's own scale, because a five-note scale comes round again an
+// octave up: on a page of seven things the sixth would sound the same as the first, and
+// two items that sound the same are two items that cannot be told apart. Twelve semitones
+// is twelve different notes, which covers any page here.
+//
+// Items are numbered down the page and across each row, so the pitch rises the way a
+// reader's eye does. Anything that recurs from page to page has a note of its own below
+// the root instead: Back is Back wherever it is put, and the furniture of a menu is
+// audibly not its contents.
+// ---------------------------------------------------------------------------
+export const MENU_NOTES = {
+  back: -12,
+  title: -11,
+  resume: -10,
+  restart: -9,
+  modes: -8, // new game, from the title screen or mid-game
+  again: -7,
+  retry: -6,
+  settings: -4,
+  controls: -3,
+  resetBindings: -2,
+}
+
 // A fresh bindings table, taken from the registry above.
 export function freshBindings() {
   const bindings = {}

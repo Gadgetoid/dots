@@ -8,6 +8,7 @@ import assert from "node:assert/strict"
 import { Game, PHASE } from "../src/game.js"
 import { CONFIG } from "../src/config.js"
 import { modeById } from "../src/modes/index.js"
+import { MENU_NOTES } from "../src/config.js"
 import { Sound } from "../src/audio.js"
 
 const FRAME = 1 / 60
@@ -171,6 +172,228 @@ test("losing the window lets go of a held chain, but not a toggled one", () => {
   assert.equal(toggled.player.chain.length, 1, "here a chain outlives its press by design")
 })
 
+// Walk a menu, collecting the note each move played. Menus are meant to be learnable by
+// ear, which is only true if the notes are a function of where the cursor is.
+function notesWhile(game, steps) {
+  const played = []
+  const real = Sound.menuMove
+  Sound.menuMove = (step) => played.push(step)
+  try {
+    steps()
+  } finally {
+    Sound.menuMove = real
+  }
+  return played
+}
+
+// Every item on the current page, as { note, fixed } - `fixed` being the ones that recur
+// between pages and keep their own note wherever they are put.
+function pageNotes(game) {
+  const rows = game.menuRows()
+  const notes = []
+  rows.forEach((row, index) => {
+    if (row.kind === "heading" || row.kind === "hint") {
+      return
+    }
+    game.menuIndex = index
+    if (row.kind === "buttons") {
+      row.options.forEach((cell, option) => {
+        if (!cell) {
+          return
+        }
+        game.menuOption = option
+        notes.push({ note: game.menuNote(), fixed: MENU_NOTES[cell.action] !== undefined })
+      })
+      return
+    }
+    // A row of settings is pointed at by the value it holds, so it has one reachable note
+    // at a time; that it moves with the value is checked below.
+    game.menuOption = 0
+    notes.push({ note: game.menuNote(), fixed: false })
+  })
+  return notes
+}
+
+test("every item on every page has its own note", () => {
+  const game = new Game()
+  game.start("puzzle")
+  for (const page of ["title", "modes", "pause", "over", "settings", "controls"]) {
+    game.page = page
+    const notes = pageNotes(game)
+    assert.ok(notes.length > 1, `${page} offers something`)
+    const heard = notes.map((entry) => entry.note)
+    assert.equal(
+      new Set(heard).size,
+      heard.length,
+      `${page}: no two items share a note (${heard.join(",")})`,
+    )
+    // What is not a recurring button is numbered down the page, so the pitch rises the
+    // way a reader's eye does.
+    const positional = notes.filter((entry) => !entry.fixed).map((entry) => entry.note)
+    for (let i = 1; i < positional.length; i++) {
+      assert.ok(positional[i] > positional[i - 1], `${page}: item ${i} is above the one before`)
+    }
+  }
+})
+
+test("a recurring button sounds the same wherever it is", () => {
+  const game = new Game()
+  game.start("puzzle")
+  const heard = new Map()
+  for (const page of ["title", "modes", "pause", "over", "settings", "controls"]) {
+    game.page = page
+    const rows = game.menuRows()
+    rows.forEach((row, index) => {
+      if (row.kind !== "buttons") {
+        return
+      }
+      row.options.forEach((cell, option) => {
+        if (!cell || MENU_NOTES[cell.action] === undefined) {
+          return
+        }
+        game.menuIndex = index
+        game.menuOption = option
+        const note = game.menuNote()
+        const before = heard.get(cell.action)
+        if (before !== undefined) {
+          assert.equal(note, before, `${cell.action} sounds the same on ${page} as elsewhere`)
+        }
+        heard.set(cell.action, note)
+      })
+    })
+  }
+  // Back appears on more than one page, which is the whole point of the table.
+  assert.ok(heard.has("back") && heard.has("settings"), "the recurring buttons were found")
+  // And they sit below the root, where the contents of a page do not go.
+  for (const note of heard.values()) {
+    assert.ok(note < 0, "furniture sounds below the contents")
+  }
+})
+
+test("a setting's note moves with the value it holds", () => {
+  const game = new Game()
+  game.page = "settings"
+  const rows = game.menuRows()
+  game.menuIndex = rows.findIndex((row) => row.id === "brightness")
+  const heard = []
+  for (const level of [0, 1, 2]) {
+    game.settings.brightness = level
+    heard.push(game.menuNote())
+  }
+  assert.deepEqual(heard, [heard[0], heard[0] + 1, heard[0] + 2], "each value is its own note")
+})
+
+test("the same menu item plays the same note whenever it is reached", () => {
+  const first = new Game()
+  first.menuTap(0)
+  const going = notesWhile(first, () => {
+    first.menuMove(1)
+    first.menuMove(1)
+  })
+
+  // A fresh game, the same route: the notes cannot depend on anything but where the
+  // cursor ended up.
+  const second = new Game()
+  second.menuTap(0)
+  const again = notesWhile(second, () => {
+    second.menuMove(1)
+    second.menuMove(1)
+  })
+  assert.deepEqual(again, going)
+})
+
+test("across a row is up the scale too, so a grid has a shape you can hear", () => {
+  const game = new Game()
+  game.menuTap(0)
+  const across = notesWhile(game, () => {
+    game.menuAdjust(1)
+    game.menuAdjust(1)
+    game.menuAdjust(1)
+  })
+  for (let i = 1; i < across.length; i++) {
+    assert.ok(across[i] > across[i - 1], "each cell along is a step up")
+  }
+})
+
+test("down from the end of a short row stays in the grid", () => {
+  const game = new Game()
+  game.menuTap(0)
+  const rows = game.menuRows()
+  const grid = rows.findIndex((row) => row.id === "modes")
+  const modes = rows[grid].options
+  // Two across and an odd number of modes, so the last line holds one.
+  assert.equal(rows[grid].columns, 2)
+  assert.equal(modes.length % 2, 1)
+
+  // Onto the last cell of the second-to-last line, which is over the gap.
+  game.menuIndex = grid
+  game.menuOption = modes.length - 2
+  game.menuMove(1)
+  assert.equal(game.menuIndex, grid, "still in the grid")
+  assert.equal(game.menuOption, modes.length - 1, "on the one cell the last line has")
+
+  // And from there it leaves, since there is no line left.
+  game.menuMove(1)
+  assert.notEqual(game.menuIndex, grid)
+})
+
+test("running the cursor over the board says what is under it", () => {
+  const game = new Game()
+  game.start("classic")
+  settle(game)
+  // A run of three along the bottom row, with the rest of that row made unmatchable so
+  // the two cases are next to each other.
+  const row = game.board.rows - 1
+  const colours = [0, 0, 0, 1, 2, 1]
+  colours.forEach((colour, col) => {
+    game.board.at(col, row).colour = colour
+  })
+  for (let col = 0; col < game.board.cols; col++) {
+    game.board.at(col, row - 1).colour = 3
+  }
+  game.board.at(3, row - 1).colour = 4
+
+  const heard = []
+  const real = Sound.cursor
+  Sound.cursor = (reach, minChain) => heard.push({ reach, minChain })
+  try {
+    game.player.cursor = { col: 5, row }
+    game.moveCursor(0, -1, 0) // onto the lone 1 at col 4... which is a 2, so alone
+    game.moveCursor(0, -1, 0) // col 3: a 1, alone on its row
+    game.moveCursor(0, -1, 0) // col 2: the end of the run of three
+    game.moveCursor(0, -1, 0) // col 1: the middle of it
+  } finally {
+    Sound.cursor = real
+  }
+
+  assert.equal(heard.length, 4, "every step said something")
+  assert.ok(
+    heard.every((call) => call.minChain === game.mode.minChain),
+    "and said what counts as a chain here",
+  )
+  // The two dots with nothing to join sound as nothing to join. The two in the run of
+  // three report what a chain starting on them could reach - which is the whole run from
+  // its end, and only two from the middle, since a chain begun in the middle of a run can
+  // still only go one way from there.
+  assert.equal(heard[0].reach, 1, "a dot of its own")
+  assert.equal(heard[1].reach, 1, "and another")
+  assert.equal(heard[2].reach, 3, "the end of a run of three")
+  assert.equal(heard[3].reach, 2, "the middle of it, which can only go one way")
+})
+
+test("what the cursor can reach is capped, not counted forever", () => {
+  const game = new Game()
+  game.start("classic")
+  settle(game)
+  // One colour everywhere: the reach from any dot is the whole board, and the answer has
+  // to come back bounded rather than enumerate every path across it.
+  for (const dot of game.board.dots) {
+    dot.colour = 0
+  }
+  const reach = game.board.reachFrom(game.board.at(0, 0), 6)
+  assert.equal(reach, 6)
+})
+
 test("unpicking a chain walks back down the scale", () => {
   const game = new Game()
   game.start("classic")
@@ -306,7 +529,7 @@ test("the cursor drags the chain, and stepping back retracts it", () => {
   assert.equal(game.player.chain.length, 1, "and stepping back gave the dot up")
 })
 
-test("a single held dot is dropped rather than blocking the cursor", () => {
+test("a move a held chain cannot make is refused, and says so", () => {
   const game = new Game()
   game.start("classic")
   settle(game)
@@ -318,9 +541,44 @@ test("a single held dot is dropped rather than blocking the cursor", () => {
   game.player.cursor = { col: dot.col, row: dot.row }
   game.linkPress(0)
   assert.equal(game.player.chain.length, 1)
-  game.moveCursor(0, 1, 0)
-  assert.equal(game.player.chain.length, 0, "the chain was let go")
-  assert.equal(game.player.cursor.col, dot.col + 1, "and the cursor moved anyway")
+
+  let refusals = 0
+  const real = Sound.blocked
+  Sound.blocked = () => refusals++
+  try {
+    game.moveCursor(0, 1, 0)
+  } finally {
+    Sound.blocked = real
+  }
+  // Even with only one dot in hand. While the button is held the chain is the button, and
+  // a thumb going the wrong way must not throw away what is being held.
+  assert.equal(game.player.chain.length, 1, "still held")
+  assert.equal(game.player.cursor.col, dot.col, "and the cursor did not move")
+  assert.equal(refusals, 1, "the refusal was audible")
+})
+
+test("pushing at the edge of the board is refused too, without rattling", () => {
+  const game = new Game()
+  game.start("classic")
+  settle(game)
+  game.player.cursor = { col: 0, row: 0 }
+
+  let refusals = 0
+  const real = Sound.blocked
+  Sound.blocked = () => refusals++
+  try {
+    // Held against the edge: the cursor repeats at its own rate, and every one of those
+    // would otherwise be a noise.
+    for (let i = 0; i < 20; i++) {
+      game.moveCursor(0, -1, 0)
+      game.advance(FRAME)
+    }
+  } finally {
+    Sound.blocked = real
+  }
+  assert.equal(game.player.cursor.col, 0, "nowhere to go")
+  assert.ok(refusals >= 1, "it said so")
+  assert.ok(refusals <= 3, `and not twenty times over (${refusals})`)
 })
 
 test("a board with no move left ends the game, after a pause", () => {

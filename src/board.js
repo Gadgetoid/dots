@@ -344,6 +344,35 @@ export class Board {
     return pairs
   }
 
+  // How long a chain could be if it started at this dot: the deepest run of its own
+  // colour leading away from it. Capped, because the only thing asking is the sound the
+  // cursor makes, and that has to tell one from two from three from "several" and no more.
+  reachFrom(dot, cap = 6) {
+    if (!dot) {
+      return 0
+    }
+    const path = []
+    const walk = (from) => {
+      path.push(from)
+      let best = path.length
+      if (best < cap) {
+        for (const [dx, dy] of CARDINALS) {
+          const next = this.at(from.col + dx, from.row + dy)
+          if (!next || next.colour !== from.colour || path.includes(next)) {
+            continue
+          }
+          best = Math.max(best, walk(next))
+          if (best >= cap) {
+            break
+          }
+        }
+      }
+      path.pop()
+      return best
+    }
+    return walk(dot)
+  }
+
   // The longest chain on the board, as an ordered list of dots, for the hint.
   //
   // This is a longest-path search, which has no shortcut, so it runs on a budget:

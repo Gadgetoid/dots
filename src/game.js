@@ -23,6 +23,7 @@ import {
   boardLayout,
   cellCentre,
   freshBindings,
+  MENU_NOTES,
   REDUCED_MOTION_RATE,
 } from "./config.js"
 import { THEMES, THEME_IDS } from "./palette.js"
@@ -48,6 +49,9 @@ export const MAX_PLAYERS = 4
 // all of them is a clatter rather than a rain.
 const LAND_AUDIBLE = 6
 const LAND_VOICES = 3
+
+// The least time between two refusals being sounded. See Game.#soundBlocked.
+const BLOCKED_GAP = 0.18
 
 export class Player {
   constructor(index) {
@@ -132,6 +136,9 @@ export class Game {
     // because of it. See #advanceHint.
     this.sinceMove = 0
     this.hint = null
+    // When a refused move was last sounded, so holding a direction against the edge of the
+    // board does not rattle.
+    this.blockedAt = -1
 
     this.dealAttractBoard()
     this.#resetMenuCursor()
@@ -802,19 +809,43 @@ export class Game {
     const col = clamp(player.cursor.col + dx, 0, this.board.cols - 1)
     const row = clamp(player.cursor.row + dy, 0, this.board.rows - 1)
     if (col === player.cursor.col && row === player.cursor.row) {
+      // The edge of the board: there is nowhere that way.
+      this.#soundBlocked()
       return
     }
-    // A chain follows the cursor, so a move that the chain cannot make is refused
-    // - except where the chain is a single dot and nothing has been invested in it
-    // yet, which is dropped so the cursor can go and look elsewhere.
+    // A chain follows the cursor, so a move the chain cannot make is refused and the
+    // cursor stays where it is. Even for a chain of one: while the button is held, letting
+    // go of what is held because a thumb went the wrong way is not something anyone asked
+    // for. The drop button is what lets go.
     if (player.chain.length > 0 && !this.extendTo(playerIndex, col, row)) {
-      if (player.chain.length > 1) {
-        return
-      }
-      this.#dropChain(player, true)
+      this.#soundBlocked()
+      return
     }
     player.cursor.col = col
     player.cursor.row = row
+    this.#soundCursor(player)
+  }
+
+  // A move that could not happen. Rate-limited, because a direction held against the edge
+  // of the board repeats at the cursor's own rate and thirteen of these a second is a
+  // machine gun rather than a refusal.
+  #soundBlocked() {
+    if (this.time - this.blockedAt < BLOCKED_GAP) {
+      return
+    }
+    this.blockedAt = this.time
+    Sound.blocked()
+  }
+
+  // What the cursor has arrived on, as a sound: how long a chain could be from here, or
+  // that there is nothing here worth taking. Only with nothing in hand - while a chain is
+  // being gathered the link and retract tones are already saying where it is.
+  #soundCursor(player) {
+    if (player.chain.length > 0 || !this.board) {
+      return
+    }
+    const dot = this.board.at(player.cursor.col, player.cursor.row)
+    Sound.cursor(this.board.reachFrom(dot), this.mode.minChain)
   }
 
   // A pointer drags instead of stepping: down starts, move extends, up spends.
@@ -842,11 +873,13 @@ export class Game {
       return
     }
     if (!player.dragging) {
-      // Hovering still moves the cursor, so the mouse and the keyboard agree about
-      // where the player is looking - which is what shows a special's blurb.
-      if (!this.page) {
+      // Hovering still moves the cursor, so the mouse and the keyboard agree about where
+      // the player is looking - which is what shows a special's blurb, and what the cursor
+      // sound is about. Only on a change of cell, or a sweep of the mouse is a racket.
+      if (!this.page && (player.cursor.col !== cell.col || player.cursor.row !== cell.row)) {
         player.cursor.col = cell.col
         player.cursor.row = cell.row
+        this.#soundCursor(player)
       }
       return
     }
@@ -1150,16 +1183,29 @@ export class Game {
     if (rows.length === 0) {
       return
     }
-    // A block of buttons is one row holding several, so up and down move a line inside
-    // it and only leave it when there is no line left to move to.
+    // A block of buttons is one row holding several, so up and down move a line inside it
+    // and only leave it when there is no line left to move to. Where the line moved onto
+    // is short of the column being left - the last line of the mode grid holds one - the
+    // cursor takes the nearest cell along it rather than stepping out of the block.
     const here = rows[this.menuIndex]
     if (here && here.kind === "buttons") {
-      const next = this.menuOption + delta * (here.columns || here.options.length)
-      if (next >= 0 && next < here.options.length && here.options[next]) {
-        this.menuOption = next
-        this.#hover(here, next)
-        Sound.menuMove()
-        return
+      const columns = here.columns || here.options.length
+      const line = Math.floor(this.menuOption / columns) + delta
+      const lines = Math.ceil(here.options.length / columns)
+      if (line >= 0 && line < lines) {
+        const start = line * columns
+        const end = Math.min(start + columns, here.options.length) - 1
+        let target = Math.min(start + (this.menuOption % columns), end)
+        // And back along the line past anything only holding its place.
+        while (target > start && !here.options[target]) {
+          target--
+        }
+        if (here.options[target]) {
+          this.menuOption = target
+          this.#hover(here, target)
+          this.#playCursor()
+          return
+        }
       }
     }
     let index = this.menuIndex
@@ -1172,7 +1218,7 @@ export class Game {
     if (index !== this.menuIndex) {
       this.#goToRow(index, rows)
       this.#hover(rows[index], this.menuOption)
-      Sound.menuMove()
+      this.#playCursor()
     }
   }
 
@@ -1191,7 +1237,9 @@ export class Game {
       if (next >= 0 && next < row.options.length) {
         this.menuOption = next
         this.#hover(row, next)
-        Sound.menuMove()
+        this.#playCursor()
+      } else {
+        this.#soundBlocked()
       }
       return
     }
@@ -1204,6 +1252,10 @@ export class Game {
     const next = clamp(row.selected + delta, 0, row.options.length - 1)
     if (next !== row.selected) {
       this.#chooseOption(row, next)
+    } else {
+      // Already at one end of the row, which is worth hearing: it is how a player who is
+      // not looking knows the setting is as far that way as it goes.
+      this.#soundBlocked()
     }
   }
 
@@ -1273,6 +1325,52 @@ export class Game {
     this.menuIndex = index
     this.menuOption = cell
     this.#hover(row, cell)
+  }
+
+  // The note the thing under the cursor sounds, in semitones from the tuning's root.
+  //
+  // Anything that recurs between pages has one of its own, so Back is Back wherever it is
+  // put; everything else is numbered down the page and across each row, so the pitch rises
+  // the way a reader's eye does. Either way it is the same note every time, which is what
+  // makes a menu walkable without being looked at. See MENU_NOTES.
+  menuNote() {
+    const rows = this.menuRows()
+    let index = 0
+    for (const [row, entry] of rows.entries()) {
+      if (!this.#selectable(entry)) {
+        continue
+      }
+      if (row === this.menuIndex) {
+        if (entry.kind === "buttons") {
+          const cell = entry.options[this.menuOption]
+          const known = cell ? MENU_NOTES[cell.action] : undefined
+          if (known !== undefined) {
+            return known
+          }
+          // Placeholder cells are not offered, so they are not counted.
+          return index + entry.options.slice(0, this.menuOption).filter(Boolean).length
+        }
+        // A row of settings is pointed at by the value it holds rather than by a cursor
+        // of its own.
+        return index + (entry.kind === "options" ? entry.selected : 0)
+      }
+      index += this.#itemCount(entry)
+    }
+    return index
+  }
+
+  #itemCount(row) {
+    if (row.kind === "buttons") {
+      return row.options.filter(Boolean).length
+    }
+    if (row.kind === "options") {
+      return row.options.length
+    }
+    return 1
+  }
+
+  #playCursor() {
+    Sound.menuMove(this.menuNote())
   }
 
   // Moving onto a cell, which for most of them is nothing at all. The mode grid is the
@@ -1417,19 +1515,15 @@ export class Game {
   // at once: a setting a player is looking at is a setting they can see the effect of.
   #chooseOption(row, option) {
     switch (row.id) {
-      case "mode":
-        this.#previewMode(GAME_MODES[clamp(option, 0, GAME_MODES.length - 1)])
-        Sound.menuMove()
-        break
       case "theme":
         this.settings.theme = THEME_IDS[option] || THEME_IDS[0]
         this.#storeSettings()
-        Sound.menuMove()
+        this.#playCursor()
         break
       case "brightness":
         this.settings.brightness = clamp(option, 0, CONFIG.BRIGHTNESS_LEVELS.length - 1)
         this.#storeSettings()
-        Sound.menuMove()
+        this.#playCursor()
         break
       case "sound":
         this.setSound(option === 0)
@@ -1442,14 +1536,14 @@ export class Game {
           this.#dropChain(player, true)
         }
         this.#storeSettings()
-        Sound.menuMove()
+        this.#playCursor()
         break
       case "hints":
         this.settings.hints = option === 1 ? "off" : "on"
         this.hint = null
         this.sinceMove = 0
         this.#storeSettings()
-        Sound.menuMove()
+        this.#playCursor()
         break
       case "motion":
         this.settings.motion = option === 1 ? "reduced" : "full"
@@ -1457,7 +1551,7 @@ export class Game {
           this.particles.clear()
         }
         this.#storeSettings()
-        Sound.menuMove()
+        this.#playCursor()
         break
       default:
         break

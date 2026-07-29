@@ -20,6 +20,10 @@ import { buildTuning, DEFAULT_TUNING } from "./scales.js"
 // shimmers instead of sounding sequenced.
 const POP_DETUNE = 0.006
 
+// A frequency ratio for a number of semitones, which is what the menus are tuned in: see
+// menuMove, and MENU_NOTES in config.js.
+const semitones = (steps) => Math.pow(2, steps / 12)
+
 export const Sound = {
   enabled: false,
   ctx: null,
@@ -221,6 +225,33 @@ export const Sound = {
     this.noise(0.09, { volume: 0.014, freq: 1500, q: 0.5, type: "bandpass", delay })
   },
 
+  // Running the cursor over the board, with nothing in hand: what is under it, as a
+  // sound. A cell with nothing worth taking says so dully and low; a dot at the head of
+  // something says how much, a step up the scale for every dot it could reach. The two
+  // are different instruments as well as different pitches, so "there is something here"
+  // does not have to be judged by ear against a remembered note.
+  //
+  // Quiet and short, because this fires on every step across a board.
+  cursor(reach, minChain = 2) {
+    if (reach < minChain) {
+      this.voice(this.note(0) * 0.5, 0.05, { wave: "sine", volume: 0.01, attack: 0.004 })
+      return
+    }
+    this.voice(this.note(reach - 1), 0.08, {
+      wave: "triangle",
+      volume: 0.018,
+      attack: 0.005,
+    })
+  },
+
+  // A move that cannot happen: the edge of the board, or a dot the chain in hand has no
+  // business on. Deliberately not a note in the scale - a hair flat of the octave below
+  // the root, with a knock under it - so it reads as "no" rather than as something played.
+  blocked() {
+    this.voice(this.note(0) * 0.47, 0.07, { wave: "square", volume: 0.016, attack: 0.004 })
+    this.noise(0.05, { volume: 0.012, freq: 180, q: 1.2 })
+  },
+
   // Dropping a chain without spending it: the link tone, reversed.
   // Dropping a chain without spending it: the root, falling away under itself. Below
   // the scale rather than in it, since nothing was earned.
@@ -272,10 +303,18 @@ export const Sound = {
     }
   },
 
-  // The menu is in the same tuning as the board, so the whole game sounds like one
-  // instrument however a mode is tuned.
-  menuMove() {
-    this.voice(this.note(3), 0.07, { wave: "sine", volume: 0.02, attack: 0.005 })
+  // The menus are rooted in the same tuning as the board, so the whole game sounds like
+  // one instrument however a mode is tuned - but they are chromatic rather than played on
+  // the mode's own scale, since a scale comes round again an octave up and two menu items
+  // an octave apart are two items that sound the same.
+  //
+  // `step` is which item this is, in semitones: see MENU_NOTES in config.js.
+  menuMove(step = 0) {
+    this.voice(this.tuning.rootHz * semitones(step), 0.09, {
+      wave: "sine",
+      volume: 0.022,
+      attack: 0.005,
+    })
   },
 
   menuConfirm() {

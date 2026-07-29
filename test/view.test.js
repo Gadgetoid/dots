@@ -130,6 +130,30 @@ function assertSane(calls, where) {
   }
 }
 
+// Nothing a menu draws may fall off the field. A page that has outgrown the screen does
+// not fail, it just quietly loses its bottom row - which on the settings page is the way
+// out of it - so this is worth insisting on rather than checking by eye every time a row
+// or a font size is added.
+function assertOnScreen(calls, where) {
+  for (const call of calls) {
+    if (call.kind === "text") {
+      const [, y] = call.args
+      assert.ok(y >= 0 && y <= VIEW_H, `${where}: "${call.opts.str}" is at y=${Math.round(y)}`)
+      continue
+    }
+    if (call.kind !== "panel") {
+      continue
+    }
+    const [, y, , h] = call.args
+    // The full-window frost is exactly the field, so its own edges are allowed to be on it.
+    if (h >= VIEW_H) {
+      continue
+    }
+    assert.ok(y >= 0, `${where}: a panel starts at y=${Math.round(y)}`)
+    assert.ok(y + h <= VIEW_H, `${where}: a panel ends at y=${Math.round(y + h)}`)
+  }
+}
+
 const FRAME = 1 / 60
 const settle = (game, seconds = 4) => {
   for (let i = 0; i < seconds * 60; i++) {
@@ -335,5 +359,23 @@ test("the clock draws at every point of its run", () => {
   for (const left of [90, 45, 12, 1, 0.2, 0]) {
     game.timeLeft = left
     assertSane(drawn(game), `clock at ${left}`)
+  }
+})
+
+test("no menu page runs off the field", () => {
+  const game = new Game()
+  game.start("puzzle")
+  // Every page, including the two with the most on them: the settings, and the controls
+  // with a row per control per device.
+  for (const page of ["title", "modes", "pause", "over", "settings", "controls"]) {
+    game.page = page
+    game.menuIndex = 0
+    game.menuOption = 0
+    assertOnScreen(drawn(game), page)
+    // And with the cursor walked to the end, where the hint and the last row are.
+    for (let i = 0; i < 20; i++) {
+      game.menuMove(1)
+    }
+    assertOnScreen(drawn(game), `${page}, cursor at the end`)
   }
 })

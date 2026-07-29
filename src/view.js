@@ -30,10 +30,16 @@ const OUTCOMES = {
 const PANEL_PAD = 26
 const BUTTON_H = 88
 const BUTTON_GAP = 8
-const OPTION_H = 52
-const PREVIEW_H = 66
-const HEADING_H = 26
-const HINT_H = 28
+const OPTION_H = 58
+const PREVIEW_H = 72
+const HEADING_H = 30
+// The score's own size, which the multiplier beside it is placed from.
+const SCORE_SIZE = 44
+// Tall enough to hold its line near the top and leave a gap under it, so a hint sits with
+// what it describes rather than with the button below it.
+const HINT_H = 46
+// The gutter a settings row's name sits in, to the left of its values.
+const LABEL_W = 116
 
 // The pause button, in the strip under the board. A touch player has no escape key,
 // so this is the only way into the menu for them, and it is where a thumb already is.
@@ -338,7 +344,7 @@ export class GameView {
       this.renderer.text(floater.text, floater.x, floater.y, {
         color: floater.colour,
         alpha,
-        size: 16 * floater.scale,
+        size: 20 * floater.scale,
         align: "center",
         baseline: "middle",
         bold: true,
@@ -359,22 +365,27 @@ export class GameView {
       // No labels: a big number top left is the score and a smaller one top right is the
       // best there has been, and neither needs saying twice.
       const score = String(player.score)
-      renderer.text(score, 28, 62, { color: theme.text.bright, size: 36, bold: true })
+      renderer.text(score, 28, 62, { color: theme.text.bright, size: SCORE_SIZE, bold: true })
       renderer.text(String(Math.max(best, player.score)), VIEW_W - 28, 58, {
         color: theme.text.dim,
-        size: 24,
+        size: 30,
         align: "right",
       })
       // The multiplier only appears once it is worth something, and glows, since it
       // is what a long chain earned. It sits beside the score rather than above the
       // board, which is where the page's own buttons are.
       if (player.multiplier > 1) {
-        renderer.text(`x${player.multiplier}`, 28 + renderer.measureText(score, 36) + 12, 60, {
-          color: theme.accent,
-          size: 24,
-          bold: true,
-          glow: 0.7,
-        })
+        renderer.text(
+          `x${player.multiplier}`,
+          28 + renderer.measureText(score, SCORE_SIZE) + 12,
+          60,
+          {
+            color: theme.accent,
+            size: 28,
+            bold: true,
+            glow: 0.7,
+          },
+        )
       }
     }
 
@@ -386,7 +397,7 @@ export class GameView {
       const ready = player.chain.length >= game.mode.minChain
       renderer.text(ready ? `+${worth}` : `${player.chain.length}/${game.mode.minChain}`, 28, 90, {
         color: ready ? colours.bright : theme.text.faint,
-        size: 18,
+        size: 22,
         bold: true,
         glow: ready ? player.glow * 0.4 : 0,
       })
@@ -405,16 +416,16 @@ export class GameView {
     if (special) {
       renderer.text(`${special.name}: ${special.blurb}`, 28, HUD_BOTTOM + 22, {
         color: theme.accent,
-        size: 12,
+        size: 18,
       })
     } else if (level && game.phase === PHASE.PLAYING) {
       renderer.text(`Level ${game.level + 1} of ${game.mode.levels.length}`, 28, HUD_BOTTOM + 16, {
         color: theme.text.faint,
-        size: 12,
+        size: 18,
       })
       renderer.text(level.name, 28, HUD_BOTTOM + 34, {
         color: theme.text.dim,
-        size: 15,
+        size: 22,
         bold: true,
       })
       // What this level has paid against the most it can, which is a real target: the
@@ -424,14 +435,14 @@ export class GameView {
         const reached = game.levelScore >= game.levelPar
         renderer.text(`${game.levelScore} / ${game.levelPar}`, VIEW_W - 92, HUD_BOTTOM + 28, {
           color: reached ? theme.accent : theme.text.dim,
-          size: 15,
+          size: 22,
           align: "right",
           bold: true,
           glow: reached ? 0.8 : 0,
         })
         renderer.text("this level", VIEW_W - 92, HUD_BOTTOM + 12, {
           color: theme.text.faint,
-          size: 11,
+          size: 17,
           align: "right",
         })
       }
@@ -488,7 +499,7 @@ export class GameView {
     // background colour, so it reads against the filled part behind it.
     this.renderer.text(`${Math.ceil(game.timeLeft)}`, layout.x + 14, y + height / 2, {
       color: theme.background,
-      size: 15,
+      size: 20,
       baseline: "middle",
       bold: true,
     })
@@ -504,7 +515,7 @@ export class GameView {
     const y = game.layout.y + game.layout.height / 2 - t * 26
     this.renderer.text(banner.text, VIEW_W / 2, y, {
       color: theme.text.bright,
-      size: 30,
+      size: 36,
       align: "center",
       baseline: "middle",
       bold: true,
@@ -514,7 +525,7 @@ export class GameView {
     if (banner.sub) {
       this.renderer.text(banner.sub, VIEW_W / 2, y + 34, {
         color: theme.accent,
-        size: 18,
+        size: 22,
         align: "center",
         baseline: "middle",
         alpha,
@@ -583,7 +594,7 @@ export class GameView {
       if (row.kind === "heading") {
         renderer.text(row.label, x + 26, rowY + rowHeight - 8, {
           color: theme.text.faint,
-          size: 12,
+          size: 18,
         })
       } else if (row.kind === "buttons") {
         this.#drawButtons(game, theme, row, index, x, rowY, width)
@@ -650,7 +661,7 @@ export class GameView {
       }
       renderer.text(option.label, box.x + box.w / 2, box.y + box.h / 2, {
         color: filled ? theme.panel : theme.text.normal,
-        size: row.primary ? 20 : 17,
+        size: row.primary ? 25 : 19,
         align: "center",
         baseline: "middle",
         bold: filled,
@@ -690,7 +701,7 @@ export class GameView {
     }
     this.renderer.text(text, x + width / 2, rowY + rowHeight / 2, {
       color: colour,
-      size: 12,
+      size: 18,
       align: "center",
       baseline: "middle",
     })
@@ -709,14 +720,14 @@ export class GameView {
     const middle = box.y + box.h / 2
     renderer.text(row.label, x + 26, middle, {
       color: selected ? theme.text.bright : theme.text.normal,
-      size: 17,
+      size: 20,
       baseline: "middle",
       bold: selected,
     })
     if (row.value != null) {
       renderer.text(row.value, x + width - 26, middle, {
         color: selected ? theme.accent : theme.text.dim,
-        size: 16,
+        size: 19,
         align: "right",
         baseline: "middle",
         bold: selected,
@@ -724,19 +735,28 @@ export class GameView {
     }
   }
 
-  // A row of options, each its own pressable box. The chosen one is filled; the row is
-  // outlined while the cursor is on it, so a keyboard player can see where they are
-  // without the row looking pressed.
+  // A row of options, each its own pressable box, with the row's name in a gutter to their
+  // left. The chosen one is filled; the row is outlined while the cursor is on it, so a
+  // keyboard player can see where they are without the row looking pressed.
   #drawOptions(game, theme, row, index, x, rowY, width, rowHeight) {
     const renderer = this.renderer
     const onRow = index === game.menuIndex
     const count = row.options.length
-    const available = width - 52
+    const gutter = row.label ? LABEL_W : 0
+    const available = width - 52 - gutter
     const boxW = (available - BUTTON_GAP * (count - 1)) / count
     const boxH = rowHeight - 10
+    if (row.label) {
+      renderer.text(row.label, x + 26, rowY + boxH / 2, {
+        color: onRow ? theme.text.bright : theme.text.normal,
+        size: 21,
+        align: "left",
+        baseline: "middle",
+      })
+    }
     row.options.forEach((option, optionIndex) => {
       const box = {
-        x: x + 26 + optionIndex * (boxW + BUTTON_GAP),
+        x: x + 26 + gutter + optionIndex * (boxW + BUTTON_GAP),
         y: rowY,
         w: boxW,
         h: boxH,
@@ -758,7 +778,7 @@ export class GameView {
       } else {
         renderer.text(option.label, box.x + box.w / 2, box.y + box.h / 2, {
           color: chosen ? theme.panel : theme.text.normal,
-          size: 16,
+          size: 19,
           align: "center",
           baseline: "middle",
           bold: chosen,
@@ -812,8 +832,8 @@ export class GameView {
     switch (game.page) {
       case "title":
         return [
-          { text: TITLE, colour: theme.text.bright, size: 42, bold: true, glow: 0.45 },
-          { text: "Link dots of a colour to pop them", colour: theme.text.dim, size: 13 },
+          { text: TITLE, colour: theme.text.bright, size: 50, bold: true, glow: 0.45 },
+          { text: "Link dots of a colour to pop them", colour: theme.text.dim, size: 19 },
         ]
       case "over": {
         // Clearing the last authored level is not "a board cleared", it is the whole
@@ -825,18 +845,18 @@ export class GameView {
         const best = game.best[game.mode.id] || 0
         const record = game.player.score >= best && game.player.score > 0
         const lines = [
-          { text: outcome, colour: theme.text.bright, size: 26, bold: true },
+          { text: outcome, colour: theme.text.bright, size: 30, bold: true },
           {
             text: `${game.player.score}`,
             colour: record ? theme.accent : theme.text.normal,
-            size: 40,
+            size: 48,
             bold: true,
             glow: record ? 1 : 0,
           },
           {
             text: record ? "Best yet" : `Best ${best}`,
             colour: theme.text.dim,
-            size: 13,
+            size: 19,
           },
         ]
         // On a board that is never refilled and was never designed, what is left on it
@@ -847,26 +867,26 @@ export class GameView {
           lines.push({
             text: left === 1 ? "1 dot left" : `${left} dots left`,
             colour: theme.text.faint,
-            size: 13,
+            size: 19,
           })
         }
         return lines
       }
       case "modes":
         return [
-          { text: "New game", colour: theme.text.bright, size: 26, bold: true },
-          { text: "Choose a mode", colour: theme.text.dim, size: 13 },
+          { text: "New game", colour: theme.text.bright, size: 30, bold: true },
+          { text: "Choose a mode", colour: theme.text.dim, size: 19 },
         ]
       case "settings":
-        return [{ text: "Settings", colour: theme.text.bright, size: 26, bold: true }]
+        return [{ text: "Settings", colour: theme.text.bright, size: 30, bold: true }]
       case "controls":
-        return [{ text: "Controls", colour: theme.text.bright, size: 26, bold: true }]
+        return [{ text: "Controls", colour: theme.text.bright, size: 30, bold: true }]
       default:
         // The pause menu is where the mode says what it is. It used to be written under
         // the board for the whole game, where it was read once and then in the way.
         return [
-          { text: game.mode.name, colour: theme.text.bright, size: 26, bold: true },
-          { text: game.mode.blurb, colour: theme.text.dim, size: 13 },
+          { text: game.mode.name, colour: theme.text.bright, size: 30, bold: true },
+          { text: game.mode.blurb, colour: theme.text.dim, size: 19 },
         ]
     }
   }

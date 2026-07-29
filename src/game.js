@@ -1062,12 +1062,15 @@ export class Game {
     }
   }
 
+  // The settings, each a row of values with its name beside them rather than over them.
+  // Beside, because there are seven of these and a heading each would not fit the field -
+  // and a name at the left of the values it names reads as belonging to them anyway.
   #settingRows() {
     return [
-      { id: "head:look", label: "Look", kind: "heading" },
       {
         id: "theme",
         kind: "options",
+        label: "Theme",
         selected: Math.max(THEME_IDS.indexOf(this.settings.theme), 0),
         // The preview is the option: a little board in that theme says more than its
         // name does, and it is what makes the row worth pressing rather than reading.
@@ -1076,53 +1079,54 @@ export class Game {
       {
         id: "brightness",
         kind: "options",
+        label: "Light",
         selected: clamp(this.settings.brightness, 0, CONFIG.BRIGHTNESS_LEVELS.length - 1),
         options: CONFIG.BRIGHTNESS_LEVELS.map((level) => ({ id: level.name, label: level.name })),
       },
-      { id: "head:sound", label: "Sound", kind: "heading" },
       {
         id: "sound",
         kind: "options",
+        label: "Sound",
         selected: this.settings.sound ? 0 : 1,
         options: [
           { id: "on", label: "On" },
           { id: "off", label: "Off" },
         ],
       },
-      { id: "head:link", label: "Chains", kind: "heading" },
       {
         id: "link",
         kind: "options",
+        label: "Chains",
         selected: this.holdToLink ? 0 : 1,
         options: [
           { id: "hold", label: "Hold", hint: "Hold to gather dots, let go to pop them" },
           { id: "toggle", label: "Toggle", hint: "Press to start a chain, press again to pop" },
         ],
       },
-      { id: "head:hints", label: "Hints", kind: "heading" },
-      {
-        id: "hints",
-        kind: "options",
-        selected: this.hintsOn ? 0 : 1,
-        options: [
-          { id: "on", label: "On", hint: "A settled board points out a move eventually" },
-          { id: "off", label: "Off", hint: "Never points anything out" },
-        ],
-      },
-      { id: "head:shapes", label: "Shapes", kind: "heading" },
       {
         id: "shapes",
         kind: "options",
+        label: "Shapes",
         selected: this.settings.shapes === "on" ? 0 : 1,
         options: [
           { id: "on", label: "On", hint: "Each colour carries a shape of its own as well" },
           { id: "off", label: "Off", hint: "Colour alone tells the dots apart" },
         ],
       },
-      { id: "head:motion", label: "Motion", kind: "heading" },
+      {
+        id: "hints",
+        kind: "options",
+        label: "Hints",
+        selected: this.hintsOn ? 0 : 1,
+        options: [
+          { id: "on", label: "On", hint: "A settled board points out a move eventually" },
+          { id: "off", label: "Off", hint: "Never points anything out" },
+        ],
+      },
       {
         id: "motion",
         kind: "options",
+        label: "Motion",
         selected: this.reducedMotion ? 1 : 0,
         options: [
           { id: "full", label: "Full", hint: "Particles, wobble and glass menus" },

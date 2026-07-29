@@ -276,11 +276,24 @@ export function freshBindings() {
   return bindings
 }
 
-// What the game remembers about how it should look and sound. Everything else
+// What the game remembers about how it should look, sound and play. Everything else
 // about a session is derived from the mode.
 export const DEFAULT_SETTINGS = {
   theme: "dark",
   brightness: 2, // index into CONFIG.BRIGHTNESS_LEVELS
   sound: true,
   mode: "classic",
+  // How a button builds a chain. "hold" is the 32blit way and the default: hold it down,
+  // move to gather dots, let go to pop. "toggle" splits that into two presses, for anyone
+  // who would rather not hold a button down while aiming with the other hand - or at all.
+  // A pointer drags either way; a drag is a hold by nature.
+  link: "hold",
+  // "reduced" turns off the particles and the wobble, slows the fall, and makes the menus
+  // solid rather than glass. Motion and transparency are the two things a person is most
+  // likely to need less of, and neither carries any information the game needs.
+  motion: "full",
 }
+
+// How much of the game's motion a reduced-motion session keeps. The fall is slowed
+// rather than stopped: a dot that arrives without travelling cannot be followed.
+export const REDUCED_MOTION_RATE = 0.62

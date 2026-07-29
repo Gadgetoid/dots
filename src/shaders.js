@@ -202,9 +202,24 @@ export const SPRITE_FS = `#version 300 es
     frag = vec4(vColor.rgb * a, a);
   }`
 
-// Rounded rectangles: the score bar, menu panels, buttons and the empty cells the
-// board is drawn on. A border is the same field measured from either side, so one
-// pass fills and outlines.
+// Rectangles, with a corner radius where one is wanted: the score bar, the board's well,
+// the menu buttons. A border is the same field measured from either side, so one pass
+// fills and outlines.
+//
+// Every button in the menus asks for no radius at all. The board is all circles and
+// filleted blobs; square corners on the furniture are what keeps the two apart, and
+// something to press reads as something to press partly by not being soft.
+const ROUNDED_BOX = `
+  // Both halves of the rounded-box distance: the outside term measures out of the corner,
+  // and the inside term is what makes the field negative within the box. With only the
+  // outside term the distance is zero everywhere inside a box with square corners, which
+  // is exactly half covered.
+  float sdRoundedBox(vec2 p, vec2 extents, float radius) {
+    vec2 inner = max(extents - radius, vec2(0.0));
+    vec2 q = abs(p) - inner;
+    return min(max(q.x, q.y), 0.0) + length(max(q, vec2(0.0))) - radius;
+  }
+`
 export const PANEL_VS = `#version 300 es
   precision highp float;
   layout(location=0) in vec2 aPos;
@@ -218,17 +233,9 @@ export const PANEL_FS = `#version 300 es
   precision highp float;
   in vec2 vLocal; in vec4 vShape; in vec4 vColor;
   out vec4 frag;
+  ${ROUNDED_BOX}
   void main() {
-    // Named for what it is - the box the corner arcs are struck from - because
-    // "half" is a reserved word in GLSL ES and will not compile.
-    vec2 inner = max(vShape.xy - vShape.z, vec2(0.0));
-    vec2 q = abs(vLocal) - inner;
-    // Both halves of the rounded-box distance: the outside term measures out of the
-    // corner, and the inside term is what makes the field negative within the box. With
-    // only the outside term the distance is zero everywhere inside a box with square
-    // corners, which is exactly half covered - so every panel drawn without a radius,
-    // the curtain over the top of the board among them, came out half transparent.
-    float d = min(max(q.x, q.y), 0.0) + length(max(q, vec2(0.0))) - vShape.z;
+    float d = sdRoundedBox(vLocal, vShape.xy, vShape.z);
     float aa = max(fwidth(d), 1e-5);
     float cov;
     if (vShape.w > 0.0) {
@@ -254,10 +261,9 @@ export const FROST_FS = `#version 300 es
   uniform vec2 uSize;        // the target's size in pixels, to turn a fragment into a uv
   in vec2 vLocal; in vec4 vShape; in vec4 vColor;
   out vec4 frag;
+  ${ROUNDED_BOX}
   void main() {
-    vec2 inner = max(vShape.xy - vShape.z, vec2(0.0));
-    vec2 q = abs(vLocal) - inner;
-    float d = min(max(q.x, q.y), 0.0) + length(max(q, vec2(0.0))) - vShape.z;
+    float d = sdRoundedBox(vLocal, vShape.xy, vShape.z);
     float aa = max(fwidth(d), 1e-5);
     float cov = 1.0 - smoothstep(-aa, aa, d);
     vec3 behind = texture(uBehind, gl_FragCoord.xy / uSize).rgb;

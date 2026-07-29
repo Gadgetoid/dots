@@ -402,8 +402,21 @@ export class WebGLRenderer extends Renderer {
 
   // Everything from here goes over a finished frame rather than into it. Called by the
   // view before it draws a menu, so a frosted panel has something blurred to show.
-  beginOverlay() {
+  //
+  // `hidesScene` says the overlay covers the frame completely. The glow layer is added
+  // over everything in the composite pass, so without this the light from something in
+  // the scene - the score floating off a spent chain, say - would bleed through an opaque
+  // menu as a smudge with nothing under it. Where the menu is glass the scene shows
+  // through anyway and its light should come with it.
+  beginOverlay({ hidesScene = false } = {}) {
     this.target = "overlay"
+    if (hidesScene) {
+      const glow = this.layers.glow
+      glow.count = 0
+      glow.commands.length = 0
+      glow.prog = null
+      glow.start = 0
+    }
   }
 
   endFrame() {

@@ -149,6 +149,23 @@ const SHOTS = [
     }`,
   },
   {
+    // Everything a player can change about how the game looks, sounds and plays, over a
+    // board frosted behind it.
+    file: "settings.png",
+    theme: "dark",
+    frames: 30,
+    pose: `(game, art) => {
+      game.start("endless")
+      game.settle(2)
+      game.togglePause()
+      art.press(game, "settings")
+      // On the row that says how a chain is gathered, which is the one worth reading.
+      game.menuMove(1)
+      game.menuMove(1)
+      game.menuMove(1)
+    }`,
+  },
+  {
     // The rebinding page, which is the longest menu there is: worth a shot to see
     // that it still fits the field.
     file: "controls.png",
@@ -158,6 +175,7 @@ const SHOTS = [
       game.start("classic")
       game.settle(2)
       game.togglePause()
+      art.press(game, "settings")
       art.press(game, "controls")
       game.menuMove(1)
       game.menuMove(1)
@@ -183,6 +201,28 @@ const SHOTS = [
       for (const dot of game.board.dots) {
         dot.colour = (dot.col + dot.row) % 2
       }
+    }`,
+  },
+  {
+    // A reduced-motion session: no particles thrown by a pop, and a menu that is a plain
+    // fill rather than glass. Both halves of the setting in one picture.
+    file: "reduced.png",
+    theme: "dark",
+    frames: 20,
+    pose: `(game) => {
+      game.settings.motion = "reduced"
+      game.start("classic")
+      game.settle(3)
+      game.player.score = 1720
+      const chain = game.board.longestChain()
+      game.player.cursor = { col: chain[0].col, row: chain[0].row }
+      game.startChain(0)
+      for (let i = 1; i < chain.length; i++) {
+        game.extendTo(0, chain[i].col, chain[i].row)
+      }
+      game.popChain(0)
+      game.settle(1)
+      game.togglePause()
     }`,
   },
   {

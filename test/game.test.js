@@ -105,10 +105,95 @@ test("a chain shorter than the mode allows cannot be popped", () => {
 
   assert.equal(game.popChain(0), 0, "it scores nothing")
   assert.equal(game.player.chain.length, 2, "and is still held")
-  // The press that would have popped it drops it instead.
-  game.linkPress(0)
+  // Letting go of it drops it rather than spending it.
+  game.linkRelease(0)
   assert.equal(game.player.chain.length, 0)
   assert.equal(game.player.score, 0)
+})
+
+test("holding gathers a chain and letting go spends it", () => {
+  const game = new Game()
+  game.start("classic")
+  settle(game)
+  assert.equal(game.holdToLink, true, "which is how the game plays unless asked otherwise")
+  const pair = game.board.matchingPairs(1)[0]
+  game.player.cursor = { col: pair[0].col, row: pair[0].row }
+
+  game.linkPress(0)
+  assert.equal(game.player.chain.length, 1, "the press picks a dot up")
+  game.extendTo(0, pair[1].col, pair[1].row)
+  assert.equal(game.player.chain.length, 2)
+  // A second press does nothing: the button is already down as far as the game knows.
+  game.linkPress(0)
+  assert.equal(game.player.chain.length, 2)
+
+  game.linkRelease(0)
+  assert.equal(game.player.chain.length, 0, "and letting go spends it")
+  assert.ok(game.player.score > 0)
+})
+
+test("the toggle setting splits that into two presses", () => {
+  const game = new Game()
+  game.settings.link = "toggle"
+  game.start("classic")
+  settle(game)
+  assert.equal(game.holdToLink, false)
+  const pair = game.board.matchingPairs(1)[0]
+  game.player.cursor = { col: pair[0].col, row: pair[0].row }
+
+  game.linkPress(0)
+  game.extendTo(0, pair[1].col, pair[1].row)
+  game.linkRelease(0)
+  assert.equal(game.player.chain.length, 2, "letting go is not what spends it here")
+  game.linkPress(0)
+  assert.equal(game.player.chain.length, 0, "a second press is")
+  assert.ok(game.player.score > 0)
+})
+
+test("losing the window lets go of a held chain, but not a toggled one", () => {
+  const held = new Game()
+  held.start("classic")
+  settle(held)
+  held.player.cursor = { col: 0, row: 0 }
+  held.linkPress(0)
+  assert.equal(held.player.chain.length, 1)
+  held.onBlur()
+  assert.equal(held.player.chain.length, 0, "the chain was the button being down")
+
+  const toggled = new Game()
+  toggled.settings.link = "toggle"
+  toggled.start("classic")
+  settle(toggled)
+  toggled.player.cursor = { col: 0, row: 0 }
+  toggled.linkPress(0)
+  toggled.onBlur()
+  assert.equal(toggled.player.chain.length, 1, "here a chain outlives its press by design")
+})
+
+test("a reduced-motion session throws no particles", () => {
+  const game = new Game()
+  game.settings.motion = "reduced"
+  game.start("classic")
+  settle(game)
+  assert.equal(game.reducedMotion, true)
+
+  const chain = game.board.longestChain()
+  game.player.cursor = { col: chain[0].col, row: chain[0].row }
+  game.startChain(0)
+  for (let i = 1; i < chain.length; i++) {
+    game.extendTo(0, chain[i].col, chain[i].row)
+  }
+  game.popChain(0)
+  // Long enough for every dot in the chain to have burst, and not so long that the score
+  // floating off it has faded.
+  advanceUntil(game, () => !game.busy, 1)
+  assert.equal(game.particles.count, 0, "nothing was thrown")
+  assert.ok(game.particles.floaters.length > 0, "but the score still says what it was")
+  // And it stays where it was spent rather than rising.
+  const floater = game.particles.floaters[0]
+  const wasAt = floater.y
+  game.advance(FRAME)
+  assert.equal(floater.y, wasAt)
 })
 
 test("the cursor drags the chain, and stepping back retracts it", () => {

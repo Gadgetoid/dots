@@ -23,6 +23,7 @@ import {
   boardLayout,
   cellCentre,
   freshBindings,
+  REDUCED_MOTION_RATE,
 } from "./config.js"
 import { THEMES, THEME_IDS } from "./palette.js"
 import { resolveTuning } from "./scales.js"
@@ -150,6 +151,20 @@ export class Game {
   // but the dots that are going have not finished going.
   get busy() {
     return this.popping.length > 0
+  }
+
+  // A chain is held for as long as the button is, and spent when it comes up. The other
+  // way round - a press to start and another to spend - is the accessible setting, for
+  // anyone who would rather not hold a button while doing anything else with the hand.
+  get holdToLink() {
+    return this.settings.link !== "toggle"
+  }
+
+  // No particles, no wobble, a slower fall and solid menus. Motion and transparency are
+  // the two things a person is most likely to need less of, and neither carries anything
+  // the game needs to say.
+  get reducedMotion() {
+    return this.settings.motion === "reduced"
   }
 
   // ---- persistence --------------------------------------------------------
@@ -360,6 +375,9 @@ export class Game {
   // ---- the frame ----------------------------------------------------------
   advance(dt) {
     this.time += dt
+    // Score still floats up off a chain in a reduced-motion session, but it stays where
+    // it was spent rather than rising: it is the one particle carrying information.
+    this.particles.motion = this.reducedMotion ? 0 : 1
     this.particles.step(dt)
     if (this.banner) {
       this.banner.age += dt
@@ -395,7 +413,10 @@ export class Game {
     // Landings are collected rather than voiced as they happen, so a whole
     // refilled board is one soft rain instead of a dozen overlapping knocks.
     let voices = 0
-    this.board.step(dt, (dot, speed) => {
+    // A reduced-motion session runs the board's own clock slower, which slows the fall
+    // and everything that falls out of it - the bounce, the wobble ringing down - without
+    // the board knowing anything about a setting.
+    this.board.step(dt * (this.reducedMotion ? REDUCED_MOTION_RATE : 1), (dot, speed) => {
       if (speed >= LAND_AUDIBLE && voices < LAND_VOICES) {
         voices++
         Sound.land(clamp(speed / 22, 0.3, 1.4))
@@ -422,13 +443,15 @@ export class Game {
       if (!going.burst) {
         going.burst = true
         const theme = this.theme.dots[going.colour % this.theme.dots.length]
-        this.particles.pop(
-          going.x,
-          going.y,
-          theme.bright,
-          this.layout.radius / 30,
-          this.layout.radius,
-        )
+        if (!this.reducedMotion) {
+          this.particles.pop(
+            going.x,
+            going.y,
+            theme.bright,
+            this.layout.radius / 30,
+            this.layout.radius,
+          )
+        }
         Sound.pop(going.index)
         for (const neighbour of going.neighbours) {
           neighbour.nudge(CONFIG.WOBBLE_NEIGHBOUR, going.axis)
@@ -463,6 +486,9 @@ export class Game {
 
   // Sparks running along a live chain, so building one is not a still picture.
   #advanceChainTrail(dt) {
+    if (this.reducedMotion) {
+      return
+    }
     for (const player of this.players) {
       if (player.chain.length < 2) {
         continue
@@ -687,10 +713,35 @@ export class Game {
       this.startChain(playerIndex)
       return
     }
+    // Holding: the press has already done its work and the release will spend it. A
+    // second press means the first release went missing, so there is nothing to do but
+    // wait for one.
+    if (this.holdToLink) {
+      return
+    }
     if (player.chain.length >= this.mode.minChain) {
       this.popChain(playerIndex)
     } else {
       this.#dropChain(player)
+    }
+  }
+
+  // The button coming back up, which is what spends a chain while holding. Ignored
+  // entirely in the toggle setting, where a chain outlives the press that started it.
+  linkRelease(playerIndex = 0) {
+    if (this.page || !this.holdToLink) {
+      return
+    }
+    const player = this.players[playerIndex]
+    if (!player || player.chain.length === 0) {
+      return
+    }
+    if (player.chain.length >= this.mode.minChain) {
+      this.popChain(playerIndex)
+    } else {
+      // Nothing was really invested in one or two dots, so letting go of them is not
+      // worth a noise.
+      this.#dropChain(player, player.chain.length < 2)
     }
   }
 
@@ -789,11 +840,15 @@ export class Game {
   }
 
   onBlur() {
-    // A key that goes down and comes up while the window is elsewhere would
-    // otherwise be stuck down. The chain is kept: it costs nothing and losing one
+    // A key that goes down and comes up while the window is elsewhere would otherwise be
+    // stuck down. While holding, the chain is the button being down, so it goes with the
+    // window; in the toggle setting a chain outlives its press by design and losing one
     // to an alt-tab would be a nasty surprise.
     for (const player of this.players) {
       player.dragging = false
+      if (this.holdToLink) {
+        this.#dropChain(player, true)
+      }
     }
   }
 
@@ -826,8 +881,7 @@ export class Game {
       case "title":
         return [
           this.#buttons([{ action: "modes", label: "New game" }], { primary: true }),
-          ...this.#settingRows(),
-          this.#buttons([null, { action: "controls", label: "Controls" }]),
+          this.#buttons([null, { action: "settings", label: "Settings" }]),
         ]
       case "pause":
         return [
@@ -835,9 +889,17 @@ export class Game {
             { action: "resume", label: "Resume" },
             { action: "restart", label: "Restart" },
           ]),
-          ...this.#settingRows(),
           this.#buttons([
             { action: "title", label: "Quit to title" },
+            { action: "settings", label: "Settings" },
+          ]),
+        ]
+      case "settings":
+        return [
+          ...this.#settingRows(),
+          { id: "hint", kind: "hint" },
+          this.#buttons([
+            { action: "back", label: "Back" },
             { action: "controls", label: "Controls" },
           ]),
         ]
@@ -936,6 +998,30 @@ export class Game {
           { id: "off", label: "Off" },
         ],
       },
+      { id: "head:link", label: "Chains", kind: "heading" },
+      {
+        id: "link",
+        kind: "options",
+        selected: this.holdToLink ? 0 : 1,
+        options: [
+          { id: "hold", label: "Hold", hint: "Hold to gather dots, let go to pop them" },
+          { id: "toggle", label: "Toggle", hint: "Press to start a chain, press again to pop" },
+        ],
+      },
+      { id: "head:motion", label: "Motion", kind: "heading" },
+      {
+        id: "motion",
+        kind: "options",
+        selected: this.reducedMotion ? 1 : 0,
+        options: [
+          { id: "full", label: "Full", hint: "Particles, wobble and glass menus" },
+          {
+            id: "reduced",
+            label: "Reduced",
+            hint: "No particles or wobble, a slower fall, solid menus",
+          },
+        ],
+      },
     ]
   }
 
@@ -980,6 +1066,12 @@ export class Game {
   }
 
   // ---- walking a menu -----------------------------------------------------
+  // A heading and a hint are things a page says, not things it offers, so the cursor
+  // steps over both. Landing on one is how the cursor disappears: neither draws it.
+  #selectable(row) {
+    return row.kind !== "heading" && row.kind !== "hint"
+  }
+
   // Where the cursor lands when it arrives on a row: the first cell there is to press,
   // except on the mode grid, where it is the mode already chosen.
   #firstOption(row) {
@@ -1016,10 +1108,9 @@ export class Game {
       }
     }
     let index = this.menuIndex
-    // Headings are labels rather than rows, so the cursor steps over them.
     for (let guard = 0; guard < rows.length; guard++) {
       index = (index + delta + rows.length) % rows.length
-      if (rows[index].kind !== "heading") {
+      if (this.#selectable(rows[index])) {
         break
       }
     }
@@ -1088,7 +1179,7 @@ export class Game {
   menuTap(index, option = null) {
     const rows = this.menuRows()
     const row = rows[index]
-    if (!row || row.kind === "heading") {
+    if (!row || !this.#selectable(row)) {
       return
     }
     this.menuIndex = index
@@ -1114,7 +1205,7 @@ export class Game {
   menuHover(index, option = null) {
     const rows = this.menuRows()
     const row = rows[index]
-    if (!row || row.kind === "heading" || row.kind === "hint") {
+    if (!row || !this.#selectable(row)) {
       return
     }
     const cell = row.kind === "buttons" ? (option ?? this.menuOption) : this.menuOption
@@ -1142,7 +1233,7 @@ export class Game {
       this.cancelRebind()
       return
     }
-    if (this.page === "controls") {
+    if (this.page === "controls" || this.page === "settings" || this.page === "modes") {
       this.#closePage()
       return
     }
@@ -1205,8 +1296,13 @@ export class Game {
   // pointing at a row that page does not have or a cell that row does not.
   #resetMenuCursor() {
     const rows = this.menuRows()
-    const first = rows.findIndex((row) => row.kind !== "heading" && row.kind !== "hint")
-    this.#goToRow(Math.max(first, 0), rows)
+    this.#goToRow(
+      Math.max(
+        rows.findIndex((row) => this.#selectable(row)),
+        0,
+      ),
+      rows,
+    )
   }
 
   // What a button does, by the action it names.
@@ -1240,6 +1336,10 @@ export class Game {
       case "title":
         Sound.menuBack()
         this.toTitle()
+        break
+      case "settings":
+        Sound.menuConfirm()
+        this.#openPage("settings")
         break
       case "controls":
         Sound.menuConfirm()
@@ -1278,6 +1378,24 @@ export class Game {
         break
       case "sound":
         this.setSound(option === 0)
+        break
+      case "link":
+        this.settings.link = option === 1 ? "toggle" : "hold"
+        // Whatever is being held was picked up under the old rule, and the new one has
+        // no way to let go of it.
+        for (const player of this.players) {
+          this.#dropChain(player, true)
+        }
+        this.#storeSettings()
+        Sound.menuMove()
+        break
+      case "motion":
+        this.settings.motion = option === 1 ? "reduced" : "full"
+        if (this.reducedMotion) {
+          this.particles.clear()
+        }
+        this.#storeSettings()
+        Sound.menuMove()
         break
       default:
         break

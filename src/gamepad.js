@@ -163,6 +163,11 @@ export class GamepadInput {
     if (pressed("link") || pressed("confirm")) {
       game.linkPress(slot)
     }
+    // The release, which is what spends a chain while holding. START is a menu button as
+    // well as a spare confirm, so only the bound one is followed down and up.
+    if (before && before.link && !state.link) {
+      game.linkRelease(slot)
+    }
     if (pressed("cancel")) {
       if (game.page) {
         game.menuBack()

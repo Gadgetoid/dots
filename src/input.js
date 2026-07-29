@@ -120,8 +120,12 @@ export class KeyboardInput {
 
   onKeyUp(event) {
     const control = this.#controlFor(event.code)
-    if (control) {
-      this.held.delete(control)
+    if (!control) {
+      return
+    }
+    this.held.delete(control)
+    if (control === "link") {
+      this.game.linkRelease(this.playerIndex)
     }
   }
 

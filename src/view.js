@@ -430,7 +430,7 @@ export class GameView {
   // not in the atlas and a word would need translating.
   #drawPauseButton(theme) {
     const box = PAUSE_BUTTON
-    this.renderer.panel(box.x, box.y, box.w, box.h, { fill: theme.cell, radius: 10 })
+    this.renderer.panel(box.x, box.y, box.w, box.h, { fill: theme.cell })
     const barW = 4
     const barH = 14
     const gap = 5
@@ -492,9 +492,9 @@ export class GameView {
       glow: alpha * 0.8,
     })
     if (banner.sub) {
-      this.renderer.text(banner.sub, VIEW_W / 2, y + 30, {
+      this.renderer.text(banner.sub, VIEW_W / 2, y + 34, {
         color: theme.accent,
-        size: 15,
+        size: 18,
         align: "center",
         baseline: "middle",
         alpha,
@@ -524,15 +524,22 @@ export class GameView {
     // A menu goes over a finished frame rather than into it, which is what lets the
     // panel frost itself against a blurred copy of the board: the game stays visible
     // behind the menu instead of being replaced by it.
-    renderer.beginOverlay()
-    renderer.panel(0, 0, VIEW_W, VIEW_H, { fill: theme.scrim.color, alpha: theme.scrim.alpha })
-    renderer.panel(x, y, width, height, {
-      frost: true,
-      fill: theme.panel,
-      alpha: theme.frost,
-      radius: 18,
+    // A menu goes over a finished frame rather than into it, which is what lets it frost
+    // itself against a blurred copy of the board: the game stays visible behind the menu
+    // instead of being replaced by it. The frost fills the window rather than sitting in a
+    // box on it - there is nothing for an edge to separate, since everything in front of it
+    // is a button with an edge of its own.
+    //
+    // Transparency is one of the things a reduced-motion session asks to be spared, so
+    // there it is a plain fill: nothing shows through, and nothing behind it can move
+    // under the text.
+    const solid = game.reducedMotion
+    renderer.beginOverlay({ hidesScene: solid })
+    renderer.panel(0, 0, VIEW_W, VIEW_H, {
+      frost: !solid,
+      fill: solid ? theme.background : theme.panel,
+      alpha: solid ? 1 : theme.frost,
     })
-    renderer.panel(x, y, width, height, { stroke: theme.panelEdge, width: 1.5, radius: 18 })
 
     // Headings are drawn from the middle of their line, so what sets how far the first
     // one sits from the top of the panel is the padding and not the size of the type.
@@ -611,16 +618,14 @@ export class GameView {
       this.menuHits.push({ index, option: optionIndex, ...box })
       renderer.panel(box.x, box.y, box.w, box.h, {
         fill: filled ? theme.accent : theme.cell,
-        radius: 14,
-        // Steadier than the panel behind it: the panel is glass on purpose, but a label
-        // wants a ground that is not moving under it.
+        // Steadier than the frost behind it: the glass is on purpose, but a label wants a
+        // ground that is not moving under it.
         alpha: filled ? 1 : 0.92,
       })
       if (under) {
         renderer.panel(box.x, box.y, box.w, box.h, {
           stroke: theme.text.bright,
           width: 2,
-          radius: 14,
         })
       }
       renderer.text(option.label, box.x + box.w / 2, box.y + box.h / 2, {
@@ -650,8 +655,15 @@ export class GameView {
       colour = theme.accent
     } else {
       const row = rows[game.menuIndex]
-      const option = row && row.kind === "buttons" ? row.options[game.menuOption] : null
-      text = (option && option.hint) || (row && row.hint) || null
+      // Which cell is being pointed at: for a block of buttons that is the cursor, and
+      // for a row of settings it is the value chosen, since that is what the cursor is.
+      const cell =
+        row && row.kind === "buttons"
+          ? row.options[game.menuOption]
+          : row && row.kind === "options"
+            ? row.options[row.selected]
+            : null
+      text = (cell && cell.hint) || (row && row.hint) || null
     }
     if (!text) {
       return
@@ -672,7 +684,7 @@ export class GameView {
     const box = { x: x + 14, y: rowY, w: width - 28, h: rowHeight - 4 }
     this.menuHits.push({ index, option: null, ...box })
     if (selected) {
-      renderer.panel(box.x, box.y, box.w, box.h, { fill: theme.panelEdge, radius: 9 })
+      renderer.panel(box.x, box.y, box.w, box.h, { fill: theme.panelEdge })
     }
     const middle = box.y + box.h / 2
     renderer.text(row.label, x + 26, middle, {
@@ -713,14 +725,12 @@ export class GameView {
       this.menuHits.push({ index, option: optionIndex, ...box })
       renderer.panel(box.x, box.y, box.w, box.h, {
         fill: chosen ? theme.accent : theme.cell,
-        radius: 12,
         alpha: chosen ? 1 : 0.9,
       })
       if (onRow && chosen) {
         renderer.panel(box.x, box.y, box.w, box.h, {
           stroke: theme.text.bright,
           width: 2,
-          radius: 12,
         })
       }
       if (option.preview) {
@@ -747,7 +757,9 @@ export class GameView {
     }
     const inset = 6
     const inner = { x: box.x + inset, y: box.y + inset, w: box.w - inset * 2, h: box.h - inset * 2 }
-    renderer.panel(inner.x, inner.y, inner.w, inner.h, { fill: preview.background, radius: 8 })
+    renderer.panel(inner.x, inner.y, inner.w, inner.h, {
+      fill: preview.background,
+    })
     const cells = 3
     const cell = Math.min(inner.w, inner.h) / cells
     const radius = cell * 0.3
@@ -765,7 +777,6 @@ export class GameView {
       renderer.panel(inner.x, inner.y, inner.w, inner.h, {
         stroke: ring,
         width: 1.5,
-        radius: 8,
       })
     }
   }
@@ -822,6 +833,8 @@ export class GameView {
           { text: "New game", colour: theme.text.bright, size: 26, bold: true },
           { text: "Choose a mode", colour: theme.text.dim, size: 13 },
         ]
+      case "settings":
+        return [{ text: "Settings", colour: theme.text.bright, size: 26, bold: true }]
       case "controls":
         return [{ text: "Controls", colour: theme.text.bright, size: 26, bold: true }]
       default:

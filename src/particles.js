@@ -33,6 +33,9 @@ export class Particles {
     this.flashes = []
     // Score, rising off the chain that earned it.
     this.floaters = []
+    // How much of the movement to keep, for a reduced-motion session. What is spawned at
+    // all is the game's business; this is only about what moves once it exists.
+    this.motion = 1
   }
 
   get count() {
@@ -141,7 +144,7 @@ export class Particles {
     }
     for (const floater of this.floaters) {
       floater.age += dt
-      floater.y -= CONFIG.FLOATER_RISE * dt * (1 - floater.age / floater.life)
+      floater.y -= CONFIG.FLOATER_RISE * this.motion * dt * (1 - floater.age / floater.life)
     }
     const alive = (entry) => entry.age < entry.life
     compact(this.sparks, alive)

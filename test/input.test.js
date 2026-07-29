@@ -83,6 +83,24 @@ test("a control with nothing bound to it simply reads as not held", () => {
   assert.equal(state.cancel, false)
 })
 
+test("the link key is held to gather and released to pop", () => {
+  const game = new Game()
+  game.start("classic")
+  for (let i = 0; i < 300; i++) {
+    game.advance(1 / 60)
+  }
+  const keyboard = new KeyboardInput(game)
+  const pair = game.board.matchingPairs(1)[0]
+  game.player.cursor = { col: pair[0].col, row: pair[0].row }
+
+  keyboard.onKeyDown(key("Space"))
+  assert.equal(game.player.chain.length, 1, "down picks a dot up")
+  game.extendTo(0, pair[1].col, pair[1].row)
+  keyboard.onKeyUp(key("Space"))
+  assert.equal(game.player.chain.length, 0)
+  assert.ok(game.player.score > 0, "up spent it")
+})
+
 test("keys drive the same intents the pad does", () => {
   const game = new Game()
   game.start("classic")
@@ -173,8 +191,28 @@ test("the pad button that opens the menu cannot be bound to a control", () => {
   assert.equal(game.bindings.buttons.link, before, "the binding is unchanged")
 })
 
-test("a pad press starts a chain and a second one pops it", () => {
+test("a pad button is held to gather a chain and released to pop it", () => {
   const game = new Game()
+  game.start("classic")
+  for (let i = 0; i < 300; i++) {
+    game.advance(1 / 60)
+  }
+  const pads = new GamepadInput(game)
+  const bound = game.bindings.buttons
+  const pair = game.board.matchingPairs(1)[0]
+  game.player.cursor = { col: pair[0].col, row: pair[0].row }
+
+  pads.apply(0, readPad(press(blankPad(), bound.link), bound), 1 / 60)
+  assert.equal(game.player.chain.length, 1, "down picks a dot up")
+  game.extendTo(0, pair[1].col, pair[1].row)
+  pads.apply(0, readPad(blankPad(), bound), 1 / 60)
+  assert.equal(game.player.chain.length, 0)
+  assert.ok(game.player.score > 0, "up spent it")
+})
+
+test("a pad drives the toggle setting with two taps", () => {
+  const game = new Game()
+  game.settings.link = "toggle"
   game.start("classic")
   for (let i = 0; i < 300; i++) {
     game.advance(1 / 60)

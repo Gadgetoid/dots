@@ -13,4 +13,7 @@ export const RUSH = {
   refill: true,
   timeLimit: 90,
   specialChance: 0,
+  // Blues, for the one mode with a clock on it: the flat fifth in the middle of the
+  // run is what a hurried chain leans on.
+  tuning: { root: "C4", scale: "blues" },
 }

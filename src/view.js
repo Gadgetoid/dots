@@ -140,7 +140,10 @@ export class GameView {
       this.renderer.disc(at.x, at.y, radius, {
         color: linked ? colours.bright : colours.base,
         wobble: { amount: dot.wobbleAmount, axis: dot.wobbleAxis },
-        sheen: theme.id === "dark" ? 0.18 : 0.1,
+        // A dot at rest is a bead and is lit like one. A linked one is part of the
+        // chain's single unbroken shape, and a highlight on each would show through
+        // it as a row of patches.
+        sheen: linked ? 0 : theme.id === "dark" ? 0.18 : 0.1,
         // Only what is held glows, so the board is calm until the player picks
         // something up and the bloom is entirely theirs.
         glow: linked ? game.players[dot.claim ?? 0].glow * 0.35 : 0,
@@ -163,6 +166,11 @@ export class GameView {
 
   // The line through a chain: one smooth curve, drawn under the dots, glowing by
   // how much is on it.
+  //
+  // It is as thick as the dots it runs through are wide, swell included, so the chain
+  // and its dots are one continuous shape rather than beads on a cord. The dots are
+  // drawn over it in the same colour, so where they meet there is no seam - and a dot
+  // wobbling still pinches and bulges the outline, which is the jelly showing through.
   #drawChains(game, theme) {
     for (const player of game.players) {
       if (player.chain.length < 2) {
@@ -173,9 +181,15 @@ export class GameView {
         player.chain.map((dot) => game.dotPosition(dot)),
         CONFIG.CHAIN_SMOOTHING,
       )
+      // Whatever the fattest dot on the chain has swelled to: the line may be wider
+      // than a dot and must never be narrower, or it cuts a notch out of the blob.
+      let swell = 0
+      for (const dot of player.chain) {
+        swell = Math.max(swell, dot.swell)
+      }
       this.renderer.ribbon(points, {
         color: colours.bright,
-        width: game.layout.radius * CONFIG.CHAIN_WIDTH_RATIO,
+        width: game.layout.radius * (1 + swell) * CONFIG.CHAIN_WIDTH_RATIO,
         glow: player.glow,
       })
     }
@@ -326,13 +340,18 @@ export class GameView {
       this.#drawTimer(game, theme)
     }
 
-    // The bottom line: what a special under the cursor does, or the mode's own
-    // description. The blurb takes precedence because it is the only place a
-    // player is told what a powerup is.
+    // The bottom line: what a special under the cursor does, else which level is
+    // being played, else the mode's own description. The blurb takes precedence
+    // because it is the only place a player is told what a powerup is.
     const special = game.hoveredSpecial()
-    const line = special ? `${special.name}: ${special.blurb}` : game.mode.blurb
+    const level = game.currentLevel
+    const line = special
+      ? `${special.name}: ${special.blurb}`
+      : level
+        ? `LEVEL ${game.level + 1}/${game.mode.levels.length} - ${level.name}`
+        : game.mode.blurb
     renderer.text(line, VIEW_W / 2, HUD_BOTTOM + 30, {
-      color: special ? theme.accent : theme.text.faint,
+      color: special ? theme.accent : level ? theme.text.dim : theme.text.faint,
       size: 12,
       align: "center",
     })
@@ -342,6 +361,9 @@ export class GameView {
       align: "center",
       bold: true,
     })
+    if (game.banner) {
+      this.#drawBanner(game, theme)
+    }
   }
 
   // The clock, under the score rather than over the board: the page's own buttons
@@ -366,6 +388,35 @@ export class GameView {
       size: 14,
       align: "center",
     })
+  }
+
+  // A level cleared, over the board that is already dropping in behind it: it rises
+  // and fades, so it never has to be dismissed.
+  #drawBanner(game, theme) {
+    const banner = game.banner
+    const t = banner.age / banner.life
+    // Hold, then go: a line that starts fading immediately reads as a glitch.
+    const alpha = clamp((1 - t) * 2.2, 0, 1) * clamp(t * 8, 0, 1)
+    const y = game.layout.y + game.layout.height / 2 - t * 26
+    this.renderer.text(banner.text, VIEW_W / 2, y, {
+      color: theme.text.bright,
+      size: 30,
+      align: "center",
+      baseline: "middle",
+      bold: true,
+      alpha,
+      glow: alpha * 0.8,
+    })
+    if (banner.sub) {
+      this.renderer.text(banner.sub, VIEW_W / 2, y + 30, {
+        color: theme.accent,
+        size: 15,
+        align: "center",
+        baseline: "middle",
+        alpha,
+        glow: alpha * 0.5,
+      })
+    }
   }
 
   // ---- menus --------------------------------------------------------------
@@ -486,7 +537,12 @@ export class GameView {
           { text: "LINK DOTS OF A COLOUR TO POP THEM", colour: theme.text.dim, size: 13 },
         ]
       case "over": {
-        const outcome = OUTCOMES[game.outcome] || "GAME OVER"
+        // Clearing the last authored level is not "a board cleared", it is the whole
+        // mode finished, which is the one thing in this game that can be won.
+        const outcome =
+          game.outcome === "won" && game.mode.levels
+            ? "ALL LEVELS CLEARED"
+            : OUTCOMES[game.outcome] || "GAME OVER"
         const best = game.best[game.mode.id] || 0
         const record = game.player.score >= best && game.player.score > 0
         return [

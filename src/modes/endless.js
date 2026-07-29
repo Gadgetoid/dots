@@ -39,6 +39,10 @@ export const ENDLESS = {
   refill: true,
   timeLimit: 0,
   specialChance: 0,
+  // A different root and a different scale every session. A mode with no end to it
+  // should not sound the same every time it is sat down with, and it is the one place
+  // a random tuning cannot clash with anything: there is no fixed sound to break.
+  tuning: "random",
 
   pickColour(board, col, row) {
     const taken = neighbourColours(board, col, row)

@@ -12,4 +12,7 @@ export const CLASSIC = {
   refill: true,
   timeLimit: 0,
   specialChance: 0,
+  // The tuning the game has always had: five notes that cannot clash, so a chain of
+  // any length walks up something deliberate.
+  tuning: { root: "D4", scale: "minorPentatonic" },
 }

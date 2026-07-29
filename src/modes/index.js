@@ -12,9 +12,15 @@
 //                   smaller dots and everything else is unchanged.
 //   minChain        how many dots have to be linked before a chain can be popped
 //   colours         how many of the theme's dot colours it deals from
-//   refill          whether popped dots are replaced
+//   refill          whether popped dots are replaced. Either a boolean or a
+//                   predicate taking the board, for a mode that stops dealing.
 //   timeLimit       seconds, or 0 for a board that lasts as long as it lasts
 //   specialChance   chance a new dot carries a powerup; see specials.js
+//   levels          authored boards, if the mode has them: clearing one moves on to
+//                   the next and keeps the score. See levels.js for the format.
+//   tuning          what the mode sounds like: { root, scale } naming an entry in
+//                   scales.js, or "random" for a different voice every session.
+//                   Omitted, the mode plays in the default tuning.
 //
 // And the optional hooks:
 //   pickColour(board, col, row)   what to deal into a cell, for a mode that cares
@@ -27,19 +33,28 @@ import { CLASSIC } from "./classic.js"
 import { RUSH } from "./rush.js"
 import { LONG_GAME } from "./long-game.js"
 import { ENDLESS } from "./endless.js"
+import { ELIMINATION } from "./elimination.js"
 import { CLEAR_OUT } from "./clear-out.js"
+import { PUZZLE } from "./puzzle.js"
 
-export const GAME_MODES = [CLASSIC, RUSH, LONG_GAME, ENDLESS, CLEAR_OUT]
+export const GAME_MODES = [CLASSIC, RUSH, LONG_GAME, ENDLESS, ELIMINATION, CLEAR_OUT, PUZZLE]
 
 export const MODE_BY_ID = new Map(GAME_MODES.map((mode) => [mode.id, mode]))
 
 export const modeById = (id) => MODE_BY_ID.get(id) || GAME_MODES[0]
 
-// How a board is judged when a mode says nothing about it: a board that refills is
-// lost when nothing matches, and one that does not is won by clearing it.
+// Whether a mode replaces what has been popped, which a mode may decide from the
+// board rather than once and for all: the elimination mode stops dealing when there
+// is nothing left to deal from.
+export const modeRefills = (mode, board) =>
+  typeof mode.refill === "function" ? mode.refill(board) : !!mode.refill
+
+// How a board is judged when a mode says nothing about it. An empty board is a
+// cleared one whatever the mode, since a mode that refills is topped up before it is
+// ever judged; anything else with no chain left on it is lost.
 export function defaultOutcome(mode, board) {
   if (board.empty) {
-    return mode.refill ? null : "won"
+    return "won"
   }
   if (!board.moveAvailable()) {
     return "lost"

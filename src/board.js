@@ -188,6 +188,47 @@ export class Board {
     }
   }
 
+  // An authored board, from a layout written out as one string per row: a digit is
+  // a colour (1 for the first, as the original game's level data numbered them) and
+  // a dot or a zero is an empty cell.
+  //
+  // What is written is then allowed to fall, so a layout can be drawn as a shape
+  // without every column having to be bottom-aligned by hand. Levels are therefore
+  // read as which colours are in which column rather than exactly which cells.
+  load(layout) {
+    this.grid.fill(null)
+    this.dots.length = 0
+    for (let row = this.rows - 1; row >= 0; row--) {
+      const line = layout[row] || ""
+      for (let col = 0; col < this.cols; col++) {
+        const char = line[col] ?? "."
+        if (char === "." || char === "0") {
+          continue
+        }
+        const dot = new Dot(col, row, Number(char) - 1)
+        this.put(col, row, dot)
+        this.dots.push(dot)
+      }
+    }
+    this.collapse()
+    for (const dot of this.dots) {
+      dot.y = dot.row - this.rows - CONFIG.SPAWN_HEIGHT - dot.col * CONFIG.SPAWN_STAGGER * 0.4
+    }
+  }
+
+  // How many dots of each colour are on the board. What the elimination mode deals
+  // from: a colour that has been cleared off the board has a count of zero and is
+  // never dealt again.
+  colourCounts() {
+    const counts = new Array(this.colours).fill(0)
+    for (const dot of this.dots) {
+      if (dot.colour >= 0 && dot.colour < counts.length) {
+        counts[dot.colour]++
+      }
+    }
+    return counts
+  }
+
   // ---- linking ------------------------------------------------------------
   static adjacent(a, b) {
     return Math.abs(a.col - b.col) + Math.abs(a.row - b.row) === 1

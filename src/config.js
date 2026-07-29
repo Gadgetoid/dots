@@ -60,9 +60,11 @@ export const CONFIG = {
   // ---- the chain --------------------------------------------------------
   // Subdivisions per link of the Catmull-Rom that rounds the chain's corners.
   CHAIN_SMOOTHING: 10,
-  // Line thickness as a fraction of the dot radius. Thin enough that the dots
-  // still read as dots on a cord rather than as one blob.
-  CHAIN_WIDTH_RATIO: 0.62,
+  // Line thickness as a multiple of the dot radius. Two is the dot's full
+  // diameter, so a chain and the dots on it merge into one continuous blob rather
+  // than reading as beads on a cord - which is what the 32blit version drew, at
+  // two dot radii and one pixel.
+  CHAIN_WIDTH_RATIO: 2,
   // Glow builds as the chain grows: `base` at two dots, climbing by `perDot` and
   // holding at `max`. This is the bloom the player is playing toward, and the
   // ceiling is where it stops: past about one the halo is wide enough to swallow

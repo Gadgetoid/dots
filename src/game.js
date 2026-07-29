@@ -11,7 +11,7 @@
 import { Board } from "./board.js"
 import { Particles } from "./particles.js"
 import { Sound } from "./audio.js"
-import { GAME_MODES, modeById, defaultOutcome } from "./modes/index.js"
+import { GAME_MODES, modeById, defaultOutcome, modeRefills } from "./modes/index.js"
 import { SPECIAL_BY_ID } from "./specials.js"
 import {
   CONFIG,
@@ -25,6 +25,7 @@ import {
   freshBindings,
 } from "./config.js"
 import { THEMES, THEME_IDS } from "./palette.js"
+import { resolveTuning } from "./scales.js"
 import { clamp, lerp } from "./math.js"
 import {
   loadBest,
@@ -98,6 +99,9 @@ export class Game {
     this.inputMode = "keyboard"
 
     this.mode = modeById(this.settings.mode)
+    // The tuning the menus and the title screen are in, until a mode is started and
+    // sets its own.
+    this.tuning = resolveTuning(this.mode.tuning)
     this.board = null
     this.layout = boardLayout(this.mode.cols, this.mode.rows)
     this.particles = new Particles()
@@ -114,6 +118,13 @@ export class Game {
     this.settleFor = 0
     this.outcome = null
     this.overFor = 0
+    // Where a mode with authored levels has got to, and what the score was when the
+    // current one was dealt, so retrying a level costs what was made on it and not
+    // what was banked before it.
+    this.level = 0
+    this.levelStartScore = 0
+    // A line over the board for a moment: a level cleared, and which is next.
+    this.banner = null
 
     this.dealAttractBoard()
     this.#restoreState()
@@ -174,15 +185,23 @@ export class Game {
   }
 
   // ---- lifecycle ----------------------------------------------------------
+  // Which authored level is being played, or null in a mode that deals its own.
+  get currentLevel() {
+    if (!this.mode.levels || this.mode.levels.length === 0) {
+      return null
+    }
+    return this.mode.levels[clamp(this.level, 0, this.mode.levels.length - 1)]
+  }
+
+  get lastLevel() {
+    return !this.mode.levels || this.level >= this.mode.levels.length - 1
+  }
+
   // A board for the title screen to sit over, so the game shows itself rather than
   // offering a menu on an empty field. It is dealt and left alone: nothing is
   // playing it, and starting a mode deals a fresh one.
   dealAttractBoard() {
-    this.board = this.#freshBoard()
-    this.board.fill()
-    if (this.mode.onSettled) {
-      this.mode.onSettled(this.board)
-    }
+    this.#dealBoard()
   }
 
   #freshBoard() {
@@ -196,18 +215,36 @@ export class Game {
     })
   }
 
+  // Deal whatever the mode's board is: an authored level where it has them, and a
+  // fresh random one where it does not.
+  #dealBoard() {
+    this.board = this.#freshBoard()
+    const level = this.currentLevel
+    if (level) {
+      this.board.load(level.layout)
+    } else {
+      this.board.fill()
+    }
+    if (this.mode.onSettled) {
+      // A mode that curates its board gets to do so before the first move, not only
+      // after the first pop.
+      this.mode.onSettled(this.board)
+    }
+  }
+
   start(modeId = this.settings.mode) {
     this.mode = modeById(modeId)
     this.settings.mode = this.mode.id
     this.#storeSettings()
     this.layout = boardLayout(this.mode.cols, this.mode.rows)
-    this.board = this.#freshBoard()
-    this.board.fill()
-    if (this.mode.onSettled) {
-      // A mode that curates its board gets to do so before the first move, not
-      // only after the first pop.
-      this.mode.onSettled(this.board)
-    }
+    // What the mode sounds like. Resolved here rather than held on the mode, because
+    // a mode may ask for a random tuning and then it is a different one per session.
+    this.tuning = resolveTuning(this.mode.tuning)
+    Sound.setTuning(this.tuning)
+    this.level = 0
+    this.levelStartScore = 0
+    this.banner = null
+    this.#dealBoard()
     this.particles.clear()
     this.popping.length = 0
     for (const player of this.players) {
@@ -229,6 +266,53 @@ export class Game {
     this.menuIndex = 0
     this.rebinding = null
     this.dealAttractBoard()
+  }
+
+  // Move on to the next authored level, keeping the score. What a mode with levels
+  // does instead of finishing when a board comes up clear.
+  #nextLevel() {
+    this.level++
+    this.levelStartScore = this.player.score
+    this.#dealBoard()
+    this.popping.length = 0
+    for (const player of this.players) {
+      player.chain.length = 0
+      player.multiplier = 1
+      player.glow = 0
+      player.dragging = false
+    }
+    this.settleFor = 0
+    this.overFor = 0
+    this.banner = { text: "LEVEL CLEARED", sub: this.currentLevel.name, age: 0, life: 2.4 }
+    Sound.clear()
+  }
+
+  // Deal the current level again, at the score it was dealt at. A level with no
+  // moves left is a puzzle got wrong rather than a game over, so this is what the
+  // game-over screen offers instead of starting from the first one.
+  retryLevel() {
+    if (!this.currentLevel) {
+      this.start(this.mode.id)
+      return
+    }
+    this.player.score = this.levelStartScore
+    this.#dealBoard()
+    this.particles.clear()
+    this.popping.length = 0
+    for (const player of this.players) {
+      player.chain.length = 0
+      player.multiplier = 1
+      player.glow = 0
+      player.dragging = false
+      player.cursor = { col: Math.floor(this.mode.cols / 2), row: Math.floor(this.mode.rows / 2) }
+    }
+    this.outcome = null
+    this.overFor = 0
+    this.settleFor = 0
+    this.banner = null
+    this.phase = PHASE.PLAYING
+    this.page = null
+    this.menuIndex = 0
   }
 
   #finish(outcome) {
@@ -255,6 +339,12 @@ export class Game {
   advance(dt) {
     this.time += dt
     this.particles.step(dt)
+    if (this.banner) {
+      this.banner.age += dt
+      if (this.banner.age >= this.banner.life) {
+        this.banner = null
+      }
+    }
     if (!this.board) {
       return
     }
@@ -330,7 +420,7 @@ export class Game {
     // consistent, so this only decides where things fall to.
     this.popping.length = 0
     this.board.collapse()
-    if (this.mode.refill) {
+    if (modeRefills(this.mode, this.board)) {
       this.board.refill()
     }
     this.settleFor = 0
@@ -402,9 +492,16 @@ export class Game {
     // A dead board sits there for a moment first: long enough to see that nothing
     // matches, short enough not to feel stuck.
     this.overFor += dt
-    if (this.overFor >= (verdict === "won" ? 0.4 : CONFIG.LOSE_DELAY)) {
-      this.#finish(verdict)
+    if (this.overFor < (verdict === "won" ? 0.4 : CONFIG.LOSE_DELAY)) {
+      return
     }
+    // A cleared level with more behind it moves on rather than ending; the last one
+    // ends the game, and having cleared them all is what winning this mode is.
+    if (verdict === "won" && !this.lastLevel) {
+      this.#nextLevel()
+      return
+    }
+    this.#finish(verdict)
   }
 
   // ---- geometry -----------------------------------------------------------
@@ -700,18 +797,33 @@ export class Game {
           ...this.#settingRows(),
           { id: "title", label: "QUIT TO TITLE", kind: "action" },
         ]
-      case "over":
-        return [
-          { id: "again", label: "PLAY AGAIN", kind: "action" },
-          {
-            id: "mode",
-            label: "MODE",
-            value: this.mode.name,
-            kind: "choice",
-            hint: this.mode.blurb,
-          },
-          { id: "title", label: "TITLE", kind: "action" },
-        ]
+      case "over": {
+        const rows = []
+        // A level lost is a puzzle got wrong: retrying it is what the player wants,
+        // and starting from the first level again is offered underneath.
+        if (this.currentLevel && this.outcome !== "won") {
+          rows.push({
+            id: "retry",
+            label: "RETRY LEVEL",
+            kind: "action",
+            hint: `LEVEL ${this.level + 1}: ${this.currentLevel.name}`,
+          })
+        }
+        rows.push({
+          id: "again",
+          label: this.currentLevel ? "START OVER" : "PLAY AGAIN",
+          kind: "action",
+        })
+        rows.push({
+          id: "mode",
+          label: "MODE",
+          value: this.mode.name,
+          kind: "choice",
+          hint: this.mode.blurb,
+        })
+        rows.push({ id: "title", label: "TITLE", kind: "action" })
+        return rows
+      }
       case "controls":
         return this.#controlRows()
       default:
@@ -890,6 +1002,10 @@ export class Game {
         Sound.menuConfirm()
         this.start(this.mode.id)
         break
+      case "retry":
+        Sound.menuConfirm()
+        this.retryLevel()
+        break
       case "restart":
         Sound.menuConfirm()
         this.start(this.mode.id)
@@ -928,6 +1044,10 @@ export class Game {
         this.settings.mode = next.id
         this.layout = boardLayout(next.cols, next.rows)
         this.#storeSettings()
+        // The menu blips are in the mode's own tuning, so scrolling the list is also
+        // hearing what each one sounds like.
+        this.tuning = resolveTuning(next.tuning)
+        Sound.setTuning(this.tuning)
         // The board behind the title is the mode being chosen, so it changes with
         // it: a nine across board looks different before it is started.
         if (this.phase !== PHASE.PLAYING) {

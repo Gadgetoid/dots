@@ -15,4 +15,7 @@ export const CLEAR_OUT = {
   refill: false,
   timeLimit: 0,
   specialChance: 0,
+  // Hirajoshi, which is still rather than cheerful - the right sound for a board that
+  // only ever gets emptier.
+  tuning: { root: "F3", scale: "hirajoshi" },
 }

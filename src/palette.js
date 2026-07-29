@@ -68,9 +68,11 @@ const LIGHT = {
   cursorActive: "#3f4557",
   accent: "#0091c2",
   warn: "#d92b3f",
-  // A glow laid over white only greys the picture, so the light theme takes a
-  // fraction of it: enough to soften a long chain, not enough to fog the board.
-  bloom: 0.5,
+  // A glow laid over white does not read as light, it reads as desaturation: these
+  // dot colours already have a channel at full scale, so adding to them only lifts
+  // the other two and turns red into pink. The light theme therefore takes a little
+  // of it - enough to soften the edge of a long chain and no more.
+  bloom: 0.22,
   dots: [
     { base: "#9900cc", bright: "#bb22ee" }, // purple
     { base: "#00ccff", bright: "#22eeff" }, // blue

@@ -14,13 +14,8 @@
 
 import { randRange } from "./math.js"
 import { CONFIG } from "./config.js"
+import { buildTuning, DEFAULT_TUNING } from "./scales.js"
 
-// A minor pentatonic in semitones, so a chain of any length walks up something
-// that sounds intentional. Past the end it keeps climbing in octaves.
-const SCALE = [0, 3, 5, 7, 10, 12, 15, 17, 19, 22, 24, 27, 29, 31, 34, 36]
-const semitone = (steps) => Math.pow(2, steps / 12)
-// Root of the pop run. Low enough that a long chain does not end up shrill.
-const POP_ROOT = 392
 // Pitch spread on each blip, about a tenth of a semitone either way, so a run
 // shimmers instead of sounding sequenced.
 const POP_DETUNE = 0.006
@@ -32,6 +27,23 @@ export const Sound = {
   chain: null,
   // 0..1, on top of MASTER_VOLUME.
   volume: 1,
+
+  // What the game is playing in. A mode sets this when it starts, so which scale the
+  // dots are tuned to is the mode's business and not this file's.
+  tuning: buildTuning(DEFAULT_TUNING),
+
+  setTuning(tuning) {
+    if (tuning && tuning.ratios && tuning.ratios.length > 0) {
+      this.tuning = tuning
+    }
+  },
+
+  // The frequency of a step up the current scale. Past the top of it the pitch holds
+  // rather than climbing forever.
+  note(step) {
+    const ratios = this.tuning.ratios
+    return this.tuning.rootHz * ratios[Math.min(Math.max(step, 0), ratios.length - 1)]
+  },
 
   ensureContext() {
     if (!this.ctx) {
@@ -183,8 +195,7 @@ export const Sound = {
   // A dot joining the chain: a soft marimba-ish tap, climbing the scale as the
   // chain grows so building one is itself a tune.
   link(index) {
-    const step = SCALE[Math.min(index, SCALE.length - 1)]
-    this.voice(POP_ROOT * semitone(step) * randRange(1 - POP_DETUNE, 1 + POP_DETUNE), 0.22, {
+    this.voice(this.note(index) * randRange(1 - POP_DETUNE, 1 + POP_DETUNE), 0.22, {
       wave: "triangle",
       volume: 0.035,
       attack: 0.008,
@@ -195,12 +206,13 @@ export const Sound = {
   // so the whole run is scheduled the moment the chain is spent and the audio
   // lands exactly with the particles.
   pop(index, delay = 0) {
-    const step = SCALE[Math.min(index, SCALE.length - 1)]
-    const pitch = semitone(step) * randRange(1 - POP_DETUNE, 1 + POP_DETUNE)
-    this.voice(POP_ROOT * pitch, 0.16, {
+    const pitch = this.note(index) * randRange(1 - POP_DETUNE, 1 + POP_DETUNE)
+    this.voice(pitch, 0.16, {
       wave: "sine",
       volume: 0.055,
-      endFreq: POP_ROOT * pitch * 1.5,
+      // Up a fifth over the length of the note, which is the little upward flick
+      // that makes it a pop.
+      endFreq: pitch * 1.5,
       attack: 0.006,
       delay,
     })
@@ -210,8 +222,11 @@ export const Sound = {
   },
 
   // Dropping a chain without spending it: the link tone, reversed.
+  // Dropping a chain without spending it: the root, falling away under itself. Below
+  // the scale rather than in it, since nothing was earned.
   cancel() {
-    this.voice(POP_ROOT * 0.75, 0.18, { wave: "sine", volume: 0.03, endFreq: POP_ROOT * 0.5 })
+    const root = this.note(0)
+    this.voice(root * 0.75, 0.18, { wave: "sine", volume: 0.03, endFreq: root * 0.5 })
   },
 
   // A dot landing. Barely there on its own; a refilled board is a soft rain of
@@ -225,28 +240,30 @@ export const Sound = {
     })
   },
 
-  // Banking a multiplier: a fifth above the run that earned it.
+  // Banking a multiplier: high up the scale, an octave over the run that earned it.
   multiplier(level) {
-    const step = SCALE[Math.min(level + 2, SCALE.length - 1)]
-    this.voice(POP_ROOT * 2 * semitone(step), 0.5, { wave: "sine", volume: 0.03, attack: 0.03 })
+    this.voice(this.note(level + 2) * 2, 0.5, { wave: "sine", volume: 0.03, attack: 0.03 })
   },
 
-  // The board with no move left: two notes falling away, slowly.
+  // The board with no move left: two notes an octave under the root, falling away
+  // slowly and off the scale altogether by the end.
   fail() {
-    this.voice(POP_ROOT * 0.5, 0.9, { wave: "sine", volume: 0.045, attack: 0.05, endFreq: 150 })
-    this.voice(POP_ROOT * 0.5 * semitone(3), 1.1, {
+    const root = this.note(0) * 0.5
+    this.voice(root, 0.9, { wave: "sine", volume: 0.045, attack: 0.05, endFreq: root * 0.75 })
+    this.voice(this.note(1) * 0.5, 1.1, {
       wave: "triangle",
       volume: 0.028,
       attack: 0.08,
-      endFreq: 130,
+      endFreq: root * 0.66,
       delay: 0.12,
     })
   },
 
-  // A board cleared outright, which is what the puzzle mode is for.
+  // A board cleared: a run up the scale the mode is in, slow and overlapping, so a
+  // clear sounds like the same instrument the popping did.
   clear() {
     for (let i = 0; i < 4; i++) {
-      this.voice(POP_ROOT * semitone(SCALE[i + 2]), 0.55, {
+      this.voice(this.note(i + 2), 0.55, {
         wave: "sine",
         volume: 0.035,
         attack: 0.02,
@@ -255,15 +272,19 @@ export const Sound = {
     }
   },
 
+  // The menu is in the same tuning as the board, so the whole game sounds like one
+  // instrument however a mode is tuned.
   menuMove() {
-    this.voice(POP_ROOT * 1.5, 0.07, { wave: "sine", volume: 0.02, attack: 0.005 })
+    this.voice(this.note(3), 0.07, { wave: "sine", volume: 0.02, attack: 0.005 })
   },
 
   menuConfirm() {
-    this.voice(POP_ROOT, 0.12, { wave: "sine", volume: 0.03, endFreq: POP_ROOT * 1.5 })
+    const root = this.note(0)
+    this.voice(root, 0.12, { wave: "sine", volume: 0.03, endFreq: this.note(2) })
   },
 
   menuBack() {
-    this.voice(POP_ROOT, 0.12, { wave: "sine", volume: 0.026, endFreq: POP_ROOT * 0.67 })
+    const root = this.note(0)
+    this.voice(root, 0.12, { wave: "sine", volume: 0.026, endFreq: root * 0.67 })
   },
 }

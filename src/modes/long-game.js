@@ -13,4 +13,7 @@ export const LONG_GAME = {
   refill: true,
   timeLimit: 0,
   specialChance: 0,
+  // Hijaz. A mode about holding out for a longer chain wants a scale that sounds like
+  // it is going somewhere, and the augmented second off the root does.
+  tuning: { root: "A3", scale: "hijaz" },
 }

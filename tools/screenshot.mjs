@@ -114,6 +114,26 @@ const SHOTS = [
     }`,
   },
   {
+    // An authored level, which is the one board in the game with a designed shape and
+    // empty cells in it.
+    file: "puzzle.png",
+    theme: "dark",
+    frames: 90,
+    pose: `(game) => {
+      game.start("puzzle")
+      game.level = 2
+      game.retryLevel()
+      game.settle(2)
+      game.player.score = 640
+      const chain = game.board.longestChain()
+      game.player.cursor = { col: chain[0].col, row: chain[0].row }
+      game.startChain(0)
+      for (let i = 1; i < chain.length; i++) {
+        game.extendTo(0, chain[i].col, chain[i].row)
+      }
+    }`,
+  },
+  {
     // The rebinding page, which is the longest menu there is: worth a shot to see
     // that it still fits the field.
     file: "controls.png",

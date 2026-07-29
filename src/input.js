@@ -113,8 +113,12 @@ export class KeyboardInput {
       this.game.escape()
       return
     }
+    // Enter works whatever the link key is bound to, so a player who has not read the
+    // controls page can still press on. It has to release as well, or a chain picked up with
+    // it is held for ever: with hold-to-link the release is what spends the chain.
     if (event.code === "Enter") {
       event.preventDefault()
+      this.held.add("link")
       this.#confirm()
       return
     }
@@ -139,7 +143,7 @@ export class KeyboardInput {
     if (forPageControl(event.target)) {
       return
     }
-    const control = this.#controlFor(event.code)
+    const control = event.code === "Enter" ? "link" : this.#controlFor(event.code)
     if (!control) {
       return
     }

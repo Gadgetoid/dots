@@ -1162,7 +1162,10 @@ export class Game {
         return [
           {
             id: "levels",
-            kind: "levels",
+            kind: "buttons",
+            // Drawn as a grid of boards; see #drawLevels. Everything else about it - walking
+            // it, pressing it, what it sounds like - is a block of buttons.
+            layout: "levels",
             columns: LEVEL_COLUMNS,
             options: (this.mode.levels || []).map((level, index) => {
               const unlocked = this.levelUnlocked(index)
@@ -1359,7 +1362,7 @@ export class Game {
   // Where the cursor lands when it arrives on a row: the first cell there is to press,
   // except on the mode grid, where it is the mode already chosen.
   #firstOption(row) {
-    if (!row || (row.kind !== "buttons" && row.kind !== "levels")) {
+    if (!row || row.kind !== "buttons") {
       return 0
     }
     // The furthest level reached, so a picker opens where a player left off and not at the
@@ -1390,7 +1393,7 @@ export class Game {
     // is short of the column being left - the last line of the mode grid holds one - the
     // cursor takes the nearest cell along it and stays in the block.
     const here = rows[this.menuIndex]
-    if (here && (here.kind === "buttons" || here.kind === "levels")) {
+    if (here && here.kind === "buttons") {
       const columns = here.columns || here.options.length
       const line = Math.floor(this.menuOption / columns) + delta
       const lines = Math.ceil(here.options.length / columns)
@@ -1429,7 +1432,7 @@ export class Game {
     if (!row) {
       return
     }
-    if (row.kind === "buttons" || row.kind === "levels") {
+    if (row.kind === "buttons") {
       // Left and right step across the block, over any cell that is only holding its
       // place, and off the end of a line onto the next.
       let next = this.menuOption + delta
@@ -1570,7 +1573,7 @@ export class Game {
   }
 
   #itemCount(row) {
-    if (row.kind === "buttons" || row.kind === "levels") {
+    if (row.kind === "buttons") {
       return row.options.filter(Boolean).length
     }
     if (row.kind === "options") {
@@ -1668,7 +1671,12 @@ export class Game {
       this.cancelRebind()
       return
     }
-    if (this.page === "controls" || this.page === "settings" || this.page === "modes") {
+    if (
+      this.page === "controls" ||
+      this.page === "settings" ||
+      this.page === "modes" ||
+      this.page === "levels"
+    ) {
       this.#closePage()
       return
     }

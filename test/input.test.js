@@ -11,6 +11,12 @@ import { GAMEPAD, REPEAT_DELAY, REPEAT_RATE, freshBindings } from "../src/config
 
 const key = (code, repeat = false) => ({ code, repeat, preventDefault() {} })
 
+const settle = (game, seconds = 4) => {
+  for (let i = 0; i < seconds * 60; i++) {
+    game.advance(1 / 60)
+  }
+}
+
 // A pad with nothing pressed and both sticks centred.
 function blankPad(buttonCount = 16) {
   return { buttons: new Array(buttonCount).fill({ pressed: false, value: 0 }), axes: [0, 0, 0, 0] }
@@ -255,3 +261,87 @@ test("a key pressed on a control in the page is left to that control", () => {
   keyboard.poll(1 / 60)
   assert.notEqual(game.menuIndex, index, "the cursor moved")
 })
+
+test("Enter plays exactly as the link key does", () => {
+  const game = new Game()
+  const keyboard = new KeyboardInput(game)
+  game.start("classic")
+  settle(game)
+
+  const dot = game.board.dots[0]
+  game.player.cursor = { col: dot.col, row: dot.row }
+  // Down and up, as a keyboard sends them. Enter is not a bound control, so nothing looked it
+  // up on the way back up and a chain taken with it used to be held for ever.
+  keyboard.onKeyDown(key("Enter"))
+  assert.equal(game.player.chain.length, 1, "it picks a dot up")
+  keyboard.onKeyUp({ code: "Enter" })
+  assert.equal(game.player.chain.length, 0, "and letting go puts it down again")
+
+  // And it spends a chain worth spending, which is what the link key does.
+  const pair = game.board.longestChain()
+  game.player.cursor = { col: pair[0].col, row: pair[0].row }
+  keyboard.onKeyDown(key("Enter"))
+  for (const cell of pair.slice(1)) {
+    game.extendTo(0, cell.col, cell.row)
+  }
+  keyboard.onKeyUp({ code: "Enter" })
+  assert.equal(game.player.chain.length, 0)
+  assert.ok(game.player.score > 0, "it was spent, not dropped")
+})
+
+test("every menu page can be left the way it was entered", () => {
+  const game = new Game()
+  game.start("puzzle")
+  const keyboard = new KeyboardInput(game)
+  const escape = () => keyboard.onKeyDown(key("Escape"))
+
+  // Each page, opened from the page that offers it and escaped back to it. The picker is the
+  // one whose way out was missing: a level could be walked onto and neither pressed nor
+  // escaped from.
+  game.togglePause()
+  assert.equal(game.page, "pause")
+  for (const [from, action, page] of [
+    ["pause", "modes", "modes"],
+    ["pause", "levels", "levels"],
+    ["pause", "settings", "settings"],
+    ["settings", "controls", "controls"],
+  ]) {
+    game.page = from
+    game.menuIndex = 0
+    pressButton(game, action)
+    assert.equal(game.page, page, `${action} opens from ${from}`)
+    escape()
+    assert.equal(game.page, from, `and escape returns from ${page} to ${from}`)
+  }
+})
+
+test("a level can be started from the picker", () => {
+  const game = new Game()
+  game.start("puzzle")
+  game.progress = { puzzle: { 0: 24 } }
+  game.page = "levels"
+  const rows = game.menuRows()
+  const index = rows.findIndex((row) => row.layout === "levels")
+  game.menuIndex = index
+  game.menuOption = 1
+  game.menuConfirm()
+  assert.equal(game.page, null, "the menu closes")
+  assert.equal(game.level, 1, "on the level that was pressed")
+  assert.ok(game.board.count > 0, "with a board dealt")
+})
+
+// Press the button that performs `action`, wherever the page has put it.
+function pressButton(game, action) {
+  const rows = game.menuRows()
+  for (const [index, row] of rows.entries()) {
+    if (row.kind !== "buttons") {
+      continue
+    }
+    const option = row.options.findIndex((cell) => cell && cell.action === action)
+    if (option >= 0) {
+      game.menuTap(index, option)
+      return
+    }
+  }
+  throw new Error(`no button for ${action}`)
+}

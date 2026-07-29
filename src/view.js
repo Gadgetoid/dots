@@ -602,12 +602,14 @@ export class GameView {
           color: theme.text.faint,
           size: 18,
         })
+      } else if (row.layout === "levels") {
+        // Checked before the plain block of buttons, which is what this row is in every way
+        // except how it draws.
+        this.#drawLevels(game, theme, row, index, x, rowY, width, rowHeight)
       } else if (row.kind === "buttons") {
         this.#drawButtons(game, theme, row, index, x, rowY, width)
       } else if (row.kind === "options") {
         this.#drawOptions(game, theme, row, index, x, rowY, width, rowHeight)
-      } else if (row.kind === "levels") {
-        this.#drawLevels(game, theme, row, index, x, rowY, width, rowHeight)
       } else if (row.kind === "hint") {
         this.#drawHint(game, theme, rows, x, rowY, width, rowHeight)
       } else {
@@ -624,18 +626,18 @@ export class GameView {
     if (row.kind === "hint") {
       return HINT_H
     }
+    if (row.layout === "levels") {
+      const columns = row.columns || LEVEL_COLUMNS
+      const cell = (MENU_W - PANEL_PAD * 2 - LEVEL_GAP * (columns - 1)) / columns
+      const lines = Math.min(LEVEL_LINES, Math.ceil(row.options.length / columns))
+      return lines * (cell + LEVEL_GAP)
+    }
     if (row.kind === "buttons") {
       const lines = Math.ceil(row.options.length / (row.columns || row.options.length))
       return lines * (BUTTON_H + BUTTON_GAP) + 6
     }
     if (row.kind === "options") {
       return (row.options.some((option) => option.preview) ? PREVIEW_H : OPTION_H) + 10
-    }
-    if (row.kind === "levels") {
-      const columns = row.columns || LEVEL_COLUMNS
-      const cell = (MENU_W - PANEL_PAD * 2 - LEVEL_GAP * (columns - 1)) / columns
-      const lines = Math.min(LEVEL_LINES, Math.ceil(row.options.length / columns))
-      return lines * (cell + LEVEL_GAP)
     }
     return 32
   }

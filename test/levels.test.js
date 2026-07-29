@@ -480,7 +480,7 @@ test("the picker locks what has not been reached and opens where the player left
   game.start("puzzle")
   game.page = "levels"
   const rows = game.menuRows()
-  const grid = rows.find((row) => row.kind === "levels")
+  const grid = rows.find((row) => row.layout === "levels")
   assert.equal(grid.options.length, LEVELS.length, "one cell per level")
   assert.deepEqual(
     grid.options.map((cell) => cell.locked),

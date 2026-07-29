@@ -927,6 +927,10 @@ export class Game {
             { action: "resume", label: "Resume" },
             { action: "restart", label: "Restart" },
           ]),
+          // The full width of the panel, as on the title screen, since it leads to the
+          // same place. Not filled like the one there, though: on the title it is the
+          // thing to press, and here it is the thing to press instead of resuming.
+          this.#buttons([{ action: "modes", label: "New game" }]),
           this.#buttons([
             { action: "title", label: "Quit to title" },
             { action: "settings", label: "Settings" },

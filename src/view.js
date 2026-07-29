@@ -39,7 +39,7 @@ const LABEL_W = 116
 const MENU_W = 460
 
 // The level picker: a square cell per puzzle, and how many lines of them are on screen at
-// once. Four lines of four is sixteen visible out of twenty, which is enough that a player can
+// once. Four lines of four is sixteen visible at a time, which is enough that a player can
 // see the shape of what is ahead without the cells becoming too small to tell apart.
 const LEVEL_GAP = 8
 const LEVEL_LINES = 4
@@ -63,6 +63,9 @@ export class GameView {
     // How far the level picker has been scrolled, in view pixels. Where a list is scrolled to
     // belongs to looking at it, so the view keeps it and the game knows nothing about it.
     this.levelScroll = 0
+    // Which cell the scroll was last pulled to, so the pull happens as the cursor moves and not
+    // on every frame. Null while the picker's grid is not the row under the cursor.
+    this.levelCursor = null
   }
 
   // Which menu row a point in view space is over, and which of its options if it is a
@@ -853,9 +856,14 @@ export class GameView {
     const lines = Math.ceil(row.options.length / columns)
     const overflow = Math.max(0, lines * step - LEVEL_GAP - rowHeight)
 
-    // Follow the cursor: whichever line it is on has to be on screen, and moving onto a line
-    // that is not scrolls the grid to it.
-    if (index === game.menuIndex) {
+    // Follow the cursor: whichever line it is on has to be on screen, so moving onto a line that
+    // is not scrolls the grid to it. As the cursor moves, and not on every frame: a wheel or a
+    // dragging finger scrolls further than the cursor can go, since the cursor stops at the last
+    // level unlocked and looking ahead at the rest is most of what the grid is for.
+    if (index !== game.menuIndex) {
+      this.levelCursor = null
+    } else if (this.levelCursor !== game.menuOption) {
+      this.levelCursor = game.menuOption
       const line = Math.floor(game.menuOption / columns)
       this.levelScroll = clamp(this.levelScroll, line * step + cell - rowHeight, line * step)
     }

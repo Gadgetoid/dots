@@ -17,6 +17,7 @@ import { Game, PHASE } from "../src/game.js"
 import { GameView } from "../src/view.js"
 import { VIEW_W, VIEW_H } from "../src/config.js"
 import { GAME_MODES } from "../src/modes/index.js"
+import { LEVELS } from "../src/modes/levels.js"
 
 // A renderer that writes down what it was told to draw. Every method the contract has,
 // so a call the view makes that this does not have is a failure rather than a crash.
@@ -410,6 +411,56 @@ test("no menu page runs off the field", () => {
     }
     assertOnScreen(drawn(game), `${page}, cursor at the end`)
   }
+})
+
+test("the level picker scrolls past its cursor, as far as the last level", () => {
+  // The cursor stops at the last level unlocked, so looking ahead at the rest of the ladder is
+  // done with a wheel or a dragging finger. The grid is pulled to the cursor as the cursor moves
+  // and not on every frame, or scrolling springs back and the bar never reaches its foot.
+  const game = new Game()
+  game.start("puzzle")
+  game.page = "levels"
+  game.menuIndex = 0
+  game.menuOption = 0
+
+  const view = new GameView(new Recorder())
+  view.content = { x: 0, y: 0, width: VIEW_W, height: VIEW_H }
+  const frame = () => {
+    const renderer = new Recorder()
+    view.renderer = renderer
+    view.render(game)
+    return renderer.calls
+  }
+
+  frame()
+  const atCursor = view.levelScroll
+  view.scrollLevels(10000)
+  frame()
+  assert.ok(view.levelScroll > atCursor, "a wheel scrolls away from the cursor")
+  const atEnd = view.levelScroll
+  frame()
+  assert.equal(view.levelScroll, atEnd, "and the next frame leaves it where it was put")
+
+  // Scrolled to the end, the last level is on screen: the grid is clipped to the row, so what
+  // counts is being inside the clip and not inside the field.
+  const calls = frame()
+  const opened = calls.findIndex((call) => call.kind === "clip")
+  const closed = calls.findIndex((call) => call.kind === "clipOff")
+  const [, top, , height] = calls[opened].args
+  const last = calls
+    .slice(opened + 1, closed)
+    .find((call) => call.kind === "text" && call.opts.str === String(LEVELS.length))
+  assert.ok(last, `the last of the ${LEVELS.length} levels is drawn`)
+  assert.ok(
+    last.args[1] >= top && last.args[1] <= top + height,
+    `the last level is at y=${Math.round(last.args[1])}, outside the ${Math.round(top)} to ` +
+      `${Math.round(top + height)} the grid is clipped to`,
+  )
+
+  // And moving the cursor still pulls the grid back to it.
+  game.menuOption = 1
+  frame()
+  assert.ok(view.levelScroll < atEnd, "moving the cursor scrolls back to it")
 })
 
 test("resizing to the size it already is touches nothing", () => {

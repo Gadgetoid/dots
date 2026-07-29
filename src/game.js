@@ -802,9 +802,11 @@ export class Game {
     }
     if (this.page) {
       // A menu leaves the board alone but keeps it breathing, so the field behind
-      // the panel is not a still image.
-      this.board.step(dt)
+      // the panel is not a still image. Landings are not voiced, since nothing the
+      // board does behind a panel is being played.
+      this.board.step(dt * this.#boardRate)
       this.#advanceGlow(dt * 2)
+      this.#ageHint(dt)
       return
     }
     this.#advanceBoard(dt)
@@ -822,14 +824,18 @@ export class Game {
     this.#advanceOutcome(dt)
   }
 
+  // How fast the board's own clock runs. A reduced-motion session runs it slower, which
+  // slows the fall and everything that falls out of it - the bounce, the wobble ringing
+  // down - without the board knowing anything about a setting.
+  get #boardRate() {
+    return this.reducedMotion ? REDUCED_MOTION_RATE : 1
+  }
+
   #advanceBoard(dt) {
     // Landings are collected and voiced together, so a whole refilled board is one soft rain
     // instead of a dozen overlapping knocks.
     let voices = 0
-    // A reduced-motion session runs the board's own clock slower, which slows the fall
-    // and everything that falls out of it - the bounce, the wobble ringing down - without
-    // the board knowing anything about a setting.
-    this.board.step(dt * (this.reducedMotion ? REDUCED_MOTION_RATE : 1), (dot, speed) => {
+    this.board.step(dt * this.#boardRate, (dot, speed) => {
       if (speed >= LAND_AUDIBLE && voices < LAND_VOICES) {
         voices++
         Sound.land(clamp(speed / 22, 0.3, 1.4))
@@ -922,13 +928,21 @@ export class Game {
   //
   // Where motion has been turned down there is no wobble to use, so the same hint is a
   // ring around each dot instead - the view draws whichever the settings allow.
-  #advanceHint(dt) {
-    if (this.hint) {
-      this.hint.age += dt
-      if (this.hint.age >= CONFIG.HINT_RING_LIFE) {
-        this.hint = null
-      }
+  // A ring fades on its own clock, which runs whether or not a menu is over the board: it
+  // is drawn behind the panel, and the wobble half of the same hint rings down there
+  // anyway, since that is the board's own business.
+  #ageHint(dt) {
+    if (!this.hint) {
+      return
     }
+    this.hint.age += dt
+    if (this.hint.age >= CONFIG.HINT_RING_LIFE) {
+      this.hint = null
+    }
+  }
+
+  #advanceHint(dt) {
+    this.#ageHint(dt)
     if (!this.hintsOn || this.busy || !this.board.settled || this.outcome != null) {
       return
     }

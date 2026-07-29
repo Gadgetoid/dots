@@ -554,6 +554,38 @@ test("a reduced-motion hint names its dots without moving them", () => {
   }
 })
 
+test("a hint fades out behind a menu, and the board falls at the settings' rate", () => {
+  const game = new Game()
+  game.settings.motion = "reduced"
+  game.start("classic")
+  settle(game)
+  assert.ok(advanceUntil(game, () => game.hint != null, CONFIG.HINT_DELAY + 2))
+  game.togglePause()
+  // The ring is drawn behind the panel, so it has to go out while it is there.
+  assert.ok(
+    advanceUntil(game, () => game.hint == null, CONFIG.HINT_RING_LIFE + 1),
+    "the ring fades while the menu is up",
+  )
+
+  // And the fall behind the panel runs at the same rate as the fall in front of it.
+  const paused = new Game()
+  paused.settings.motion = "reduced"
+  paused.start("classic")
+  const dropping = paused.board.dots[0]
+  paused.togglePause()
+  const from = dropping.y
+  paused.advance(FRAME)
+  const behind = dropping.y - from
+
+  const playing = new Game()
+  playing.settings.motion = "reduced"
+  playing.start("classic")
+  const infront = playing.board.dots[0]
+  const was = infront.y
+  playing.advance(FRAME)
+  assert.equal(behind, infront.y - was, "reduced motion reaches the board a menu sits over")
+})
+
 test("every dot colour has a shape, and the confusable pairs do not share one", () => {
   assert.equal(DOT_SHAPES.length, DOT_COLOURS, "one shape per colour")
 

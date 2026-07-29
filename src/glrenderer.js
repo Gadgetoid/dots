@@ -137,13 +137,14 @@ function buildAtlas() {
 // list, and whether the pipeline draws over what is behind it or adds to it.
 const LAYOUTS = {
   chain: {
-    stride: 18,
+    stride: 22,
     attrs: [
       [0, 2],
       [1, 4],
       [2, 4],
       [3, 4],
       [4, 4],
+      [5, 4],
     ],
     blend: "over",
     // One quad per link, and neighbouring quads overlap. Over the scene that costs
@@ -573,8 +574,24 @@ export class WebGLRenderer extends Renderer {
     // filleting them would swell the run.
     const turns = (from, at, to) =>
       Math.abs((at.x - from.x) * (to.y - at.y) - (at.y - from.y) * (to.x - at.x)) > 1e-4
+    // Which way is the inside of a turn, as a unit vector from the corner. Coming in
+    // along u and leaving along v, the notch is on the side of v - u: the shader uses
+    // this to keep the fillet off the outside of the corner, where the outline is the
+    // corner dot's own circle and is already right.
+    const bisector = (from, at, to) => {
+      const inX = at.x - from.x
+      const inY = at.y - from.y
+      const outX = to.x - at.x
+      const outY = to.y - at.y
+      const inLength = Math.hypot(inX, inY) || 1
+      const outLength = Math.hypot(outX, outY) || 1
+      const x = outX / outLength - inX / inLength
+      const y = outY / outLength - inY / inLength
+      const length = Math.hypot(x, y) || 1
+      return { x: x / length, y: y / length }
+    }
     this.#emit("chain", colour, opts.glow || 0, (layer, col) => {
-      this.#reserve(layer, (points.length - 1) * 6 * 18)
+      this.#reserve(layer, (points.length - 1) * 6 * 22)
       const data = layer.data
       for (let i = 1; i < points.length; i++) {
         const a = points[i - 1]
@@ -584,8 +601,12 @@ export class WebGLRenderer extends Renderer {
         // link's own dot, which is a rod of no length and costs nothing.
         const before = i >= 2 ? points[i - 2] : a
         const after = i + 1 < points.length ? reach(i + 1) : b
-        const filletIn = i >= 2 && turns(before, a, b) ? smooth : 0
-        const filletOut = i + 1 < points.length && turns(a, b, after) ? smooth : 0
+        const turnsIn = i >= 2 && turns(before, a, b)
+        const turnsOut = i + 1 < points.length && turns(a, b, after)
+        const filletIn = turnsIn ? smooth : 0
+        const filletOut = turnsOut ? smooth : 0
+        const insideIn = turnsIn ? bisector(before, a, b) : { x: 0, y: 0 }
+        const insideOut = turnsOut ? bisector(a, b, after) : { x: 0, y: 0 }
         const minX = Math.min(a.x, b.x) - pad
         const maxX = Math.max(a.x, b.x) + pad
         const minY = Math.min(a.y, b.y) - pad
@@ -610,6 +631,10 @@ export class WebGLRenderer extends Renderer {
           data[index++] = col[1]
           data[index++] = col[2]
           data[index++] = col[3]
+          data[index++] = insideIn.x
+          data[index++] = insideIn.y
+          data[index++] = insideOut.x
+          data[index++] = insideOut.y
           layer.count = index
         }
         this.#corners(corner)

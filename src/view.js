@@ -423,37 +423,43 @@ export class GameView {
     // that mode is belong in the pause menu, where they are read once.
     const special = game.hoveredSpecial()
     const level = game.currentLevel
+    // One line, on the pause button's centreline: which level this is on the left and what it
+    // has paid against what it could on the right. The strip is 34 high and the type in it is
+    // 21, so there is room for one line and not two.
+    const stripY = PAUSE_BUTTON.y + PAUSE_BUTTON.h / 2
     if (special) {
-      renderer.text(`${special.name}: ${special.blurb}`, 28, HUD_BOTTOM + 22, {
+      renderer.text(`${special.name}: ${special.blurb}`, 28, stripY, {
         color: theme.accent,
-        size: 18,
+        size: 19,
+        baseline: "middle",
       })
     } else if (level && game.phase === PHASE.PLAYING) {
-      renderer.text(`Level ${game.level + 1} of ${game.mode.levels.length}`, 28, HUD_BOTTOM + 16, {
+      // Which of how many, faint, then the level's own name: the count is a label and the name
+      // is the thing, so they are drawn as two on one line to keep that difference.
+      const count = `${game.level + 1}/${game.mode.levels.length}: `
+      renderer.text(count, 28, stripY, {
         color: theme.text.faint,
-        size: 18,
+        size: 21,
+        baseline: "middle",
       })
-      renderer.text(level.name, 28, HUD_BOTTOM + 34, {
+      renderer.text(level.name, 28 + renderer.measureText(count, 21), stripY, {
         color: theme.text.dim,
-        size: 22,
+        size: 21,
+        baseline: "middle",
         bold: true,
       })
-      // What this level has paid against the most it can, which is a real target: the
-      // best any order of chains could score while still clearing it. The running score
-      // is no use for that, since it carries across levels.
+      // What this level has paid against the most it can, which is a real target: the best any
+      // order of chains could score while still clearing it. The running score is no use for
+      // that, since it carries across levels. Right edge clear of the pause button.
       if (game.levelPar > 0) {
         const reached = game.levelScore >= game.levelPar
-        renderer.text(`${game.levelScore} / ${game.levelPar}`, VIEW_W - 92, HUD_BOTTOM + 28, {
+        renderer.text(`${game.levelScore} / ${game.levelPar}`, PAUSE_BUTTON.x - 18, stripY, {
           color: reached ? theme.accent : theme.text.dim,
-          size: 22,
+          size: 21,
           align: "right",
+          baseline: "middle",
           bold: true,
           glow: reached ? 0.8 : 0,
-        })
-        renderer.text("this level", VIEW_W - 92, HUD_BOTTOM + 12, {
-          color: theme.text.faint,
-          size: 17,
-          align: "right",
         })
       }
     }

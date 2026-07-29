@@ -3,10 +3,14 @@
 Draw a line through dots of one colour to pop them out of existence.
 
 Dots started life around 2013 as a RaphaelJS toy - SVG circles, a drag handler and
-a 90 second clock. It was later rewritten in C++ for the [32blit](https://32blit.com)
+a 90 second clock. Very heavily inspired by the 2013 iPhone game of the same name, which in turn was basically a minimalist Bejeweled (Grandma would be proud <3). It got embedded into a couple of websites where people played and enjoyed it, but never amounted to more than that.
+
+It was later rewritten in C++ for the [32blit](https://32blit.com)
 handheld, which gained it a cursor, a score multiplier and a proper lose condition,
 and lost it antialiasing. This is that game again in WebGL2: the same five colours
 and the same cubed scoring, with the graphics the STM32 could never have managed.
+
+Along for the ride come a slew of visual accessibility options, hopefully opening up the game for more players, and perhaps another thirteen years of life.
 
 Two of the three still exist to compare against: the 32blit version is in
 [32blit-dots](https://github.com/gadgetoid/32blit-dots) and the original in

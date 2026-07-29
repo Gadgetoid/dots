@@ -14,11 +14,14 @@
 //   node tools/find-levels.mjs --out found
 //   node tools/find-levels.mjs --out found --min 12.5 --seconds 120
 //   node tools/find-levels.mjs --out found --shape mesa --from 40000
+//   node tools/find-levels.mjs --out found --mindots 10 --maxdots 16 --min 7 --max 9
+
 //
 // | flag        | what it does                                                         |
 // | ----------- | -------------------------------------------------------------------- |
 // | --out DIR   | a directory; one file per find, written the moment it is found        |
 // | --min N     | keep boards measuring at least this hard (default 11.5)               |
+// | --max N     | and at most this hard, which bounds the climb too (default 0, no ceiling)|
 // | --seconds N | how long one board may be judged for (default 45)                     |
 // | --tries N   | stop after this many starting points (default 0, meaning never)       |
 // | --workers N | how many at once (default half the cores)                             |
@@ -26,6 +29,7 @@
 // | --from N    | start every shape here, overriding what state.json remembers          |
 // | --show N    | print starting point N and stop, to see or reproduce one              |
 // | --maxdots N | skip silhouettes with more dots than this (default 26)                |
+// | --mindots N | skip silhouettes with fewer dots than this (default 18)               |
 // | --duty N    | work only N percent of the time, to run cooler (default 100)          |
 // | --minutes N | stop after this long (default 0, meaning never)                       |
 // | --per-shape N | keep at most this many finds of one silhouette (default 4)          |
@@ -77,11 +81,33 @@
 // `--show N` reproduces a starting point. A climb returns neighbours of itself, so a find is only
 // kept if it differs from every find already kept by --apart cells.
 //
-// A word on size, since it decides what a run can do. Boards of 18 to 26 dots are judged in
-// tenths of a second to a few seconds, so thousands an hour go past and they reach about 12 on the
-// difficulty scale. Boards of 30 dots and up reach 13 and beyond, and take *minutes* each: they are
-// worth a run of their own with --shape, --maxdots and a --seconds in the hundreds, not a share of
-// a mixed one.
+// A word on size, since it decides what a run costs rather than what it finds. --mindots and
+// --maxdots pick which sizes a run is over; the default pair, 18 to 26, is what the ladder was
+// built from.
+//
+//   10 to 16 dots   hundredths of a second each, so around seventy thousand judged a minute.
+//                   Measured 6.90 to 11.51 over a three minute run: 4 finds in band 3, 24 in
+//                   band 4, 8 in band 5.
+//   18 to 26 dots   tenths of a second to a few seconds, reaching about 12.
+//   30 dots and up  13 and beyond, and *minutes* each. Worth a run of their own with --shape or
+//                   --mindots and a --seconds in the hundreds, not a share of a mixed one.
+//
+// Size is not the same thing as difficulty, which is worth being clear about because it looks as
+// though it should be. A sixteen dot board reached 11.51, above all but the last eleven levels, on
+// a walk of 2699 positions. The size term is only 0.8 per decade of positions, so it contributes
+// about two of that; the rest is the trap and structure terms, which do not care how big a board
+// is. What size decides is how long a board takes to judge.
+//
+// So a run's range comes from --min and --max and its shapes come from the dot flags, and the two
+// are independent. A gap in the middle of the ladder is filled by naming the range it wants, which
+// is what the ceiling is for: without one the climb maximises difficulty and every find is whatever
+// its shape could reach, however far past the gap that is. Asking for 9.4 to 10.2 across sizes 10 to
+// 24 kept thirteen boards in two minutes, every one of them inside it and from thirteen different
+// silhouettes.
+//
+// What no range can currently reach is bands 1 and 2: see `wanted`, which asks for exactly one
+// order paying par, four chains and greed missing par. Every shipped level below 9.06 fails at
+// least one of those, and failing them is what makes those levels gentle.
 //
 // DIR fills as it goes, a file per find named for how hard it measured so `ls` shows the best
 // last, plus a summary.txt rewritten on every find. Both are safe to read while it runs. Nothing
@@ -107,13 +133,34 @@ const SCORING = {
     length >= CONFIG.MULTIPLIER_CHAIN ? Math.min(multiplier + 1, CONFIG.MULTIPLIER_MAX) : 1,
 }
 
-// The silhouettes. A hash is a dot and a stop is empty; what a column holds falls to the bottom of
-// it, so these read as the shape the board will have. The big ones at the end are where the hard
-// levels come from - more dots means more chains and more ways to go wrong several moves later -
-// and they only became searchable once the analysis stopped walking the product of independent
-// parts.
+// The silhouettes. A hash is a dot and a stop is empty, and every one is written already fallen -
+// what a column holds falls to the bottom of it when the board is played, so a shape drawn with a
+// gap under a dot is not the shape it will be. checkShapes below insists on that, and on no two
+// being the same silhouette as each other.
+//
+// The table runs small to large, and what size decides is what a board costs to judge rather than
+// how hard it comes out: see the note on size in the header, and --mindots and --maxdots for
+// choosing which of them a run is over.
 const SHAPES = {
-  battlements: ["......", "......", "#..#..", "#..#..", "###.##", "######", "######"],
+  // Small boards, which the table had none of: the smallest here was eighteen dots and the ladder
+  // opens on six. Two dots to a colour is the least that can be matched at all, so ten or twelve
+  // dots holds three or four colours and a handful of chains - little enough to see the whole of at
+  // once, and cheap enough to judge that a run over these gets through seventy thousand a minute
+  // against a handful for the largest.
+  //
+  // Small is not the same as gentle. Measured, these reach band 5: sixteen dots came out at 11.51,
+  // which is a small board that is hard rather than an easy one.
+  cairn: ["......", "......", "......", "......", "......", ".####.", "######"],
+  flight: ["......", "......", "......", "......", ".....#", "..####", "######"],
+  bench: ["......", "......", "......", "......", "......", "######", "######"],
+  hurdle: ["......", "......", "......", "......", "#.#.#.", "#.#.#.", "######"],
+  ridge: ["......", "......", "......", "......", "..##..", ".#####", "######"],
+  notch: ["......", "......", "......", "......", "##..##", "##..##", "######"],
+  dune: ["......", "......", "......", "...#..", "..###.", ".#####", "######"],
+  lintel: ["......", "......", "......", "#....#", "#....#", "######", "######"],
+  plinth: ["......", "......", "......", "......", ".####.", "######", "######"],
+  // The middle of it, and where the ladder was built from.
+  battlements: ["......", "......", "#.....", "#..#..", "######", "######", "######"],
   staircase: ["......", ".....#", "....##", "...###", "..####", ".#####", "######"],
   wave: ["......", "......", "......", ".#.#.#", "##.#.#", "######", "######"],
   bullseye: ["......", "......", "......", ".####.", ".####.", ".####.", "######"],
@@ -123,7 +170,6 @@ const SHAPES = {
   crown: ["......", "......", "#.##.#", "#.##.#", "######", "######", "######"],
   valley: ["......", "#....#", "##..##", "###.##", "######", "######", "######"],
   plateau: ["......", "......", "..##..", ".####.", "######", "######", "######"],
-  chevron: ["......", "#....#", "##..##", "###.##", "######", "######", "######"],
   bars: ["......", "......", "......", "######", "######", "######", "######"],
   spire: ["......", "..##..", "..##..", "..##..", ".####.", "######", "######"],
   gate: ["......", "......", "#.##.#", "#.##.#", "#.##.#", "######", "######"],
@@ -145,6 +191,45 @@ const SHAPES = {
   cathedral: [".#..#.", ".#..#.", ".####.", "######", "######", "######", "######"],
 }
 
+// What a silhouette is, once the board has fallen: the height of each column. Two shapes with the
+// same heights are the same shape however differently they are drawn, and a board is judged after
+// falling, so this is the only part of a drawing that survives being played.
+const profileOf = (shape) =>
+  Array.from(
+    { length: PUZZLE_COLS },
+    (_, col) => shape.filter((line) => line[col] === "#").length,
+  ).join(",")
+
+const dotsIn = (shape) => shape.join("").replace(/[^#]/g, "").length
+
+// The table is written by hand, so it is worth checking by machine. Both of these had gone wrong:
+// valley and chevron were the same silhouette character for character, which spent twice the time
+// on one shape and left --per-shape unable to see that two finds were the same board; and
+// battlements was drawn with a floating pair of dots, so it read as crenellations and played as
+// something else.
+//
+// A shape not written fallen is not wrong in what it produces - the board is judged after falling
+// either way - but colourIn grows its regions on the drawing, so a gap it will not have splits a
+// region that will be joined. And a reader cannot see the shape they are choosing.
+function checkShapes() {
+  const seen = new Map()
+  for (const [name, shape] of Object.entries(SHAPES)) {
+    const profile = profileOf(shape)
+    if (seen.has(profile)) {
+      throw new Error(`${name} is the same silhouette as ${seen.get(profile)}: heights ${profile}`)
+    }
+    seen.set(profile, name)
+    for (let col = 0; col < PUZZLE_COLS; col++) {
+      const column = shape.map((line) => line[col])
+      const top = column.indexOf("#")
+      if (top >= 0 && column.slice(top).some((cell) => cell !== "#")) {
+        throw new Error(`${name} column ${col} has a gap under a dot, so it is not drawn fallen`)
+      }
+    }
+  }
+}
+checkShapes()
+
 function arg(name, fallback) {
   const at = process.argv.indexOf(`--${name}`)
   return at >= 0 && process.argv[at + 1] ? process.argv[at + 1] : fallback
@@ -153,6 +238,7 @@ function arg(name, fallback) {
 const OPTIONS = {
   out: arg("out", null),
   min: Number(arg("min", 11.5)),
+  max: Number(arg("max", 0)),
   seconds: Number(arg("seconds", 45)),
   tries: Number(arg("tries", 0)),
   workers: Number(arg("workers", Math.max(1, Math.floor(os.cpus().length / 2)))),
@@ -162,6 +248,7 @@ const OPTIONS = {
   shape: arg("shape", null),
   from: Number(arg("from", 0)),
   maxDots: Number(arg("maxdots", 26)),
+  minDots: Number(arg("mindots", 18)),
   steps: Number(arg("steps", 20)),
   apart: Number(arg("apart", 4)),
 }
@@ -409,7 +496,7 @@ function wanted(found, min) {
 }
 
 // ---- one worker's share ----------------------------------------------------
-function hunt({ min, seconds, maxDots, steps, out, duty, until }) {
+function hunt({ min, max, seconds, maxDots, steps, out, duty, until }) {
   // Whether to stop, checked between boards: a climb is up to `steps` boards and a board can take
   // `seconds`, so a check per climb could be minutes away from noticing. The file is only looked at
   // once a second, since asking the filesystem between boards that take a tenth of one is silly.
@@ -460,6 +547,17 @@ function hunt({ min, seconds, maxDots, steps, out, duty, until }) {
     })
     if (!found.statsExact) {
       tooBig++
+      return null
+    }
+    // Over the ceiling is not a find, and not a step towards one either. Returning nothing rather
+    // than the difficulty is what makes --max a range and not just a filter: the climb steers by
+    // what comes back from here, so a board over the ceiling reads as a dead end and the climb
+    // settles just under it. Left as a filter, the climb would go on maximising difficulty and a
+    // range run would report only whatever it happened to pass through on the way up.
+    //
+    // A starting point already over the ceiling ends its climb, which is cheap at these sizes and
+    // is why a range run wants a --min as well: it says which starting points are worth walking.
+    if (max > 0 && found.difficulty > max) {
       return null
     }
     if (wanted(found, min)) {
@@ -601,8 +699,37 @@ function main() {
     console.error(`--shape must be "all" or one of: ${Object.keys(SHAPES).join(", ")}`)
     process.exit(1)
   }
-  // Which silhouettes this run is over: one, or all of them.
-  const shapeNames = OPTIONS.shape ? [OPTIONS.shape] : Object.keys(SHAPES)
+  // What this run is after, said the same way wherever it is said.
+  const band =
+    OPTIONS.max > 0 ? `between ${OPTIONS.min} and ${OPTIONS.max}` : `${OPTIONS.min} or more`
+
+  // Which silhouettes this run is over: the one named, or every one of the size this run is for.
+  //
+  // Sized here rather than in the worker, which is where --maxdots used to be answered, because the
+  // parent hands out a climb to whichever shape has yielded least - and a shape that cannot yield in
+  // this run's range never gets a find, so it is always the one that has yielded least. Once every
+  // shape that can produce something has, every climb after that goes to one that cannot. Nine
+  // shapes too small to reach a --min of 11.5 would take the whole night between them.
+  //
+  // A named --shape is an instruction and is taken at its word, size or no size.
+  const shapeNames = OPTIONS.shape
+    ? [OPTIONS.shape]
+    : Object.keys(SHAPES).filter((name) => {
+        const dots = dotsIn(SHAPES[name])
+        return dots >= OPTIONS.minDots && dots <= OPTIONS.maxDots
+      })
+  if (shapeNames.length === 0) {
+    console.error(
+      `no silhouette holds between ${OPTIONS.minDots} and ${OPTIONS.maxDots} dots. ` +
+        `They run ${Math.min(...Object.values(SHAPES).map(dotsIn))} to ` +
+        `${Math.max(...Object.values(SHAPES).map(dotsIn))}.`,
+    )
+    process.exit(1)
+  }
+  console.log(
+    `${shapeNames.length} of ${Object.keys(SHAPES).length} silhouettes, ` +
+      `${OPTIONS.minDots} to ${OPTIONS.maxDots} dots, measuring ${band}`,
+  )
   const out = path.resolve(OPTIONS.out)
   fs.mkdirSync(out, { recursive: true })
   // Left over from a previous run, this would stop the new one before it started.
@@ -631,7 +758,7 @@ function main() {
     fs.writeFileSync(
       path.join(out, "summary.txt"),
       `Run it again with the same --out to carry on: state.json holds where each shape got to.\n` +
-        `${found.length} kept, hardest first, measuring ${OPTIONS.min} or more.\n` +
+        `${found.length} kept, hardest first, measuring ${band}.\n` +
         `${starts} started from, ${judged} judged, ${tooBig} too big to judge, ` +
         `${alike} dropped as too like a find already kept, ${dropped} let go again, ` +
         `${Math.round((Date.now() - started) / 1000)}s so far.\n\n${lines.join("\n")}\n`,
@@ -741,6 +868,7 @@ function main() {
     const worker = new Worker(here, {
       workerData: {
         min: OPTIONS.min,
+        max: OPTIONS.max,
         seconds: OPTIONS.seconds,
         maxDots: OPTIONS.maxDots,
         steps: OPTIONS.steps,
@@ -818,7 +946,7 @@ function main() {
   })
 
   console.log(
-    `${OPTIONS.workers} workers, keeping anything measuring ${OPTIONS.min} or harder, ` +
+    `${OPTIONS.workers} workers, keeping anything measuring ${band}, ` +
       `${OPTIONS.seconds}s a board and ${OPTIONS.steps} steps without an improvement, ` +
       `climbing from ${OPTIONS.from}` +
       `${OPTIONS.tries === 0 ? ", until stopped." : `, ${OPTIONS.tries} starting points.`}`,

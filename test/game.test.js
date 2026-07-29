@@ -8,6 +8,7 @@ import assert from "node:assert/strict"
 import { Game, PHASE } from "../src/game.js"
 import { CONFIG } from "../src/config.js"
 import { modeById } from "../src/modes/index.js"
+import { Sound } from "../src/audio.js"
 
 const FRAME = 1 / 60
 
@@ -168,6 +169,34 @@ test("losing the window lets go of a held chain, but not a toggled one", () => {
   toggled.linkPress(0)
   toggled.onBlur()
   assert.equal(toggled.player.chain.length, 1, "here a chain outlives its press by design")
+})
+
+test("unpicking a chain walks back down the scale", () => {
+  const game = new Game()
+  game.start("classic")
+  settle(game)
+  // A run of three along the bottom, and something else beside it so the run ends there.
+  const row = game.board.rows - 1
+  for (let col = 0; col < 3; col++) {
+    game.board.at(col, row).colour = 0
+  }
+  game.board.at(3, row).colour = 1
+
+  const played = []
+  const real = Sound.link
+  Sound.link = (index) => played.push(index)
+  try {
+    game.player.cursor = { col: 0, row }
+    game.startChain(0)
+    game.extendTo(0, 1, row)
+    game.extendTo(0, 2, row)
+    game.extendTo(0, 1, row) // back onto the middle dot, which retracts
+    game.extendTo(0, 0, row)
+  } finally {
+    Sound.link = real
+  }
+  assert.deepEqual(played, [0, 1, 2, 1, 0], "up the scale and back down it")
+  assert.equal(game.player.chain.length, 1)
 })
 
 test("a board sat in front of for a while points out a move", () => {

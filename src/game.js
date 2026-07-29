@@ -655,6 +655,9 @@ export class Game {
     }
     if (action === "retract") {
       this.#release(player.chain.pop())
+      // The note of the dot the chain has gone back to, so taking one off is heard as
+      // plainly as putting one on: a chain built to three and unpicked sounds 1 2 3 2 1.
+      Sound.link(player.chain.length - 1)
       return true
     }
     return false

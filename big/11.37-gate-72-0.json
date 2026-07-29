@@ -1,0 +1,25 @@
+{
+  "shape": "gate",
+  "number": 72,
+  "steps": 0,
+  "layout": [
+    "......",
+    "......",
+    "1.11.2",
+    "1.13.2",
+    "1.13.2",
+    "133322",
+    "113332"
+  ],
+  "par": 3536,
+  "floor": 96,
+  "difficulty": 11.37,
+  "band": 5,
+  "paths": 1,
+  "moves": 5,
+  "silent": "12/55",
+  "greedy": "strands",
+  "dots": 24,
+  "states": 79374,
+  "decomposed": 0
+}

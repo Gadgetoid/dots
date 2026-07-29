@@ -1,0 +1,25 @@
+{
+  "shape": "gate",
+  "number": 70,
+  "steps": 0,
+  "layout": [
+    "......",
+    "......",
+    "4.11.3",
+    "4.11.3",
+    "4.11.3",
+    "422553",
+    "444555"
+  ],
+  "par": 2374,
+  "floor": 126,
+  "difficulty": 11.09,
+  "band": 5,
+  "paths": 1,
+  "moves": 5,
+  "silent": "6/44",
+  "greedy": "strands",
+  "dots": 24,
+  "states": 59371,
+  "decomposed": 0
+}

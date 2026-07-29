@@ -1,0 +1,17 @@
+Carry on with --from 102 --shape gate.
+13 kept, hardest first, measuring 8 or more.
+24 started from, 331 judged, 0 too big to judge, 37 dropped as too like a find already kept, 171s so far.
+
+ 12.08  band 5  gate        par   2555  floor   126  paths  1  chains 5  silent   29/67  greedy strands   dots 24  12.08-gate-79-4.json
+ 11.97  band 5  gate        par    783  floor   156  paths  1  chains 6  silent    9/30  greedy strands   dots 24  11.97-gate-92-3.json
+ 11.37  band 5  gate        par   3536  floor    96  paths  1  chains 5  silent   12/55  greedy strands   dots 24  11.37-gate-72-0.json
+ 11.27  band 5  gate        par   2636  floor   156  paths  1  chains 5  silent    4/40  greedy strands   dots 24  11.27-gate-90-1.json
+ 11.22  band 5  gate        par   4347  floor   126  paths  1  chains 5  silent   10/50  greedy strands   dots 24  11.22-gate-83-0.json
+ 11.09  band 5  gate        par   2374  floor   126  paths  1  chains 5  silent    6/44  greedy strands   dots 24  11.09-gate-70-0.json
+ 10.69  band 4  gate        par   2152  floor   126  paths  1  chains 5  silent    2/42  greedy strands   dots 24  10.69-gate-76-1.json
+ 10.59  band 4  gate        par   2167  floor   126  paths  1  chains 5  silent    0/40  greedy strands   dots 24  10.59-gate-97-1.json
+  9.99  band 4  gate        par   1961  floor   126  paths  1  chains 5  silent    9/50  greedy 1505      dots 24  9.99-gate-78-0.json
+  9.84  band 4  gate        par   2374  floor   126  paths  1  chains 5  silent    7/34  greedy 1791      dots 24  9.84-gate-74-0.json
+  9.49  band 4  gate        par   2720  floor   156  paths  1  chains 4  silent   14/70  greedy 1898      dots 24  9.49-gate-71-1.json
+  8.75  band 4  gate        par   3193  floor   126  paths  1  chains 4  silent    1/39  greedy 1269      dots 24  8.75-gate-80-0.json
+  8.75  band 4  gate        par   3777  floor   126  paths  1  chains 4  silent    2/36  greedy 1228      dots 24  8.75-gate-80-4.json

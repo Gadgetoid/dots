@@ -1,0 +1,25 @@
+{
+  "shape": "wave",
+  "number": 118,
+  "steps": 9,
+  "layout": [
+    "......",
+    "......",
+    "......",
+    ".3.1.1",
+    "13.1.1",
+    "333311",
+    "312222"
+  ],
+  "par": 1002,
+  "floor": 91,
+  "difficulty": 9.38,
+  "band": 4,
+  "paths": 1,
+  "moves": 5,
+  "silent": "11/32",
+  "greedy": 789,
+  "dots": 19,
+  "states": 6743,
+  "decomposed": 0
+}

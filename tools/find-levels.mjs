@@ -28,6 +28,7 @@
 // | --maxdots N | skip silhouettes with more dots than this (default 26)                |
 // | --duty N    | work only N percent of the time, to run cooler (default 100)          |
 // | --minutes N | stop after this long (default 0, meaning never)                       |
+// | --per-shape N | keep at most this many finds of one silhouette (default 4)          |
 //
 // Three ways to stop it, all of them clean - the boards in hand are finished, the summary is
 // written, and the number to carry on from is printed:
@@ -139,6 +140,7 @@ const OPTIONS = {
   workers: Number(arg("workers", Math.max(1, Math.floor(os.cpus().length / 2)))),
   duty: Number(arg("duty", 100)),
   minutes: Number(arg("minutes", 0)),
+  perShape: Number(arg("per-shape", 4)),
   shape: arg("shape", null),
   from: Number(arg("from", 0)),
   maxDots: Number(arg("maxdots", 26)),
@@ -576,6 +578,8 @@ function main() {
   let judged = 0
   let tooBig = 0
   let alike = 0
+  // Finds that were kept and then let go: bettered by their own climb, or over their shape's share.
+  let dropped = 0
   let reached = OPTIONS.from
   const started = Date.now()
 
@@ -594,7 +598,7 @@ function main() {
       `Carry on with --from ${reached}${OPTIONS.shape ? ` --shape ${OPTIONS.shape}` : ""}.\n` +
         `${found.length} kept, hardest first, measuring ${OPTIONS.min} or more.\n` +
         `${starts} started from, ${judged} judged, ${tooBig} too big to judge, ` +
-        `${alike} dropped as too like a find already kept, ` +
+        `${alike} dropped as too like a find already kept, ${dropped} let go again, ` +
         `${Math.round((Date.now() - started) / 1000)}s so far.\n\n${lines.join("\n")}\n`,
     )
   }
@@ -602,9 +606,31 @@ function main() {
 
   // Written the moment it is found: a run of hours should not be lost to a closed terminal, and
   // looking at the directory while it runs should always work.
+  const drop = (which, why) => {
+    found.splice(found.indexOf(which), 1)
+    fs.rmSync(path.join(out, fileFor(which)), { force: true })
+    dropped++
+    return why
+  }
+
   const keep = (found_) => {
-    // A climb walks one cell at a time, so its next find is its last find with a dot moved. Only
-    // the first of a family is worth a file; the rest are the same level twice.
+    // One find per climb, and the best one.
+    //
+    // A climb reports every step that clears the bar, and each step is the last board with one cell
+    // recoloured - so a productive climb leaves a trail of its own worse ancestors. Left alone that
+    // fills a directory: a cheap silhouette gets through many more climbs an hour, since a board
+    // costs about 1.5x more to judge per extra dot, and each of those climbs leaves a trail.
+    const earlier = found.find(
+      (other) => other.shape === found_.shape && other.number === found_.number,
+    )
+    if (earlier) {
+      if (earlier.difficulty >= found_.difficulty) {
+        alike++
+        return
+      }
+      drop(earlier, "bettered by its own climb")
+    }
+    // And nothing that is another find with a few dots moved, whatever climb it came from.
     const like = found.some(
       (other) => other.shape === found_.shape && apart(other.layout, found_.layout) < OPTIONS.apart,
     )
@@ -613,6 +639,18 @@ function main() {
       return
     }
     found.push(found_)
+    // No silhouette may take over: the weakest of a shape goes once it has more than its share, so
+    // a long run comes back with a spread of boards rather than a hundred of whichever was cheapest.
+    const sameShape = found
+      .filter((other) => other.shape === found_.shape)
+      .sort((a, b) => b.difficulty - a.difficulty)
+    if (sameShape.length > OPTIONS.perShape) {
+      const weakest = sameShape[sameShape.length - 1]
+      if (weakest === found_) {
+        return drop(found_, "over its shape's share")
+      }
+      drop(weakest, "over its shape's share")
+    }
     // Two spaces and a closing newline, so a directory of finds inside the repo does not fail
     // the format check.
     fs.writeFileSync(path.join(out, fileFor(found_)), `${JSON.stringify(found_, null, 2)}\n`)

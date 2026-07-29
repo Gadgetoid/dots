@@ -23,12 +23,15 @@
 // finds them takes about a second on the larger levels. test/levels.test.js recomputes both,
 // proves each level can be emptied, and checks the order below.
 //
-// That order is by measured difficulty, which rises from 2.0 to 13.2 across the thirty: see
+// That order is by measured difficulty, which rises from 2.0 to 13.3 across the thirty-two: see
 // src/analysis.js for what it is made of, and tools/find-levels.mjs for how all but the first
 // seven were found. The first three fall to taking the longest chain every time; the next nine
 // have several clearing orders paying very differently; from the thirteenth exactly one order
-// pays par and the obvious play misses it or strands the board. The last is thirty dots and takes
-// most of a minute to value, which is most of what the level test spends its time on.
+// pays par and the obvious play misses it or strands the board. The last three are thirty dots each
+// and take a minute or two to value, which is why what has been proved about a level is written down
+// in data/verified-boards.json rather than worked out again every run: see tools/verify-levels.mjs.
+//
+// Boards found and not shipped are at the foot of this file, commented out.
 
 import { parse, unpack } from "../solver.js"
 
@@ -36,7 +39,7 @@ export const PUZZLE_COLS = 6
 export const PUZZLE_ROWS = 7
 
 // The board a level becomes: its layout with every column fallen. What the picker draws as a
-// preview. Cached, since the picker asks for all thirty on every frame it is open.
+// preview. Cached, since the picker asks for all of them on every frame it is open.
 const grids = new WeakMap()
 export function levelGrid(level) {
   let grid = grids.get(level)
@@ -456,6 +459,20 @@ export const LEVELS = [
     ],
   },
   {
+    name: "The quarry",
+    par: 2681,
+    floor: 150,
+    layout: [
+      "......",
+      "......",
+      "111112",
+      "222442",
+      "555442",
+      "113342",
+      "511142",
+    ],
+  },
+  {
     name: "The anvil",
     par: 6058,
     floor: 150,
@@ -469,4 +486,99 @@ export const LEVELS = [
       "335511",
     ],
   },
+  {
+    name: "The slab",
+    par: 4060,
+    floor: 150,
+    layout: [
+      "......",
+      "......",
+      "111111",
+      "555541",
+      "335441",
+      "335542",
+      "332222",
+    ],
+  },
 ]
+
+// Found and not shipped, for whenever the ladder wants more at the hard end.
+//
+// All of them mesa - thirty dots, flat topped - because that is the silhouette a long run of
+// tools/find-levels.mjs was pointed at, and it is where the hardest boards are: more dots, more
+// chains, more ways to go wrong several moves later. Two of that run went in as the last two levels;
+// these are the rest of it. The ladder already ends with three of that shape, which is why they are
+// here rather than on the end of it.
+//
+// The numbers are what the run measured and are not proved: nothing is shipped until
+// tools/verify-levels.mjs has walked it and played an order that scores par, so re-measure before
+// using one. Each takes about two minutes to judge.
+//
+// 12.97, par 4882, floor 180, 6 chains, 25/113 openings lose it silently, greed strands. Climbed from 75.
+// prettier-ignore
+// {
+//   name: "?",
+//   par: 4882,
+//   floor: 180,
+//   layout: [
+//     "......",
+//     "......",
+//     "444431",
+//     "114331",
+//     "111222",
+//     "112222",
+//     "113322",
+//   ],
+// },
+//
+// 12.94, par 3650, floor 150, 6 chains, 14/77 openings lose it silently, greed strands. Climbed from 74.
+// prettier-ignore
+// {
+//   name: "?",
+//   par: 3650,
+//   floor: 150,
+//   layout: [
+//     "......",
+//     "......",
+//     "444444",
+//     "412211",
+//     "413331",
+//     "113331",
+//     "122311",
+//   ],
+// },
+//
+// 12.09, par 6741, floor 180, 5 chains, 5/83 openings lose it silently, greed strands. Climbed from 76.
+// prettier-ignore
+// {
+//   name: "?",
+//   par: 6741,
+//   floor: 180,
+//   layout: [
+//     "......",
+//     "......",
+//     "444113",
+//     "244133",
+//     "222233",
+//     "221133",
+//     "221122",
+//   ],
+// },
+//
+// 10.68, par 5623, floor 150, 4 chains, 29/117 openings lose it silently, greed 3743. Climbed from 73.
+// prettier-ignore
+// {
+//   name: "?",
+//   par: 5623,
+//   floor: 150,
+//   layout: [
+//     "......",
+//     "......",
+//     "221133",
+//     "221332",
+//     "111322",
+//     "111322",
+//     "133322",
+//   ],
+// },
+//

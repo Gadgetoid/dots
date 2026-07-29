@@ -174,6 +174,27 @@ test("losing the window lets go of a held chain, but not a toggled one", () => {
   assert.equal(toggled.player.chain.length, 1, "here a chain outlives its press by design")
 })
 
+test("a menu opening under a drag ends it, and the board is closed off", () => {
+  const game = new Game()
+  game.start("classic")
+  settle(game)
+  const [from, to] = game.board.matchingPairs(1)[0]
+  const before = game.board.count
+  game.pointerDown(0, { col: from.col, row: from.row })
+  assert.equal(game.player.dragging, true)
+
+  game.togglePause()
+  assert.equal(game.player.dragging, false, "the pointer is over a panel now")
+  assert.equal(game.player.chain.length, 0)
+
+  // And the drag carrying on reaches nothing: the pointer is not told a page opened.
+  game.pointerMove(0, { col: to.col, row: to.row })
+  game.pointerUp(0)
+  assert.equal(game.player.chain.length, 0, "no chain is gathered behind the panel")
+  assert.equal(game.player.score, 0, "and none is spent")
+  assert.equal(game.board.count, before, "so the board is the one the menu was opened over")
+})
+
 // Walk a menu, collecting the note each move played. Menus are meant to be learnable by
 // ear, which is only true if the notes are a function of where the cursor is.
 function notesWhile(game, steps) {

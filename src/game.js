@@ -1045,9 +1045,13 @@ export class Game {
 
   // Take the chain to a cell, which is what both a cursor move and a pointer drag
   // amount to. Extends, retracts or does nothing, by the board's rules.
+  //
+  // Refused while a menu is open, as every other way of spending or gathering a chain is.
+  // This is the one choke point all of them go through, so it is where the board is closed
+  // off rather than in each caller.
   extendTo(playerIndex, col, row) {
     const player = this.players[playerIndex]
-    if (!player || player.chain.length === 0) {
+    if (!player || this.page || player.chain.length === 0) {
       return false
     }
     const dot = this.board.at(col, row)
@@ -2022,6 +2026,14 @@ export class Game {
       Sound.menuBack()
     } else if (this.page == null) {
       this.page = "pause"
+      // A drag is a hold by nature, so a page arriving under one ends it: the pointer that
+      // was gathering dots is over a panel now. A chain held in the toggle setting stays,
+      // for the reason onBlur gives.
+      for (const player of this.players) {
+        if (player.dragging) {
+          this.#dropChain(player, true)
+        }
+      }
       this.#resetMenuCursor()
       Sound.menuConfirm()
     }

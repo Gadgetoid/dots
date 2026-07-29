@@ -80,10 +80,6 @@ export function analyse(layout, cols, rows, minChain, rules, options = {}) {
   // so a position budget alone does not bound how long this takes. The editor runs it on
   // every edit and needs an answer either way.
   const deadline = Date.now() + (options.seconds ?? 20) * 1000
-  // What the whole-board walk gets once the parts have already answered par and floor. It is
-  // only wanted for the statistics after that - the traps, the depth, how many orders pay par -
-  // so it does not get to hold up an answer that is already exact.
-  const STATS_SECONDS = 6
   const start = parse(layout, cols, rows)
   // Outcomes, not moves: two chains of the same length leaving the same board are the same play
   // and are valued once. See outcomesFrom, which is where the symmetry of a board goes.
@@ -93,7 +89,6 @@ export function analyse(layout, cols, rows, minChain, rules, options = {}) {
   // and least a clearing order pays from here; `paths` is how many reach `best`. A null
   // `best` means this position cannot be cleared, which is what a trap leads to.
   const memo = new Map()
-  let walkDeadline = deadline
   let states = 0
   let exhausted = false
   // Whether any position offered more chains than could be listed. Nothing exact can be said
@@ -108,7 +103,7 @@ export function analyse(layout, cols, rows, minChain, rules, options = {}) {
     if (isEmpty(position)) {
       return { best: 0, worst: 0, paths: 1, depth: 0 }
     }
-    if (states >= budget || (states % 512 === 0 && Date.now() > walkDeadline)) {
+    if (states >= budget || (states % 512 === 0 && Date.now() > deadline)) {
       exhausted = true
       return { best: null, worst: null, paths: 0, depth: 0 }
     }
@@ -160,14 +155,6 @@ export function analyse(layout, cols, rows, minChain, rules, options = {}) {
     return value
   }
 
-  // Several independent boards? Then par and floor come from the parts, which is both exact and
-  // quick where walking their product would not finish at all. Done before the whole-board walk,
-  // so what is left of the budget goes on the statistics only that walk can give.
-  const parts = decompose(start, cols, rows, minChain, rules, MOVE_LIMIT, deadline)
-  if (parts && parts.par != null) {
-    walkDeadline = Math.min(deadline, Date.now() + STATS_SECONDS * 1000)
-  }
-
   const root = from(start, positionKey(start), 1)
 
   // The opening moves, and how many of them lose the level on the spot - split by whether
@@ -191,19 +178,20 @@ export function analyse(layout, cols, rows, minChain, rules, options = {}) {
   // Three answers, not two: cleared, provably not, or not established. A search that ran out of
   // time or out of moves to list has proved nothing either way.
   let clearable = root.best != null ? true : exhausted || truncated ? null : false
-  let par = root.best
-  let floor = root.worst
-  let decomposed = 0
-  if (parts) {
-    // The parts have the last word on all three: each was walked to the end, where the whole
-    // board may not have been.
+  const par = root.best
+  const floor = root.worst
+
+  // Where the whole board could not be walked, its parts may still each be walkable - and a board
+  // is clearable exactly when every part is. Only that question: par and floor stay with the walk.
+  // See partsClearable.
+  const parts =
+    clearable === true
+      ? { groups: 0 }
+      : partsClearable(start, cols, rows, minChain, MOVE_LIMIT, deadline)
+  if (parts.clearable != null) {
     clearable = parts.clearable
-    if (parts.par != null) {
-      par = parts.par
-      floor = parts.floor
-      decomposed = parts.groups
-    }
   }
+  const decomposed = parts.groups
   const trapRate = moveCount > 0 ? trapCount / moveCount : 0
   const silentTrapRate = moveCount > 0 ? silentTrapCount / moveCount : 0
 
@@ -227,7 +215,7 @@ export function analyse(layout, cols, rows, minChain, rules, options = {}) {
     // Whether par and floor are the real numbers. A decomposed answer is exact even though the
     // whole-board walk did not finish: the parts were each walked to the end.
     truncated,
-    exact: clearable === true && par != null && (decomposed > 0 || (!truncated && !exhausted)),
+    exact: clearable === true && par != null && !truncated && !exhausted,
     // And whether everything below is. The parts answer par and floor and nothing else: how many
     // orders pay par, how long one is, and which openings are traps all come from the whole-board
     // walk, which is cut short as soon as the parts have answered. A walk that stopped early
@@ -247,7 +235,7 @@ export function analyse(layout, cols, rows, minChain, rules, options = {}) {
     firstTraps,
     firstSilent,
     biggestRegion: biggestRegion(start, cols, rows),
-    timedOut: exhausted && Date.now() > walkDeadline,
+    timedOut: exhausted && Date.now() > deadline,
     greedy,
     difficulty,
     band: DIFFICULTY.bands.filter((edge) => difficulty >= edge).length,
@@ -317,146 +305,146 @@ function biggestRegion(position, cols, rows) {
   return biggest
 }
 
-// Par and floor for a board that is really several boards side by side.
+// Whether a board that is really several boards side by side can be cleared at all.
 //
-// Columns that share no colour can never affect each other, so the positions of the whole board
-// are the product of the positions of each group: five full columns of five colours is eight to
-// the fifth, which is why adding one costs eight times as much. Walking that product is pointless
-// when the parts are independent.
+// Columns sharing no colour can never affect each other, so the whole is clearable exactly when
+// every part is - and each part's own positions are a tiny fraction of the product the whole board
+// makes. Five full columns of five colours is eight to the fifth as one board and eight times five
+// as five, which is the difference between not finishing and finishing at once.
 //
-// The one thing that does join them is the multiplier, which is global and runs in the order the
-// chains are actually played. So the parts cannot simply be added: what each part offers is a
-// *multiset of chain lengths*, and the score depends on how the parts' chains are interleaved.
-// Hence: collect the multisets each group can be cleared with, merge one from each, and value the
-// merged multiset over every order it could be played in - which is a small search over how many
-// of each length are left, and nothing to do with where the dots were.
-function decompose(start, cols, rows, minChain, rules, limit, deadline) {
-  const { group, groups } = columnGroups(start)
+// **Only clearability.** Par cannot be decomposed this way, and an earlier version of this that
+// tried to was wrong: it collected the multisets of chain lengths each part could be cleared with,
+// merged one from each, and valued the merged multiset over every order. Interleaving *across* parts
+// is indeed free, but that treats each part's chains as freely reorderable *within* the part, and
+// they are not - a multiset comes from one particular clearing order, and the collapse decides which
+// orders exist. On level 16 it claimed 2577 where no real order beats 2450, by asking a part to play
+// its chains 5, 6, 7 when that part can only reach that multiset another way round.
+//
+// Fixing it properly would mean tracking each part's achievable *sequences* and interleaving those,
+// whose state is how far along each part every sequence has got - which is the product of the parts'
+// positions, which is the whole-board walk. So there is nothing to be saved here for par, and par
+// comes from that walk or is a bound.
+function partsClearable(start, cols, rows, minChain, limit, deadline) {
+  const { group, groups } = columnGroups(start, cols, rows)
   if (groups < 2) {
-    return null
+    return { groups, clearable: null }
   }
-  // What each group can be cleared with, as sorted length lists.
-  const perGroup = []
   for (let index = 0; index < groups; index++) {
-    const board = columnsOnly(start, (col) => group[col] === index)
-    const shapes = clearingShapes(board, cols, rows, minChain, limit, deadline)
-    if (!shapes || shapes.size === 0) {
-      // One group that cannot be cleared, or could not be judged, settles the whole board.
-      return { clearable: shapes ? false : null, par: null, floor: null }
-    }
-    perGroup.push([...shapes.values()])
-  }
-  // Merge one from each group, keeping the distinct merged multisets.
-  let merged = [[]]
-  for (const shapes of perGroup) {
-    const next = new Map()
-    for (const soFar of merged) {
-      for (const shape of shapes) {
-        const combined = [...soFar, ...shape].sort((a, b) => a - b)
-        next.set(combined.join(","), combined)
-      }
-    }
-    merged = [...next.values()]
-    if (merged.length > MERGE_LIMIT || Date.now() > deadline) {
-      return { clearable: true, par: null, floor: null }
+    const part = columnsOnly(start, (col) => group[col] === index)
+    const answer = canClear(part, cols, rows, minChain, limit, deadline)
+    if (answer !== true) {
+      // One part that cannot be cleared settles the whole board; one that could not be judged
+      // leaves the whole board unjudged.
+      return { groups, clearable: answer }
     }
   }
-  let par = null
-  let floor = null
-  for (const lengths of merged) {
-    const { best, worst } = valueOrdering(lengths, rules)
-    par = par == null || best > par ? best : par
-    floor = floor == null || worst < floor ? worst : floor
-  }
-  return { clearable: true, par, floor, groups }
+  return { groups, clearable: true }
 }
 
-// How many merged multisets are worth carrying. Reached only by boards made of many independent
-// parts, which are not levels anybody would want.
-const MERGE_LIMIT = 20000
-
-// The multisets of chain lengths that clear this board, as sorted arrays. One walk of the
-// board's positions, collecting what is left along each clearing order.
-function clearingShapes(start, cols, rows, minChain, limit, deadline) {
+// Can this board be emptied? true, false, or null where it could not be established. Positions
+// only, with no multiplier: whether a board can be cleared does not depend on what is banked.
+function canClear(start, cols, rows, minChain, limit, deadline) {
   const memo = new Map()
   let gaveUp = false
   const from = (position, key) => {
     if (isEmpty(position)) {
-      return new Map([["", []]])
+      return true
     }
     if (Date.now() > deadline) {
       gaveUp = true
-      return new Map()
+      return false
     }
     const known = memo.get(key)
     if (known !== undefined) {
       return known
     }
-    memo.set(key, new Map())
-    const shapes = new Map()
+    memo.set(key, false)
     const here = outcomesFrom(position, cols, rows, minChain, limit)
     if (here.truncated) {
       gaveUp = true
-      return new Map()
+      return false
     }
     for (const outcome of here.outcomes) {
-      for (const rest of from(outcome.child, outcome.key).values()) {
-        const combined = [...rest, outcome.cells.length].sort((a, b) => a - b)
-        shapes.set(combined.join(","), combined)
-      }
-      if (shapes.size > MERGE_LIMIT || gaveUp) {
-        gaveUp = true
-        return new Map()
+      if (from(outcome.child, outcome.key)) {
+        memo.set(key, true)
+        return true
       }
     }
-    memo.set(key, shapes)
-    return shapes
+    return false
   }
-  const shapes = from(start, positionKey(start))
-  return gaveUp ? null : shapes
+  const cleared = from(start, positionKey(start))
+  return cleared ? true : gaveUp ? null : false
 }
 
-// The most and least a multiset of chains can score, over every order it could be played in.
+// An order of chains that actually scores par, or null where the whole board could not be walked.
 //
-// Only how many of each length are left matters, not which part of the board they came from, so
-// the search is over that and the multiplier - a few hundred states for any real board. The
-// rules are the ones passed in, so this holds whatever the multiplier rule is.
-function valueOrdering(lengths, rules) {
-  const kinds = [...new Set(lengths)].sort((a, b) => a - b)
-  const counts = kinds.map((length) => lengths.filter((other) => other === length).length)
+// What this is for is checking the claim rather than making it. par comes from two places - the
+// whole-board walk, or, on a board that splits into independent parts, from merging what each part
+// can be cleared with and valuing every order the merged multiset could be played in. The second is
+// a construction, and a construction deserves a witness: the level test takes this route, plays it
+// through the real game, and asserts the score comes out at par. That checks the two methods against
+// each other and checks that both agree with what the game actually pays.
+//
+// Deliberately the plain walk, with no leash but a generous position budget: it is a cross-check, so
+// sharing machinery with the thing it checks would defeat it. The budget covers the largest shipped
+// level, which is thirty dots and takes about a minute; past it this returns nothing rather than a
+// route that is merely the best one found so far.
+export function parRoute(layout, cols, rows, minChain, rules, budget = 40000000) {
+  const start = parse(layout, cols, rows)
   const memo = new Map()
-  const from = (left, multiplier) => {
-    if (left.every((count) => count === 0)) {
-      return { best: 0, worst: 0 }
+  let states = 0
+  let exhausted = false
+  // The best still to be had from here, and the chain to take to get it.
+  const from = (position, key, multiplier) => {
+    if (isEmpty(position)) {
+      return { best: 0, cells: null, next: null }
     }
-    const id = `${left.join(",")}|${multiplier}`
+    const id = `${key}|${multiplier}`
     const known = memo.get(id)
     if (known !== undefined) {
       return known
     }
-    let best = null
-    let worst = null
-    for (const [index, count] of left.entries()) {
-      if (count === 0) {
+    // Counted after the memo, so this is positions valued and not calls made - there are far more
+    // calls than positions, and counting those ran out of budget on a board that fits easily.
+    if (states++ >= budget) {
+      exhausted = true
+      return { best: null, cells: null, next: null }
+    }
+    memo.set(id, { best: null, cells: null, next: null })
+    let found = { best: null, cells: null, next: null }
+    for (const outcome of outcomesFrom(position, cols, rows, minChain, MOVE_LIMIT).outcomes) {
+      const after = rules.multiplierAfter(multiplier, outcome.cells.length)
+      const rest = from(outcome.child, outcome.key, after)
+      if (rest.best == null) {
         continue
       }
-      const next = [...left]
-      next[index]--
-      const length = kinds[index]
-      const scored = rules.scoreChain(length) * multiplier
-      const rest = from(next, rules.multiplierAfter(multiplier, length))
-      if (best == null || scored + rest.best > best) {
-        best = scored + rest.best
-      }
-      if (worst == null || scored + rest.worst < worst) {
-        worst = scored + rest.worst
+      const total = rules.scoreChain(outcome.cells.length) * multiplier + rest.best
+      if (found.best == null || total > found.best) {
+        found = {
+          best: total,
+          cells: outcome.cells,
+          next: { position: outcome.child, key: outcome.key, multiplier: after },
+        }
       }
     }
-    const value = { best, worst }
-    memo.set(id, value)
-    return value
+    memo.set(id, found)
+    return found
   }
-  return from(counts, 1)
+
+  let step = from(start, positionKey(start), 1)
+  // Nothing rather than something smaller: a route found while the walk was running out is not the
+  // best route, and returning it would have the caller compare par against a number that was never
+  // a claim about par.
+  if (step.best == null || exhausted) {
+    return null
+  }
+  const score = step.best
+  const route = []
+  while (step.cells) {
+    route.push(step.cells.map((cell) => ({ col: cell % cols, row: Math.floor(cell / cols) })))
+    step = from(step.next.position, step.next.key, step.next.multiplier)
+  }
+  return { score, route }
 }
 
 // The obvious way to play, from a layout: what the search uses to throw out a candidate before

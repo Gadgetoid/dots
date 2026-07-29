@@ -17,6 +17,9 @@
 //   1st     how many of the opening moves strand it, out of how many there are
 //   greedy  what taking the longest chain every time does: its score, or "strands"
 //   diff    the difficulty band, 1 to 5
+//
+// The leash is 120s a level by default, because the last of them is thirty dots and takes about a
+// minute: --seconds is there for when a quick look at the early ones will do.
 
 import fs from "node:fs"
 import { analyse } from "../src/analysis.js"
@@ -51,7 +54,7 @@ let failed = 0
 for (const [index, level] of levels.entries()) {
   const started = Date.now()
   const found = analyse(level.layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain, SCORING, {
-    seconds: Number(arg("seconds") || 20),
+    seconds: Number(arg("seconds") || 120),
   })
   const took = ((Date.now() - started) / 1000).toFixed(1)
   const number = level.index === undefined ? index : level.index

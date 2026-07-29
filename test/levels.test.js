@@ -11,8 +11,8 @@ import assert from "node:assert/strict"
 
 import { LEVELS, PUZZLE_COLS, PUZZLE_ROWS } from "../src/modes/levels.js"
 import { PUZZLE } from "../src/modes/puzzle.js"
-import { solve, describe as shapeOf } from "../src/solver.js"
-import { analyse } from "../src/analysis.js"
+import { solve, parse, columnGroups, describe as shapeOf } from "../src/solver.js"
+import { analyse, parRoute } from "../src/analysis.js"
 import { Game, PHASE } from "../src/game.js"
 import { Board } from "../src/board.js"
 import { modeRefills, defaultOutcome } from "../src/modes/index.js"
@@ -126,26 +126,33 @@ const SCORING = {
 // Twenty of these take about twenty seconds, and they are worth it: a par that has drifted from
 // its layout misleads every player who aims at it, and neither number can be checked by eye.
 const ANALYSED = LEVELS.map((level) =>
-  analyse(level.layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain, SCORING, { seconds: 60 }),
+  // Generous: the last level is thirty dots and takes most of a minute to value on its own, which
+  // is most of what this file spends its time on.
+  analyse(level.layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain, SCORING, { seconds: 300 }),
 )
 
 test("a board that is several puzzles side by side is only exact about par", () => {
-  // Six full columns, each its own colour, so nothing in one can ever touch another. The parts
-  // answer par and floor between them in a moment, where walking their product - eight states a
-  // column, so a quarter of a million - does not finish. Everything else in the answer still
-  // comes from that walk, and has to say so: the chain count is six against the eighteen it
-  // really takes, and thirty-five of thirty-six openings read as traps on a board where no
-  // opening can strand anything.
+  // Six full columns, each its own colour, so nothing in one can ever touch another: six
+  // independent puzzles drawn side by side, and eight states a column makes a quarter of a million
+  // for the board. It is the parts that say whether such a board can be cleared - see
+  // partsClearable - while par and floor stay with the whole-board walk, because a part's chains
+  // cannot be reordered freely and merging what each part can be cleared with therefore claims
+  // orders that do not exist. So `decomposed` is reported only where the walk could not answer,
+  // and here it can.
   const columns = Array.from({ length: PUZZLE_ROWS }, () =>
     Array.from({ length: PUZZLE_COLS }, (_, col) => String(col + 1)).join(""),
   )
   const found = analyse(columns, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain, SCORING, {
     seconds: 60,
   })
-  assert.equal(found.decomposed, 6, "it is six independent puzzles")
-  assert.equal(found.par, 7203, "and the parts answer par exactly")
-  assert.equal(found.exact, true, "so par and floor can be trusted")
-  assert.equal(found.statsExact, false, "and nothing that came from the whole-board walk can be")
+  assert.equal(
+    columnGroups(parse(columns, PUZZLE_COLS, PUZZLE_ROWS), PUZZLE_COLS, PUZZLE_ROWS).groups,
+    6,
+    "it is six independent puzzles",
+  )
+  assert.equal(found.par, 7203, "par is what walking it says it is")
+  assert.equal(found.exact, true, "and the walk got to the end of it")
+  assert.equal(found.clearable, true)
 })
 
 test("every level's par is the most it can actually score", () => {
@@ -527,3 +534,38 @@ function clearLevel(game, scored) {
   }
   assert.equal(game.levelCleared(level), true, `level ${level + 1} was recorded`)
 }
+
+test("par is reachable: an order that scores it can be played through the game", () => {
+  // The strongest check there is on par, and the only one that covers how it was worked out.
+  //
+  // Six of the twenty split into independent puzzles, and those have their par built rather than
+  // walked: each part's clearing multisets are merged and the merged multiset is valued over every
+  // order it could be played in. A construction like that deserves a witness. parRoute finds an
+  // order by the plain whole-board walk - no decomposition, no leash - so this checks the two
+  // methods against each other, and then plays the order through the real game to check both agree
+  // with what it actually pays.
+  for (const [index, level] of LEVELS.entries()) {
+    const found = parRoute(level.layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain, SCORING)
+    assert.ok(found, `level ${index + 1} "${level.name}" could be walked`)
+    assert.equal(
+      found.score,
+      level.par,
+      `level ${index + 1} "${level.name}": the walk reaches ${found.score}, par says ${level.par}`,
+    )
+
+    const game = new Game()
+    game.progress = { puzzle: Object.fromEntries(LEVELS.slice(0, index).map((_, at) => [at, 1])) }
+    game.start("puzzle", { level: index })
+    settle(game)
+    const before = game.player.score
+    for (const cells of found.route) {
+      playChain(game, cells)
+    }
+    assert.equal(game.board.count, 0, `level ${index + 1} "${level.name}" was emptied`)
+    assert.equal(
+      game.player.score - before,
+      level.par,
+      `level ${index + 1} "${level.name}" paid ${game.player.score - before} for a par order`,
+    )
+  }
+})

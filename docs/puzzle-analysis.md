@@ -123,46 +123,46 @@ can tell apart, because what is left of the run is the same length in the same p
 | A 24-cell block, uncapped          | 149,613 | 7214     |
 | The busiest position of the twenty | 151     | 98       |
 
-### 3. Independent parts: a product that need not be walked
+### 3. Independent parts: what does and does not decompose
 
-Five full columns in five colours is not one puzzle but five. Each column has 8 states, so the
-board has 8⁵ = 32,768 - and adding a sixth column costs **eight times** as much rather than a
-little more. That was the symptom that gave this away: 0.9s for four columns, 8s for five, 20s and
-still inexact for six.
+Five full columns in five colours is not one puzzle but five. Each column has 8 states, so the board
+has 8⁵ = 32,768 - and adding a sixth column costs **eight times** as much rather than a little more.
+That was the symptom that gave it away: 0.9s for four columns, 8s for five, 20s and still inexact for
+six.
 
-The parts are judged separately. The one thing that joins them is the multiplier, which is global
-and runs in the order chains are actually played, so the parts cannot simply be added. Instead:
+**Clearability decomposes.** Columns sharing no colour can never affect each other - a chain needs
+one colour and gravity works down a column - so the whole board is clearable exactly when every part
+is, and each part's positions are a tiny fraction of the product. That is `partsClearable`, and it is
+what answers a board the whole-board walk cannot finish.
 
-1. Each part yields the **multisets of chain lengths** it can be cleared with.
-2. Merge one multiset from each part.
-3. Value the merged multiset over every order it could be played in - a small search over how many
-   of each length remain, with nothing to do with where the dots were.
+**Par does not decompose, and an earlier version of this that said it did was wrong.** The reasoning
+that failed: each part yields the multisets of chain lengths it can be cleared with, merge one from
+each part, and value the merged multiset over every order it could be played in. Interleaving
+_across_ parts really is free. But that treats a part's chains as freely reorderable _within_ the
+part, and they are not - a multiset comes from one particular clearing order, and the collapse
+decides which orders exist at all.
 
-Step 3 is a DP over (remaining counts, multiplier) so it holds whatever the multiplier rule is. For
-the rule as it stands the answer has a closed form, which is worth knowing because it is what the
-DP is finding:
+It was caught by the check described below, on a level added while it was in place: the merge claimed
+2577, from one part cleared with chains of 5, 6, 7 and another with 6, interleaved ascending. No real
+order beats 2450, because that part cannot play 5, 6, 7 in that order. The level shipped with a par
+of 2577 for exactly as long as it took the check to run.
 
-> shorts ascending, then longs ascending, then the largest short.
+Doing it properly would mean tracking each part's achievable **sequences** rather than multisets, and
+interleaving those - whose state is how far along each part has got, which is the product of the
+parts' positions, which is the whole-board walk. So there is nothing to be saved here for par.
 
-Every chain of 4 or more raises the multiplier, so with only those the multiplier runs 1, 2, 3 …
-whatever the order, and by the rearrangement inequality the biggest chain belongs where the
-multiplier is: ascending. A chain of 3 or fewer resets it, so it belongs where the ramp has not
-started - except for the last chain of all, where the reset costs nothing and the largest short
-chain can be cashed at the top of the ramp instead. Lengths 3, 4, 5 pay 341 played 3, 4, 5 and 395
-played 4, 5, 3.
+What was lost by removing it is small, because the other work carries those boards anyway:
 
-Checked against every ordering of all 24,309 multisets of up to nine chains of lengths 2 to 9: no
-disagreement.
+| Columns of distinct colours | With the unsound merge | Walked, correct |
+| --------------------------- | ---------------------- | --------------- |
+| 5                           | 3.4s                   | 1.7s            |
+| 6                           | 6.1s                   | 15.6s           |
 
-| Columns of distinct colours | Before           | After       |
-| --------------------------- | ---------------- | ----------- |
-| 4                           | 0.9s             | 0.33s       |
-| 5                           | 8s, inexact      | 3.4s, exact |
-| 6                           | 20s, lower bound | 6.1s, exact |
-
-Six of the twenty shipped levels decompose, and their par and floor are unchanged by this - which
-is the check that matters. The editor reports the decomposition too, since a level that is several
-unrelated puzzles side by side is worth telling its author about.
+Six of the thirty shipped levels decompose. Their pars were all correct anyway - the merge happened
+to pick achievable orders for them - which is precisely why a construction needs a witness rather
+than a spot check. The editor still reports the decomposition, since a level that is several
+unrelated puzzles side by side is worth telling its author about, and they measure easier for it:
+mean difficulty 6.44 against 8.76 for the rest.
 
 ### 4. How a position is held
 
@@ -218,21 +218,32 @@ Szwarcfiter, 1982) and polynomial only for solid ones (Umans and Lenhart, 1997).
 and valuing each position once is the right shape, and the only lever on it is how wide the graph
 is - which is what the decomposition and the outcome quotient are for.
 
+## Checking the claim by playing it
+
+par is worked out, and anything worked out can be worked out wrongly. So the level test does not take
+it on trust: `parRoute` finds an order that scores par by walking the whole board, and the test plays
+that order through the real game and asserts the score comes out at par.
+
+That is three independent things agreeing - the analysis, a separate walk, and the game itself - and
+it is the check that caught the unsound decomposition above. Two properties earn their keep:
+
+- **It is deliberately not the same code.** A cross-check that shares machinery with the thing it
+  checks is not a check.
+- **It reports nothing rather than something smaller.** An earlier version counted calls instead of
+  positions, ran out of budget on a board that fits easily, and returned the best route it had found
+  so far - which read as "par is wrong" on a level whose par was right. A degraded answer that looks
+  like an answer is worse than no answer.
+
 ## When the answer is not exact
 
 A search that ran out of time, or out of moves it could list, has proved nothing. So `clearable` is
 three-valued, and this matters: a truncated move list might have omitted the very move that clears
 the board, so "cannot be cleared" would be a lie.
 
-There are two flags, and they are not the same flag:
-
-- `exact` covers **par and floor**, which a board split into independent parts answers exactly
-  however long the whole-board walk takes.
-- `statsExact` covers **everything else** - how many orders pay par, how long one is, which
-  openings are traps, and so the difficulty - because all of that comes from the whole-board walk,
-  which is cut short as soon as the parts have answered. Six full columns of distinct colours have
-  a par of 7203 exactly and a chain count of six against the eighteen it really takes, and read as
-  stranding on 35 of 36 openings when no opening on that board can strand anything.
+`exact` says whether par and floor are the real numbers or bounds, and `statsExact` says the same of
+everything else - how many orders pay par, how long one is, which openings are traps, and so the
+difficulty. The two coincide now that par comes from the whole-board walk in every case; they were
+added when it did not, and are kept apart because that is the honest shape of the answer.
 
 The editor uses both:
 
@@ -277,7 +288,7 @@ forgiving even though 56-92% of their moves strand the board. Traps that do not 
 come out of the collapse several moves deep, and that is why the later levels were searched for
 rather than authored by eye.
 
-The shipped twenty run from 2.03 to 11.48 and the level test asserts the order, that only the first
+The shipped thirty run from 2.03 to 13.22 and the level test asserts the order, that only the first
 two are forced, and that the back half has one best order which greed does not find.
 
 **The size term is a property of the search, not of the board**, which is worth being explicit

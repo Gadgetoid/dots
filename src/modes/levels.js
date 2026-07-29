@@ -13,16 +13,22 @@
 //           played makes no difference to the score and no star is offered. The first two
 //           levels are like that.
 //
+// Both are proved by playing: test/levels.test.js finds an order that scores par by walking the
+// whole board, and plays it through the real game. That matters most for the six levels that split
+// into independent puzzles, whose par is merged from the parts rather than walked - a construction,
+// and one that deserves a witness.
+//
 // Nothing refills, so a level can only be cleared in some orders and not others: each pop
 // collapses the columns under it. Both numbers are exact, and stored because the search that
 // finds them takes about a second on the larger levels. test/levels.test.js recomputes both,
 // proves each level can be emptied, and checks the order below.
 //
-// That order is by measured difficulty, which rises from 2.0 to 11.3 across the twenty: see
-// src/analysis.js for what it is made of, and tools/find-levels.mjs for how the later levels
-// were found. The first three fall to taking the longest chain every time; the next nine have
-// several clearing orders paying very differently; from the thirteenth one order pays par and
-// the obvious play misses it or strands the board.
+// That order is by measured difficulty, which rises from 2.0 to 13.2 across the thirty: see
+// src/analysis.js for what it is made of, and tools/find-levels.mjs for how all but the first
+// seven were found. The first three fall to taking the longest chain every time; the next nine
+// have several clearing orders paying very differently; from the thirteenth exactly one order
+// pays par and the obvious play misses it or strands the board. The last is thirty dots and takes
+// most of a minute to value, which is most of what the level test spends its time on.
 
 import { parse, unpack } from "../solver.js"
 
@@ -30,7 +36,7 @@ export const PUZZLE_COLS = 6
 export const PUZZLE_ROWS = 7
 
 // The board a level becomes: its layout with every column fallen. What the picker draws as a
-// preview. Cached, since the picker asks for all twenty on every frame it is open.
+// preview. Cached, since the picker asks for all thirty on every frame it is open.
 const grids = new WeakMap()
 export function levelGrid(level) {
   let grid = grids.get(level)
@@ -254,6 +260,20 @@ export const LEVELS = [
     ],
   },
   {
+    name: "Buttress",
+    par: 2450,
+    floor: 126,
+    layout: [
+      "......",
+      "1....4",
+      "1....4",
+      "1....4",
+      "133234",
+      "112234",
+      "122334",
+    ],
+  },
+  {
     name: "Deadeye",
     par: 1375,
     floor: 102,
@@ -279,6 +299,34 @@ export const LEVELS = [
       "5.42.3",
       "544133",
       "554113",
+    ],
+  },
+  {
+    name: "Watchtowers",
+    par: 1168,
+    floor: 156,
+    layout: [
+      "......",
+      "1....1",
+      "1....1",
+      "1....1",
+      "113331",
+      "422233",
+      "442444",
+    ],
+  },
+  {
+    name: "The iris",
+    par: 1070,
+    floor: 102,
+    layout: [
+      "......",
+      "......",
+      "......",
+      ".3333.",
+      ".3211.",
+      ".2221.",
+      "221111",
     ],
   },
   {
@@ -310,6 +358,34 @@ export const LEVELS = [
     ],
   },
   {
+    name: "Riptide",
+    par: 805,
+    floor: 121,
+    layout: [
+      "......",
+      "......",
+      "......",
+      ".3.1.2",
+      "33.1.2",
+      "223312",
+      "222211",
+    ],
+  },
+  {
+    name: "Rampart",
+    par: 2140,
+    floor: 99,
+    layout: [
+      "......",
+      "......",
+      "2..1..",
+      "2..1..",
+      "211.22",
+      "113322",
+      "333333",
+    ],
+  },
+  {
     name: "The needle",
     par: 2024,
     floor: 88,
@@ -321,6 +397,76 @@ export const LEVELS = [
       ".4444.",
       "222222",
       "233211",
+    ],
+  },
+  {
+    name: "Teeth",
+    par: 1498,
+    floor: 126,
+    layout: [
+      "......",
+      "......",
+      "2.4.2.",
+      "2.4.2.",
+      "224111",
+      "254413",
+      "255333",
+    ],
+  },
+  {
+    name: "The spindle",
+    par: 1086,
+    floor: 118,
+    layout: [
+      "......",
+      "..11..",
+      "..11..",
+      "..44..",
+      ".4433.",
+      "114333",
+      "222322",
+    ],
+  },
+  {
+    name: "Barbican",
+    par: 1789,
+    floor: 126,
+    layout: [
+      "......",
+      "......",
+      "1.22.3",
+      "1.11.3",
+      "3.13.3",
+      "331323",
+      "111222",
+    ],
+  },
+  {
+    name: "The descent",
+    par: 1459,
+    floor: 129,
+    layout: [
+      "......",
+      ".....2",
+      "....12",
+      "...112",
+      "..1111",
+      ".22233",
+      "222333",
+    ],
+  },
+  {
+    name: "The anvil",
+    par: 6058,
+    floor: 150,
+    layout: [
+      "......",
+      "......",
+      "111122",
+      "144121",
+      "444411",
+      "422551",
+      "335511",
     ],
   },
 ]

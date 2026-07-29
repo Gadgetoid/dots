@@ -1,2 +1,6 @@
 node_modules
 package-lock.json
+
+# where tools/find-levels.mjs writes what it turns up
+found
+big

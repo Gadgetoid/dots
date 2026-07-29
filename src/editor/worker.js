@@ -24,15 +24,25 @@ const SCORING = {
 self.onmessage = (event) => {
   const { layout, edit } = event.data
   const started = Date.now()
-  const found = analyse(layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain, SCORING, {
-    seconds: 6,
-    budget: 2000000,
+
+  // Whether it can be cleared, first and separately. Finding one order that empties the board
+  // proves it, and finding one is quick: it stops at the first, where working out par has to
+  // value every position there is. So the answer that matters most is the one always given,
+  // even where the rest of it cannot be worked out in time.
+  const found = solve(layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain, 300000)
+  const judged = analyse(layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain, SCORING, {
+    seconds: 8,
+    budget: 3000000,
   })
-  // One clearing order to show, where there is one: a level being authored is much easier to
-  // trust when the editor can point at the sequence that empties it.
-  const solution =
-    found.clearable && !found.exhausted
-      ? solve(layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain, 200000).sequence
-      : []
-  self.postMessage({ edit, found, solution, took: Date.now() - started })
+  self.postMessage({
+    edit,
+    found: {
+      ...judged,
+      // A proof beats a search that ran out of room: solve found a way through, so it clears
+      // whatever the exhaustive walk managed to establish.
+      clearable: found.solved ? true : judged.clearable,
+    },
+    solution: found.sequence,
+    took: Date.now() - started,
+  })
 }

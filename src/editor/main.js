@@ -375,15 +375,9 @@ function render() {
     return
   }
 
-  if (found.timedOut) {
-    out.verdict.textContent = "too big to judge"
-    out.verdict.className = "verdict bad"
-    out.numbers.innerHTML = row("biggest one colour", found.biggestRegion)
-    out.snippet.textContent = ""
-    return
-  }
-  if (!found.clearable) {
-    // The one thing that makes a board not a level. Nothing is offered to paste.
+  if (found.clearable === false) {
+    // The one thing that makes a board not a level, and the only case where that can be said
+    // outright: the whole graph was walked and nothing in it empties the board.
     out.verdict.textContent = "cannot be cleared"
     out.verdict.className = "verdict bad"
     out.numbers.innerHTML =
@@ -391,12 +385,31 @@ function render() {
     out.snippet.textContent = ""
     return
   }
+  if (found.clearable === null) {
+    // Neither answer was reached. Which is nearly always one thing: a big region of one colour
+    // has more chains through it than can be listed, let alone valued.
+    out.verdict.textContent = "cannot be judged"
+    out.verdict.className = "verdict bad"
+    out.numbers.innerHTML =
+      row("dots", dots) +
+      row(
+        "biggest one colour",
+        found.biggestRegion,
+        found.biggestRegion > 12
+          ? "more ways through it than can be counted: break it up"
+          : "the search ran out of time",
+      )
+    out.snippet.textContent = ""
+    return
+  }
 
-  out.verdict.textContent = `clearable, ${BANDS[found.band] || found.band}`
+  out.verdict.textContent = found.exact
+    ? `clearable, ${BANDS[found.band] || found.band}`
+    : "clearable, but too big to score exactly"
   out.verdict.className = "verdict good"
   out.numbers.innerHTML =
     row("dots", dots) +
-    row("par", found.par) +
+    row(found.exact ? "par" : "par, at least", found.par) +
     row("floor", found.floor, found.forced ? "every order pays the same" : "") +
     row("orders paying par", found.parPaths) +
     row("chains", found.moves) +
@@ -405,7 +418,12 @@ function render() {
     row("obvious play", found.greedy.clears ? found.greedy.score : "strands the board") +
     row("positions", found.positions.toLocaleString())
 
-  // Ready to paste into src/modes/levels.js, where the test recomputes both numbers.
+  // Ready to paste into src/modes/levels.js, where the test recomputes both numbers - so a par
+  // that is only a lower bound is not offered at all.
+  if (!found.exact) {
+    out.snippet.textContent = ""
+    return
+  }
   const lines = asLayout(collapsed())
     .map((line) => `      "${line}",`)
     .join("\n")

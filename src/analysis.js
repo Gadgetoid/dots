@@ -25,7 +25,16 @@
 // The scoring rules are passed in rather than written here, so this cannot drift from what
 // the game pays.
 
-import { parse, collapse, movesFrom, isEmpty, gridKey, EMPTY } from "./solver.js"
+import {
+  parse,
+  collapse,
+  movesFrom,
+  outcomesFrom,
+  isEmpty,
+  gridKey,
+  EMPTY,
+  MOVE_LIMIT,
+} from "./solver.js"
 
 // What difficulty is made of. A level is hard when it is long, when there is a lot of it to
 // hold in the head at once, when a wrong opening loses it, when the obvious play is wrong,
@@ -63,14 +72,9 @@ export function analyse(layout, cols, rows, minChain, rules, options = {}) {
   // every edit and needs an answer either way.
   const deadline = Date.now() + (options.seconds ?? 20) * 1000
   const start = parse(layout, cols, rows)
-  const moveList = (grid) => movesFrom(grid, cols, rows, minChain)
-  const after = (grid, cells) => {
-    const next = new Int8Array(grid)
-    for (const cell of cells) {
-      next[cell] = EMPTY
-    }
-    return collapse(next, cols, rows)
-  }
+  // Outcomes, not moves: two chains of the same length leaving the same board are the same play
+  // and are valued once. See outcomesFrom, which is where the symmetry of a board goes.
+  const listOf = (grid) => outcomesFrom(grid, cols, rows, minChain, MOVE_LIMIT)
 
   // One walk of the graph, answering everything at once. `best` and `worst` are the most
   // and least a clearing order pays from here; `paths` is how many reach `best`. A null
@@ -78,11 +82,15 @@ export function analyse(layout, cols, rows, minChain, rules, options = {}) {
   const memo = new Map()
   let states = 0
   let exhausted = false
+  // Whether any position offered more chains than could be listed. Nothing exact can be said
+  // about a board where that happened: a move that was not listed might have been the one that
+  // cleared it, so "cannot be cleared" becomes "cannot be told".
+  let truncated = false
   let moveCount = 0
   let trapCount = 0
   let silentTrapCount = 0
 
-  const from = (grid, multiplier) => {
+  const from = (grid, key, multiplier) => {
     if (isEmpty(grid)) {
       return { best: 0, worst: 0, paths: 1, depth: 0 }
     }
@@ -90,7 +98,7 @@ export function analyse(layout, cols, rows, minChain, rules, options = {}) {
       exhausted = true
       return { best: null, worst: null, paths: 0, depth: 0 }
     }
-    const id = `${gridKey(grid)}|${multiplier}`
+    const id = `${key}|${multiplier}`
     const known = memo.get(id)
     if (known !== undefined) {
       return known
@@ -104,9 +112,13 @@ export function analyse(layout, cols, rows, minChain, rules, options = {}) {
     let worst = null
     let paths = 0
     let depth = 0
-    for (const cells of moveList(grid)) {
-      const child = after(grid, cells)
-      const rest = from(child, rules.multiplierAfter(multiplier, cells.length))
+    const here = listOf(grid)
+    if (here.truncated) {
+      truncated = true
+    }
+    for (const outcome of here.outcomes) {
+      const { cells, child } = outcome
+      const rest = from(child, outcome.key, rules.multiplierAfter(multiplier, cells.length))
       moveCount++
       if (rest.best == null) {
         trapCount++
@@ -134,7 +146,7 @@ export function analyse(layout, cols, rows, minChain, rules, options = {}) {
     return value
   }
 
-  const root = from(start, 1)
+  const root = from(start, gridKey(start), 1)
 
   // The opening moves, and how many of them lose the level on the spot - split by whether
   // the loss is one a player would see. This is the trap measure that reaches the difficulty,
@@ -142,25 +154,26 @@ export function analyse(layout, cols, rows, minChain, rules, options = {}) {
   let firstMoves = 0
   let firstTraps = 0
   let firstSilent = 0
-  for (const cells of moveList(start)) {
+  for (const outcome of listOf(start).outcomes) {
     firstMoves++
-    const child = after(start, cells)
-    const rest = memo.get(`${gridKey(child)}|${rules.multiplierAfter(1, cells.length)}`)
+    const rest = memo.get(`${outcome.key}|${rules.multiplierAfter(1, outcome.cells.length)}`)
     if (!rest || rest.best == null) {
       firstTraps++
-      if (!announces(child)) {
+      if (!announces(outcome.child)) {
         firstSilent++
       }
     }
   }
 
   const greedy = playGreedily(start, cols, rows, minChain, rules)
-  const clearable = root.best != null && !exhausted
+  // Three answers, not two: cleared, provably not, or not established. A search that ran out of
+  // time or out of moves to list has proved nothing either way.
+  const clearable = root.best != null ? true : exhausted || truncated ? null : false
   const trapRate = moveCount > 0 ? trapCount / moveCount : 0
   const silentTrapRate = moveCount > 0 ? silentTrapCount / moveCount : 0
 
   let difficulty = 0
-  if (clearable) {
+  if (clearable === true) {
     difficulty =
       root.depth * DIFFICULTY.perMove +
       Math.log10(Math.max(states, 1)) * DIFFICULTY.perDecade +
@@ -176,8 +189,11 @@ export function analyse(layout, cols, rows, minChain, rules, options = {}) {
     clearable,
     par: root.best,
     floor: root.worst,
+    // Whether anything about the answer is short of exact.
+    truncated,
+    exact: clearable === true && !truncated && !exhausted,
     // Whether how it is played changes what it pays, which is what the picker marks.
-    forced: clearable && root.worst === root.best,
+    forced: clearable === true && root.worst === root.best,
     parPaths: root.paths,
     moves: root.depth,
     trapRate,
@@ -273,7 +289,7 @@ function playGreedily(start, cols, rows, minChain, rules) {
     if (isEmpty(grid)) {
       return { clears: true, score, moves }
     }
-    const options = movesFrom(grid, cols, rows, minChain)
+    const options = movesFrom(grid, cols, rows, minChain, MOVE_LIMIT).moves
     if (options.length === 0) {
       return { clears: false, score, moves }
     }

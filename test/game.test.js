@@ -476,6 +476,42 @@ test("hints can be turned off", () => {
   )
 })
 
+test("nothing but a hint ever wobbles a dot", () => {
+  const game = new Game()
+  // Hints off, so anything found moving was moved by something else.
+  game.settings.hints = "off"
+  game.start("classic")
+
+  const still = (where) => {
+    for (const dot of game.board.dots) {
+      assert.equal(
+        Math.abs(dot.wobble.value) + Math.abs(dot.wobble.velocity),
+        0,
+        `${where}: a dot at ${dot.col},${dot.row} is wobbling`,
+      )
+    }
+  }
+
+  // Through a deal, a chain spent, the collapse and the refill that follows: the wobble is
+  // the hint and nothing else, which is why the motion setting does not offer to turn one
+  // off. If a landing or a pop ever drives it again, this is the test that says so.
+  for (let i = 0; i < 240; i++) {
+    game.advance(FRAME)
+    still("dealing")
+  }
+  const chain = game.board.longestChain()
+  game.player.cursor = { col: chain[0].col, row: chain[0].row }
+  game.startChain(0)
+  for (let i = 1; i < chain.length; i++) {
+    game.extendTo(0, chain[i].col, chain[i].row)
+  }
+  game.popChain(0)
+  for (let i = 0; i < 300; i++) {
+    game.advance(FRAME)
+    still("popping and refilling")
+  }
+})
+
 test("a reduced-motion hint names its dots without moving them", () => {
   const game = new Game()
   game.settings.motion = "reduced"

@@ -179,9 +179,10 @@ export class Game {
     return this.settings.link !== "toggle"
   }
 
-  // No particles, no wobble, a slower fall and solid menus. Motion and transparency are
-  // the two things a person is most likely to need less of, and neither carries anything
-  // the game needs to say.
+  // No particles, a slower fall and solid menus. Motion and transparency are the two things
+  // a person is most likely to need less of, and neither carries anything the game needs to
+  // say. A hint is the one movement that does carry something, so it is not turned off:
+  // it rings instead of wobbling.
   get reducedMotion() {
     return this.settings.motion === "reduced"
   }
@@ -1163,11 +1164,11 @@ export class Game {
         label: "Motion",
         selected: this.reducedMotion ? 1 : 0,
         options: [
-          { id: "full", label: "Full", hint: "Particles, wobble and glass menus" },
+          { id: "full", label: "Full", hint: "Particles and glass menus" },
           {
             id: "reduced",
             label: "Reduced",
-            hint: "No particles or wobble, a slower fall, solid menus",
+            hint: "No particles, a slower fall, solid menus",
           },
         ],
       },

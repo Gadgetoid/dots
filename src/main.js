@@ -29,9 +29,12 @@ const pointer = new PointerInput(game, view)
 const gamepad = new GamepadInput(game)
 pointer.attach(canvas)
 
-// Debug handle: lets the console and any smoke test drive live state without
-// reaching into module scope.
-window.__dots = { game, view, renderer, keyboard, pointer, gamepad }
+// Debug handle: lets the console and any smoke test drive live state without reaching
+// into module scope. `frozen` stops the loop where it is, which is what a screenshot
+// needs: without it the loop keeps running after a scene is posed, and anything that only
+// lasts a moment - a hint wobbling, a chain bursting - is over before the picture is
+// taken.
+window.__dots = { game, view, renderer, keyboard, pointer, gamepad, frozen: false }
 
 addEventListener("keydown", (event) => keyboard.onKeyDown(event))
 addEventListener("keyup", (event) => keyboard.onKeyUp(event))
@@ -91,7 +94,7 @@ function loop(timestamp) {
   }
   let dt = (timestamp - last) / 1000
   last = timestamp
-  if (document.hidden) {
+  if (document.hidden || window.__dots.frozen) {
     requestAnimationFrame(loop)
     return
   }

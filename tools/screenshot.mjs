@@ -166,6 +166,20 @@ const SHOTS = [
     }`,
   },
   {
+    // The hint: a board sat in front of for long enough points at a chain, and the
+    // wobble is what does the pointing.
+    file: "hint.png",
+    theme: "dark",
+    frames: 6,
+    pose: `(game, art) => {
+      game.start("classic")
+      game.settle(3)
+      game.player.score = 512
+      // Caught the moment the board runs out of patience, so the wobble is still fresh.
+      art.until(game, () => game.hint != null)
+    }`,
+  },
+  {
     // The rebinding page, which is the longest menu there is: worth a shot to see
     // that it still fits the field.
     file: "controls.png",
@@ -324,6 +338,17 @@ try {
         // Menu rows are data and their ids are an implementation detail, so a pose says
         // which button it wants by the action the button performs.
         const art = {
+          // Advance until something is true, for a shot that wants to catch a moment
+          // rather than a fixed time - the hint fires on its own schedule.
+          until(target, ready, seconds = 20) {
+            for (let i = 0; i < seconds * 60; i++) {
+              target.advance(1 / 60)
+              if (ready()) {
+                return true
+              }
+            }
+            throw new Error("waited and it never happened")
+          },
           press(target, action) {
             const rows = target.menuRows()
             for (const [index, row] of rows.entries()) {
@@ -345,6 +370,9 @@ try {
         for (let i = 0; i < frames; i++) {
           game.advance(1 / 60)
         }
+        // Stop the clock before drawing, or the game's own loop carries on while the
+        // picture is being taken and anything momentary is over by then.
+        window.__dots.frozen = true
         view.render(game)
         return renderer.ready
       },

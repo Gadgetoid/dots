@@ -170,6 +170,67 @@ test("losing the window lets go of a held chain, but not a toggled one", () => {
   assert.equal(toggled.player.chain.length, 1, "here a chain outlives its press by design")
 })
 
+test("a board sat in front of for a while points out a move", () => {
+  const game = new Game()
+  game.start("classic")
+  settle(game)
+  assert.equal(game.hint, null, "nothing to say yet")
+
+  // Nothing happens for as long as the board is prepared to wait.
+  assert.ok(
+    advanceUntil(game, () => game.hint != null, CONFIG.HINT_DELAY + 2),
+    "it says something",
+  )
+  const hinted = game.hint.dots
+  assert.ok(hinted.length >= game.mode.minChain, "and what it points at is a chain")
+  for (let i = 1; i < hinted.length; i++) {
+    assert.equal(hinted[i].colour, hinted[0].colour, "all of one colour")
+  }
+  // With motion allowed, the pointing is done by the wobble.
+  assert.ok(
+    hinted.some((dot) => Math.abs(dot.wobble.value) + Math.abs(dot.wobble.velocity) > 0),
+    "the dots it named are moving",
+  )
+})
+
+test("picking a dot up stops the board pointing at things", () => {
+  const game = new Game()
+  game.start("classic")
+  settle(game)
+  const dot = game.board.dots[0]
+  game.player.cursor = { col: dot.col, row: dot.row }
+  game.startChain(0)
+  assert.equal(
+    advanceUntil(game, () => game.hint != null, CONFIG.HINT_DELAY + 2),
+    false,
+    "a chain in hand is someone thinking, not someone stuck",
+  )
+})
+
+test("hints can be turned off", () => {
+  const game = new Game()
+  game.settings.hints = "off"
+  game.start("classic")
+  settle(game)
+  assert.equal(game.hintsOn, false)
+  assert.equal(
+    advanceUntil(game, () => game.hint != null, CONFIG.HINT_DELAY + 4),
+    false,
+  )
+})
+
+test("a reduced-motion hint names its dots without moving them", () => {
+  const game = new Game()
+  game.settings.motion = "reduced"
+  game.start("classic")
+  settle(game)
+  assert.ok(advanceUntil(game, () => game.hint != null, CONFIG.HINT_DELAY + 2))
+  for (const dot of game.hint.dots) {
+    assert.equal(dot.wobble.value, 0, "nothing wobbles")
+    assert.equal(dot.wobble.velocity, 0)
+  }
+})
+
 test("a reduced-motion session throws no particles", () => {
   const game = new Game()
   game.settings.motion = "reduced"

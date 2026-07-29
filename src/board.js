@@ -32,8 +32,9 @@ export class Dot {
     this.colour = colour // index into the theme's dot colours
     this.y = row // where it is drawn, in cells; chases `row`
     this.vy = 0
-    // The jelly, as one damped oscillator: positive stretches the dot along
-    // `wobbleAxis` and squashes it across, and the ring swaps the two.
+    // The wobble, as one damped oscillator: positive stretches the dot along
+    // `wobbleAxis` and squashes it across, and the ring swaps the two. Only a hint
+    // drives it - see CONFIG.HINT_WOBBLE.
     this.wobble = { value: 0, velocity: 0 }
     this.wobbleAxis = 0
     // How much a dot swells while it is held in a chain, eased rather than
@@ -81,9 +82,9 @@ export class Dot {
         this.y = this.row
         landed = this.vy
         if (landed > CONFIG.BOUNCE_FLOOR) {
+          // It bounces, and that is all: a dot squashing as it lands is movement drawing
+          // the eye to something that has already happened.
           this.vy = -landed * CONFIG.BOUNCE
-          // Landing stretches the dot sideways, which is a squash onto the floor.
-          this.nudge(landed * CONFIG.LAND_SQUASH, 0)
         } else {
           this.vy = 0
         }

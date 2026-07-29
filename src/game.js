@@ -128,6 +128,10 @@ export class Game {
     this.levelStartScore = 0
     // A line over the board for a moment: a level cleared, and which is next.
     this.banner = null
+    // Seconds since anything was picked up or spent, and what the board is pointing at
+    // because of it. See #advanceHint.
+    this.sinceMove = 0
+    this.hint = null
 
     this.dealAttractBoard()
     this.#resetMenuCursor()
@@ -165,6 +169,11 @@ export class Game {
   // the game needs to say.
   get reducedMotion() {
     return this.settings.motion === "reduced"
+  }
+
+  // Whether a settled board points out a move when nothing has happened for a while.
+  get hintsOn() {
+    return this.settings.hints !== "off"
   }
 
   // ---- persistence --------------------------------------------------------
@@ -285,6 +294,8 @@ export class Game {
     this.outcome = null
     this.overFor = 0
     this.settleFor = 0
+    this.sinceMove = 0
+    this.hint = null
     this.phase = PHASE.PLAYING
     this.page = null
     this.menuIndex = 0
@@ -399,6 +410,7 @@ export class Game {
     this.#advancePopping(dt)
     this.#advanceGlow(dt)
     this.#advanceChainTrail(dt)
+    this.#advanceHint(dt)
     if (this.mode.timeLimit > 0 && this.outcome == null) {
       this.timeLeft = Math.max(0, this.timeLeft - dt)
       if (this.timeLeft === 0) {
@@ -420,11 +432,6 @@ export class Game {
       if (speed >= LAND_AUDIBLE && voices < LAND_VOICES) {
         voices++
         Sound.land(clamp(speed / 22, 0.3, 1.4))
-      }
-      // A dot landing shakes the one it landed on, so a column settles as a column.
-      const below = this.board.at(dot.col, dot.row + 1)
-      if (below) {
-        below.nudge(speed * CONFIG.LAND_SQUASH * 0.5, 0)
       }
     })
   }
@@ -453,9 +460,6 @@ export class Game {
           )
         }
         Sound.pop(going.index)
-        for (const neighbour of going.neighbours) {
-          neighbour.nudge(CONFIG.WOBBLE_NEIGHBOUR, going.axis)
-        }
       }
     }
     if (pending) {
@@ -511,6 +515,50 @@ export class Game {
     }
   }
 
+  // A board that has been sat in front of for a while points something out. The wobble is
+  // what does the pointing: it is the only movement left on the board that means anything,
+  // which is exactly what makes it useful here and what made it noise on a landing.
+  //
+  // Where motion has been turned down there is no wobble to use, so the same hint is a
+  // ring around each dot instead - the view draws whichever the settings allow.
+  #advanceHint(dt) {
+    if (this.hint) {
+      this.hint.age += dt
+      if (this.hint.age >= CONFIG.HINT_RING_LIFE) {
+        this.hint = null
+      }
+    }
+    if (!this.hintsOn || this.busy || !this.board.settled || this.outcome != null) {
+      return
+    }
+    // A chain in hand is a player who is mid-thought, not one who is stuck.
+    if (this.players.some((player) => player.chain.length > 0)) {
+      this.sinceMove = 0
+      return
+    }
+    this.sinceMove += dt
+    if (this.sinceMove < CONFIG.HINT_DELAY) {
+      return
+    }
+    // Repeats while nothing happens, so a hint missed is a hint given again.
+    this.sinceMove = CONFIG.HINT_DELAY - CONFIG.HINT_REPEAT
+    const chain = this.board.longestChain()
+    if (chain.length >= this.mode.minChain) {
+      this.#showHint(chain)
+    }
+  }
+
+  // Point at these dots. Both halves are set whatever the settings say, and the view
+  // shows the one it is allowed to.
+  #showHint(dots) {
+    this.hint = { dots: dots.slice(), age: 0 }
+    if (!this.reducedMotion) {
+      for (const dot of dots) {
+        dot.nudge(CONFIG.HINT_WOBBLE, 0)
+      }
+    }
+  }
+
   #advanceOutcome(dt) {
     if (this.outcome != null || this.busy || !this.board.settled) {
       this.settleFor = 0
@@ -520,9 +568,9 @@ export class Game {
       // First frame of a settled board: this is where a mode gets to curate it.
       const changed = this.mode.onSettled ? this.mode.onSettled(this.board) : null
       if (changed) {
-        for (const dot of changed) {
-          dot.nudge(CONFIG.WOBBLE_LINK, Math.PI / 2)
-        }
+        // A mode that recoloured something has changed the board under the player, which
+        // is worth pointing at rather than decorating.
+        this.#showHint(changed)
         Sound.link(0)
       }
     }
@@ -585,7 +633,7 @@ export class Game {
       return false
     }
     this.#claim(player, dot)
-    dot.nudge(CONFIG.WOBBLE_LINK, 0)
+    this.sinceMove = 0
     Sound.link(0)
     return true
   }
@@ -600,24 +648,13 @@ export class Game {
     const dot = this.board.at(col, row)
     const action = this.board.linkAction(player.chain, dot, player.index)
     if (action === "extend") {
-      const previous = player.chain[player.chain.length - 1]
-      const axis = Math.atan2(dot.row - previous.row, dot.col - previous.col)
       this.#claim(player, dot)
-      dot.nudge(CONFIG.WOBBLE_LINK, axis)
-      // The wave that runs back down the chain behind the new dot, dying away as
-      // it goes: the line is one jelly thing rather than a row of separate ones.
-      let amount = CONFIG.WOBBLE_CHAIN_WAVE
-      for (let i = player.chain.length - 2; i >= 0; i--) {
-        player.chain[i].nudge(amount, axis)
-        amount *= CONFIG.WOBBLE_CHAIN_FALLOFF
-      }
+      this.sinceMove = 0
       Sound.link(player.chain.length - 1)
       return true
     }
     if (action === "retract") {
-      const dropped = player.chain.pop()
-      this.#release(dropped)
-      dropped.nudge(-CONFIG.WOBBLE_LINK * 0.6, 0)
+      this.#release(player.chain.pop())
       return true
     }
     return false
@@ -664,6 +701,8 @@ export class Game {
     this.particles.floater(at.x, at.y, `+${scored}`, colour, clamp(length / 4, 1, 2.2))
 
     player.chain.length = 0
+    this.sinceMove = 0
+    this.hint = null
     if (length >= CONFIG.MULTIPLIER_CHAIN) {
       player.multiplier = Math.min(player.multiplier + 1, CONFIG.MULTIPLIER_MAX)
       Sound.multiplier(player.multiplier)
@@ -681,7 +720,6 @@ export class Game {
     }
     for (const dot of player.chain) {
       this.#release(dot)
-      dot.nudge(-CONFIG.WOBBLE_LINK * 0.4, 0)
     }
     player.chain.length = 0
     player.dragging = false
@@ -1006,6 +1044,16 @@ export class Game {
         options: [
           { id: "hold", label: "Hold", hint: "Hold to gather dots, let go to pop them" },
           { id: "toggle", label: "Toggle", hint: "Press to start a chain, press again to pop" },
+        ],
+      },
+      { id: "head:hints", label: "Hints", kind: "heading" },
+      {
+        id: "hints",
+        kind: "options",
+        selected: this.hintsOn ? 0 : 1,
+        options: [
+          { id: "on", label: "On", hint: "A settled board points out a move eventually" },
+          { id: "off", label: "Off", hint: "Never points anything out" },
         ],
       },
       { id: "head:motion", label: "Motion", kind: "heading" },
@@ -1386,6 +1434,13 @@ export class Game {
         for (const player of this.players) {
           this.#dropChain(player, true)
         }
+        this.#storeSettings()
+        Sound.menuMove()
+        break
+      case "hints":
+        this.settings.hints = option === 1 ? "off" : "on"
+        this.hint = null
+        this.sinceMove = 0
         this.#storeSettings()
         Sound.menuMove()
         break

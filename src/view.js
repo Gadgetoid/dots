@@ -121,6 +121,7 @@ export class GameView {
       this.#drawChains(game, theme)
       this.#drawDots(game, theme)
       this.#drawParticles(game)
+      this.#drawBoardHint(game, theme)
       this.#drawCursors(game, theme)
       this.#drawCurtain(game, theme)
     }
@@ -231,6 +232,23 @@ export class GameView {
     }
   }
 
+  // What the board is pointing at, where there is no wobble to point with: a ring around
+  // each dot of a playable chain, fading out. Same hint, no movement.
+  #drawBoardHint(game, theme) {
+    if (!game.hint || !game.reducedMotion) {
+      return
+    }
+    const fade = 1 - game.hint.age / CONFIG.HINT_RING_LIFE
+    for (const dot of game.hint.dots) {
+      const at = game.dotPosition(dot)
+      this.renderer.ring(at.x, at.y, game.layout.radius * 1.3, {
+        color: theme.cursorActive,
+        width: 3,
+        alpha: fade * 0.8,
+      })
+    }
+  }
+
   #drawCursors(game, theme) {
     if (game.phase !== PHASE.PLAYING) {
       return
@@ -336,22 +354,22 @@ export class GameView {
     // The title screen has no score to show, and a zero under a panel that says
     // START is just noise.
     if (game.phase !== PHASE.TITLE) {
-      renderer.text("Score", 28, 34, { color: theme.text.faint, size: 12 })
+      // No labels: a big number top left is the score and a smaller one top right is the
+      // best there has been, and neither needs saying twice.
       const score = String(player.score)
-      renderer.text(score, 28, 64, { color: theme.text.bright, size: 34, bold: true })
-      renderer.text("Best", VIEW_W - 28, 34, { color: theme.text.faint, size: 12, align: "right" })
-      renderer.text(String(Math.max(best, player.score)), VIEW_W - 28, 60, {
+      renderer.text(score, 28, 62, { color: theme.text.bright, size: 36, bold: true })
+      renderer.text(String(Math.max(best, player.score)), VIEW_W - 28, 58, {
         color: theme.text.dim,
-        size: 22,
+        size: 24,
         align: "right",
       })
       // The multiplier only appears once it is worth something, and glows, since it
       // is what a long chain earned. It sits beside the score rather than above the
       // board, which is where the page's own buttons are.
       if (player.multiplier > 1) {
-        renderer.text(`x${player.multiplier}`, 28 + renderer.measureText(score, 34) + 12, 62, {
+        renderer.text(`x${player.multiplier}`, 28 + renderer.measureText(score, 36) + 12, 60, {
           color: theme.accent,
-          size: 22,
+          size: 24,
           bold: true,
           glow: 0.7,
         })

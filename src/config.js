@@ -30,37 +30,39 @@ export const CONFIG = {
   BOUNCE: 0.26,
   // Below this landing speed a dot simply stops instead of bouncing again.
   BOUNCE_FLOOR: 3.5,
-  // How much of a landing turns into a squash. The wobble is what a landing looks
-  // like; the bounce alone reads as a rigid ball.
-  LAND_SQUASH: 0.09,
   // Where a refilled dot starts, in cells above the top of the board. Spread
   // across the column so a refill arrives as a stream rather than a block.
   SPAWN_HEIGHT: 1.4,
   SPAWN_STAGGER: 0.85,
 
-  // ---- jelly ------------------------------------------------------------
-  // The wobble is one damped oscillator per dot, driven by impulses: joining a
-  // chain, landing, or a neighbour popping. Stiff and lightly damped, so it rings
-  // for about half a second.
+  // ---- the wobble -------------------------------------------------------
+  // One damped oscillator per dot, stiff and lightly damped, so a nudge rings for about
+  // half a second.
+  //
+  // Nothing the board does drives it any more. A dot landing used to squash, and a dot
+  // beside a pop used to flinch, and both were movement drawing the eye to something that
+  // had already happened and did not matter. The wobble is worth more as the one thing
+  // that means "look here": it is the hint, and nothing else uses it.
   WOBBLE_STIFFNESS: 460,
   WOBBLE_DAMPING: 9,
-  // Ceiling on the deformation, as a fraction of the radius. Past about a third
-  // the shape stops reading as a dot.
+  // Ceiling on the deformation, as a fraction of the radius. Past about a third the shape
+  // stops reading as a dot.
   WOBBLE_MAX: 0.34,
-  // What each event puts into the oscillator.
-  WOBBLE_LINK: 3.4, // the dot just linked
-  WOBBLE_CHAIN_WAVE: 1.5, // and the wave that runs back down the chain behind it
-  WOBBLE_CHAIN_FALLOFF: 0.62, // how much of that reaches each dot further back
-  WOBBLE_NEIGHBOUR: 2.1, // a dot next to one that just popped
-  // A linked dot also swells, which is the other half of the response: the chain
-  // reads as picking dots up rather than only shaking them.
+  // A linked dot swells, which is how the chain reads as picking dots up.
   LINK_SWELL: 0.16,
   LINK_SWELL_RATE: 9,
-  // How much of its wobble a dot in the chain shows. None: the chain's outline is
-  // meant to be straight and exactly a dot wide, and a dot deforming inside it is a
-  // dent in that. The whole chain swells together instead, and the wobble comes back
-  // the moment a dot is let go.
-  WOBBLE_LINKED: 0,
+
+  // ---- hints ------------------------------------------------------------
+  // How long a settled board waits before it points something out, and how often it
+  // repeats while nothing is happening. Long enough not to answer a player who is still
+  // thinking.
+  HINT_DELAY: 8,
+  HINT_REPEAT: 4,
+  // What a hint puts into the wobble, and how long the ring lasts where there is no
+  // wobble to be had. A hint has one job, which is to be noticed, so this is most of what
+  // the deformation will take: a polite wobble is one nobody sees.
+  HINT_WOBBLE: 6,
+  HINT_RING_LIFE: 1.1,
 
   // ---- the chain --------------------------------------------------------
   // The chain is one distance field: a disc at each dot and a rod between them,
@@ -292,6 +294,8 @@ export const DEFAULT_SETTINGS = {
   // solid rather than glass. Motion and transparency are the two things a person is most
   // likely to need less of, and neither carries any information the game needs.
   motion: "full",
+  // Whether a settled board points out a move when nothing has happened for a while.
+  hints: "on",
 }
 
 // How much of the game's motion a reduced-motion session keeps. The fall is slowed

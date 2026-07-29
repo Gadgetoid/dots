@@ -155,23 +155,42 @@ test("nudging a column swaps it with its neighbour and wraps", () => {
   assert.equal(board.colourAt(0, 0), 2)
 })
 
-test("a landing squashes the dot and rings out", () => {
+test("a dot bounces when it lands, and does not wobble", () => {
   const board = boardFrom(["0"], { rows: 2 })
   const dot = board.at(0, 0)
   dot.row = 1
   dot.y = -3
   let landed = 0
+  let bounced = false
   for (let i = 0; i < 60; i++) {
     board.step(1 / 60, (_dot, speed) => {
       landed = Math.max(landed, speed)
     })
+    if (dot.vy < 0) {
+      bounced = true
+    }
   }
   assert.ok(landed > 0, "it landed")
-  assert.ok(Math.abs(dot.wobble.value) > 0 || Math.abs(dot.wobble.velocity) > 0, "and it wobbled")
+  assert.equal(bounced, true, "and came back up off the floor")
+  // A landing is over and done with: shaking the dot about it only draws the eye to
+  // something that no longer matters. The wobble belongs to the hint now.
+  assert.equal(dot.wobble.value, 0)
+  assert.equal(dot.wobble.velocity, 0)
 
   for (let i = 0; i < 600; i++) {
     board.step(1 / 60)
   }
-  assert.ok(Math.abs(dot.wobbleAmount) < 0.001, "the wobble settles")
   assert.equal(dot.settled, true)
+})
+
+test("a nudge rings out and settles", () => {
+  const board = boardFrom(["0"])
+  const dot = board.at(0, 0)
+  dot.nudge(2.6, 0)
+  board.step(1 / 60)
+  assert.ok(Math.abs(dot.wobbleAmount) > 0, "it deforms")
+  for (let i = 0; i < 600; i++) {
+    board.step(1 / 60)
+  }
+  assert.ok(Math.abs(dot.wobbleAmount) < 0.001, "and comes to rest")
 })

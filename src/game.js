@@ -34,6 +34,7 @@ import {
 import { THEMES, THEME_IDS, DOT_SHAPES } from "./palette.js"
 import { resolveTuning } from "./scales.js"
 import { clamp, lerp, mulberry32 } from "./math.js"
+import { parseLink, levelFromToken } from "./link.js"
 import {
   SEED_DOTS,
   SEED_COLOURS,
@@ -177,11 +178,20 @@ export class Game {
     // changes and not every frame it is up. See #announce.
     this.spokenPage = null
     this.spokenBanner = null
+    // A line on a page explaining why it is the page being looked at, for the one case that
+    // needs it: a link to a puzzle nobody has reached yet. Lasts as long as the visit.
+    this.notice = null
+    // Whether anything was remembered about this player. What tells a first-time player from
+    // one who last played whatever the default happens to be.
+    this.remembered = false
+    this.launched = false
 
     this.applySettings()
     this.dealAttractBoard()
     this.#resetMenuCursor()
-    this.#restoreState()
+    // Held, because what opens depends on it: which puzzle levels are unlocked is part of
+    // what was remembered, and a link may name one. See launch.
+    this.restored = this.#restoreState()
   }
 
   get player() {
@@ -258,25 +268,36 @@ export class Game {
   }
 
   // ---- persistence --------------------------------------------------------
+  // Read back what was remembered. Never rejects: launch waits on this, and a game that
+  // never opened because storage misbehaved would be worse than one that forgot everything.
   async #restoreState() {
-    const [settings, bindings, best, progress, seedBest] = await Promise.all([
-      loadSettings(),
-      loadBindings(),
-      loadBest(),
-      loadProgress(),
-      loadSeedBest(),
-    ])
+    let settings = null
+    let bindings = null
+    let best = null
+    let progress = null
+    let seedBest = null
+    try {
+      ;[settings, bindings, best, progress, seedBest] = await Promise.all([
+        loadSettings(),
+        loadBindings(),
+        loadBest(),
+        loadProgress(),
+        loadSeedBest(),
+      ])
+    } catch {
+      /* ignore */
+    }
     if (settings) {
+      this.remembered = true
       this.settings = { ...this.settings, ...settings }
-      this.mode = modeById(this.settings.mode)
-      this.layout = boardLayout(this.mode.cols, this.mode.rows)
       this.applySettings()
       // Storage answers a frame or two in, by which time a board has already been
       // dealt for the title: deal the remembered mode's instead.
-      if (this.phase === PHASE.TITLE) {
-        // The code last played, so a returning player is offered their own board and not a
-        // stranger's. Only while nothing has started: a code shared in a link is applied as
-        // soon as the game is built, and storage answering afterwards must not overwrite it.
+      if (this.phase === PHASE.TITLE && !this.launched) {
+        this.mode = modeById(this.settings.mode)
+        this.layout = boardLayout(this.mode.cols, this.mode.rows)
+        // The code last played, so the picker is offered their own board and not a
+        // stranger's.
         if (validSeed(this.settings.seed)) {
           this.seedDraft = this.settings.seed
         }
@@ -384,8 +405,8 @@ export class Game {
     return Boolean(row && row.layout === "seed")
   }
 
-  // A code handed over in a link. Opens the picker on it, so the page can name the board and
-  // what it has already given up before anybody plays it. Returns whether it was a code.
+  // A code put in front of the player without being played: the picker opens on it, so the
+  // page can name the board and what it has already given up. Returns whether it was a code.
   openSharedSeed(code) {
     const seed = seedFromCode(code)
     if (seed === null || !SEEDED_MODE) {
@@ -395,6 +416,90 @@ export class Game {
     this.#showSeed(seed)
     this.#openPage("seed")
     return true
+  }
+
+  // ---- opening the game ---------------------------------------------------
+  // What the game opens on, called once with the query string it was opened with.
+  //
+  // A link names it where there is one; otherwise a player carries on with what they were
+  // playing, and a player with nothing remembered gets the board of the day. Either way it
+  // opens in the game and not on a menu: the title screen is a page to be left, and a game
+  // that starts playing has already said everything a title screen would.
+  //
+  // Waits on `restored` rather than running from the constructor, because what is unlocked
+  // decides whether a link to a puzzle can be honoured, and that arrives from storage a
+  // frame or two in.
+  launch(search = "") {
+    if (this.launched) {
+      return
+    }
+    this.launched = true
+    const wanted = parseLink(
+      search,
+      GAME_MODES.map((mode) => mode.id),
+    )
+    if (wanted && this.#openLink(wanted)) {
+      return
+    }
+    // Nothing asked for, or nothing that could be honoured. A first-time player has no mode
+    // to carry on with, and the board of the day is the one worth handing them.
+    const mode = this.remembered ? modeById(this.settings.mode) : SEEDED_MODE || this.mode
+    this.#openMode(mode)
+  }
+
+  // Act on a link. Returns whether it was honoured; a link this refuses falls back on what
+  // the player was doing, having said why where the reason is worth saying.
+  #openLink(wanted) {
+    const mode = modeById(wanted.mode)
+    if (mode.levels && wanted.puzzle !== null) {
+      const level = levelFromToken(mode.levels, wanted.puzzle)
+      if (level === null) {
+        return false
+      }
+      if (!this.levelUnlocked(level, mode.id)) {
+        // Refused, and said so: the picker draws padlocks and opens on the furthest level
+        // reached, so all this has to add is which level was asked for.
+        this.mode = mode
+        this.layout = boardLayout(mode.cols, mode.rows)
+        this.#dealBoard()
+        this.#openPage("levels")
+        this.notice = `${mode.levels[level].name} is locked, clear the one before it`
+        return true
+      }
+      this.start(mode.id, { level })
+      return true
+    }
+    this.#openMode(mode, wanted.seed)
+    return true
+  }
+
+  // Start a mode where a link or a returning player named it but not a board.
+  //
+  // A seeded mode opens on today's board unless a code was named. Coming back to the game is
+  // coming back to the board everyone else is on, not to the one left behind: the code that
+  // was being played is in the address bar, which is what brings a player back to it.
+  #openMode(mode, seed = "today") {
+    const options = {}
+    if (mode.seeded) {
+      options.seed = seed === "today" ? dailySeed() : seed
+    }
+    if (mode.levels) {
+      options.level = this.furthestLevel(mode.id)
+    }
+    this.start(mode.id, options)
+    if (!this.remembered) {
+      this.#welcome()
+    }
+  }
+
+  // The one thing the title screen said that a player who never sees it would miss.
+  #welcome() {
+    this.banner = {
+      text: "Link dots of a colour to pop them",
+      sub: this.inputMode === "gamepad" ? "Stick moves, A pops" : "Arrows move, space pops",
+      age: 0,
+      life: 4.5,
+    }
   }
 
   // ---- authored levels ----------------------------------------------------
@@ -417,6 +522,19 @@ export class Game {
 
   levelCleared(index, modeId = this.mode.id) {
     return this.levelBest(modeId)[index] !== undefined
+  }
+
+  // The furthest level reached, which is where a mode of them carries on from. The picker
+  // opens its cursor here too; see #firstOption.
+  furthestLevel(modeId = this.mode.id) {
+    const levels = modeById(modeId).levels || []
+    let furthest = 0
+    for (let index = 1; index < levels.length; index++) {
+      if (this.levelUnlocked(index, modeId)) {
+        furthest = index
+      }
+    }
+    return furthest
   }
 
   // Whether this level has been cleared for everything it is worth. The par is exact - it is
@@ -547,6 +665,7 @@ export class Game {
         : 0
     this.levelStartScore = 0
     this.banner = null
+    this.notice = null
     this.#dealBoard()
     this.particles.clear()
     this.popping.length = 0
@@ -570,6 +689,10 @@ export class Game {
     this.phase = PHASE.TITLE
     this.page = "title"
     this.rebinding = null
+    // Whatever the last board had to say is not the title screen's to say: a level cleared
+    // belongs to the game that cleared it.
+    this.banner = null
+    this.notice = null
     this.dealAttractBoard()
     this.#resetMenuCursor()
   }
@@ -1807,6 +1930,11 @@ export class Game {
     if (this.page === "pause") {
       return this.mode.name
     }
+    // Why this page is the page being looked at, said before what is on it: a player who did
+    // not ask for it needs to hear that first.
+    if (this.notice) {
+      return `${PAGE_TITLES[this.page] || ""}. ${this.notice}`
+    }
     if (this.page === "seed") {
       // Spelled out, so a code can be written down from hearing it, and what it has already
       // given up, which is what makes a board worth another go.
@@ -1909,6 +2037,8 @@ export class Game {
     this.page = this.pageReturn ?? (this.phase === PHASE.PLAYING ? "pause" : "title")
     this.pageReturn = null
     this.rebinding = null
+    // A notice explains why a page was opened, so it goes when the page is left.
+    this.notice = null
     this.#resetMenuCursor()
     Sound.menuBack()
   }

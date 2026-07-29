@@ -56,6 +56,35 @@ The page holds nothing but the canvas: no buttons and no help line. Every contro
 player has is drawn inside the field, because a button in the page can only be pressed
 by a pointer and this game is played as often with a pad or a keyboard.
 
+Opening the game starts a game. A player who has been here before carries on with the mode
+they last played, and a first-time player gets the seeded board of the day, which is the one
+everybody else is on. The title screen is still there behind Quit to title; it is a page to
+be left rather than a toll to be paid.
+
+## Links
+
+Any board can be linked to, all in the query string so a link survives being served from a
+subpath and needs no rewrite rules:
+
+| Link           | Opens                                              |
+| -------------- | -------------------------------------------------- |
+| `?seed`        | the seeded mode on today's board                   |
+| `?seed=314522` | the seeded mode on that code                       |
+| `?mode=rush`   | that mode, by id, as `src/modes/` names it         |
+| `?puzzle=9`    | puzzle level 9, counted from one as the HUD counts |
+| `?puzzle=comb` | that puzzle level by name                          |
+
+The game writes the link for whatever is being played back into the address bar, so copying
+the URL is the whole of sharing a board. Today's seeded board writes a valueless `?seed`
+rather than its code: pinning the code would mean a reload tomorrow dealt yesterday's board,
+and a link passed on would mean the board of the day it was copied instead of the board of
+the day.
+
+A link is honoured or refused, never approximated - a link that quietly opened a different
+board from the one it names would be worse than one that failed. A puzzle nobody has reached
+yet opens the picker with a line saying which level was asked for, since dropping a player
+into a level they have not climbed to would give away the ladder.
+
 ## Modes
 
 | Mode        | Board | Chain | What is different                                      |
@@ -66,7 +95,7 @@ by a pointer and this game is played as often with a pad or a keyboard.
 | Endless     | 7x7   | 2     | Deals against itself: matches are hidden, never absent |
 | Elimination | 6x6   | 2     | A colour cleared off the board never comes back        |
 | Clear out   | 6x7   | 2     | No refill, and the board is random. Whittle it down    |
-| Puzzle      | 6x7   | 2     | Thirty-six designed boards, cleared one after another  |
+| Puzzle      | 6x7   | 2     | Designed boards, cleared one after another             |
 | Seeded      | 6x6   | 2     | The same board for everyone holding the code           |
 
 The last three all come from the original browser game, which had `puzzle`,
@@ -87,9 +116,8 @@ Seeded is classic rules dealt from a number, which the 32blit version had: the b
 every colour dealt after it come from one seed, so two players holding the same code play
 the same dots and the only thing between them is the score. A code is six dots, written as
 six digits 1 to 5 the same way a level's layout is - 15,625 boards, entered by pressing the
-dots round the colours or by typing the digits, and shared as a `?seed=` link that the game
-keeps in the address bar while it is being played. The picker opens on the board of the day,
-counted in whole UTC days so everyone quoting today's code means the same one, and the best
+dots round the colours or by typing the digits, and shared as a link. The board of the day is
+counted in whole UTC days, so everyone quoting today's code means the same one, and the best
 score is remembered per code.
 
 The 32blit game's own generator is not reproduced. It was an LFSR with a 16 bit tap, which
@@ -204,6 +232,7 @@ src/palette.js      the two themes
 src/board.js        the grid, the linking rules, collapse and refill
 src/modes/          one file per mode, plus the puzzle levels
 src/seed.js         the code a seeded board is dealt from, and how it is written
+src/link.js         what a link asks for, and how a board writes itself into one
 src/scales.js       the tunings a mode can play in
 src/specials.js     powerup registry (the contract; nothing registered yet)
 src/game.js         phases, scoring, menus, settings, per-player chain state

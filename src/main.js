@@ -8,6 +8,8 @@
 import { WebGLRenderer } from "./glrenderer.js"
 import { GameView } from "./view.js"
 import { Game, PHASE } from "./game.js"
+import { linkParams, LINK_KEYS } from "./link.js"
+import { dailySeed } from "./seed.js"
 import { KeyboardInput, PointerInput } from "./input.js"
 import { GamepadInput } from "./gamepad.js"
 import { Sound } from "./audio.js"
@@ -26,13 +28,15 @@ if (!renderer) {
 const view = new GameView(renderer)
 const game = new Game()
 
-// A code shared in a link opens the seeded mode's picker on that board, so the page can name
-// it and say what it has already paid before anyone plays it. An unreadable one is ignored and
-// the game opens where it always does.
-const shared = new URLSearchParams(location.search).get("seed")
-if (shared) {
-  game.openSharedSeed(shared)
-}
+// Read now, because syncLink starts rewriting the query as soon as the loop runs and would
+// otherwise strip the link out from under the launch below.
+const opened = location.search
+
+// What the game opens on. Held until what was remembered is back, since which puzzle levels
+// are unlocked decides whether a link naming one can be honoured: see Game.launch. The title
+// screen is what is on the field for the frame or two that takes.
+game.restored.then(() => game.launch(opened))
+
 const keyboard = new KeyboardInput(game)
 const pointer = new PointerInput(game, view)
 const gamepad = new GamepadInput(game)
@@ -110,27 +114,47 @@ function syncSpeech() {
   speakToggle.setAttribute("aria-pressed", appliedSpeech ? "true" : "false")
 }
 
-// The address bar is the share button: while a seeded board is being played the code is in the
-// query, so copying the link is all anyone has to do to hand the board over. Polled like the
-// theme and the size, for the same reason - one place, and a change from any source lands the
-// same way.
+// The address bar is the share button: while a board is being played the query says which
+// board, so copying the link is all anyone has to do to hand it over. Polled like the theme
+// and the size, for the same reason - one place, and a change from any source lands the same
+// way. See link.js for the grammar.
 //
 // Replaced and not pushed, so the back button still leaves the game, and wrapped because a
 // browser may refuse this over file:// exactly as it may refuse storage.
-let appliedSeedLink = null
-function syncSeedLink() {
-  const code = game.mode.seeded && game.phase !== PHASE.TITLE ? game.seedText : ""
-  if (appliedSeedLink === code) {
+let appliedLink = null
+function syncLink() {
+  const params = linkParams({
+    mode: game.mode,
+    playing: game.phase !== PHASE.TITLE,
+    code: game.seedText,
+    today: game.seed === dailySeed(),
+    level: game.level,
+    levels: game.mode.levels,
+  })
+  const written = JSON.stringify(params)
+  if (appliedLink === written) {
     return
   }
-  appliedSeedLink = code
+  appliedLink = written
   try {
     const url = new URL(location.href)
-    if (code) {
-      url.searchParams.set("seed", code)
-    } else {
-      url.searchParams.delete("seed")
+    // Only the keys the grammar owns, so anything else the page was opened with survives.
+    for (const key of LINK_KEYS) {
+      url.searchParams.delete(key)
     }
+    for (const [key, value] of params) {
+      url.searchParams.set(key, value ?? "")
+    }
+    // A key with no value is written as itself: ?seed, not ?seed=, which is the form that says
+    // today's board rather than a code. Only the keys written that way, so an empty parameter
+    // the page was opened with is left as it was found.
+    let query = url.searchParams.toString()
+    for (const [key, value] of params) {
+      if (value === null) {
+        query = query.replace(new RegExp(`(^|&)${key}=(?=&|$)`), `$1${key}`)
+      }
+    }
+    url.search = query
     history.replaceState(null, "", url)
   } catch {
     /* ignore */
@@ -205,7 +229,7 @@ function loop(timestamp) {
   syncSize()
   syncTheme()
   syncSpeech()
-  syncSeedLink()
+  syncLink()
   game.advance(dt)
   // The simulation still runs while a lost GPU context is being restored.
   if (renderer.ready) {

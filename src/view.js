@@ -1143,11 +1143,15 @@ export class GameView {
         const possible = levels.filter((level, index) => game.levelContested(index)).length
         return [
           { text: PAGE_TITLES.levels, colour: theme.text.bright, size: 30, bold: true },
-          {
-            text: `${cleared} of ${levels.length} cleared, ${stars} of ${possible} stars`,
-            colour: theme.text.dim,
-            size: 19,
-          },
+          // A notice takes the line the tally would have had: a player looking at a page they
+          // did not ask for wants to know why before they want the score.
+          game.notice
+            ? { text: game.notice, colour: theme.accent, size: 19 }
+            : {
+                text: `${cleared} of ${levels.length} cleared, ${stars} of ${possible} stars`,
+                colour: theme.text.dim,
+                size: 19,
+              },
         ]
       }
       case "seed": {

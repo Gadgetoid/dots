@@ -447,6 +447,9 @@ try {
     })
     await page.goto(`http://localhost:${port}/index.html`, { waitUntil: "load" })
     await page.waitForFunction("window.__dots && window.__dots.game")
+    // And until the game has opened on something. It opens in play, off a promise waiting on
+    // storage, so posing before that lands would have the launch arrive on top of the pose.
+    await page.waitForFunction("window.__dots.game.launched")
     // Pose the scene, then step the loop by hand: the game's own rAF loop is left
     // running, but a fixed number of fixed-length frames is what makes a shot the
     // same picture every time.
@@ -493,6 +496,9 @@ try {
             throw new Error(`no button for ${action}`)
           },
         }
+        // Every pose starts from the title screen, which is where opening the game used to
+        // leave it: a pose says what it wants on screen and not how the game got there.
+        game.toTitle()
         new Function(`return (${pose})`)()(game, art)
         for (let i = 0; i < frames; i++) {
           game.advance(1 / 60)

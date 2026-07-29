@@ -12,8 +12,15 @@
 // and fails if it cannot find one. A level that does not survive that test is not
 // shipped, so these are all provably clearable.
 //
-// Every layout must be exactly PUZZLE_COLS wide and PUZZLE_ROWS tall; the test
-// checks that too.
+// Every layout must be exactly PUZZLE_COLS wide and PUZZLE_ROWS tall; the test checks
+// that too.
+//
+// `par` is the most a level can score over every order that clears it, which is a
+// finite question with an exact answer: a pop only ever takes dots off the board, so the
+// positions reachable from a layout form a graph with no cycles and each one need only
+// be valued once. It is written down here rather than worked out at run time because the
+// search takes about a second on the larger levels - and the test recomputes it, so a
+// number that has drifted from its layout fails rather than quietly misleading a player.
 export const PUZZLE_COLS = 6
 export const PUZZLE_ROWS = 7
 
@@ -24,6 +31,7 @@ export const PUZZLE_ROWS = 7
 export const LEVELS = [
   {
     name: "Warm up",
+    par: 24,
     layout: [
       "......",
       "......",
@@ -36,6 +44,7 @@ export const LEVELS = [
   },
   {
     name: "Stacks",
+    par: 81,
     layout: [
       "......",
       "......",
@@ -48,6 +57,7 @@ export const LEVELS = [
   },
   {
     name: "Pyramid",
+    par: 1120,
     layout: [
       "......",
       "......",
@@ -60,6 +70,7 @@ export const LEVELS = [
   },
   {
     name: "Pillars",
+    par: 1176,
     layout: [
       "......",
       "......",
@@ -72,6 +83,7 @@ export const LEVELS = [
   },
   {
     name: "Zigzag",
+    par: 1229,
     layout: [
       "......",
       "......",
@@ -84,6 +96,7 @@ export const LEVELS = [
   },
   {
     name: "Checkmate",
+    par: 1408,
     layout: [
       "......",
       "......",
@@ -99,6 +112,7 @@ export const LEVELS = [
     // chain on the board every time: some of the orders that look right strand a
     // colour, and the solver had to back out of them to find one that does not.
     name: "The lock",
+    par: 2072,
     layout: [
       "......",
       ".1..2.",

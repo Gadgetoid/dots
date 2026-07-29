@@ -1,13 +1,17 @@
-// One board, no refill: take everything off it.
+// One random board, no refill: take as much off it as you can.
 //
-// The mode the original browser game called puzzle. Nothing is replaced, so every
-// chain is spent forever and the order they are taken in is the whole game: leave a
-// colour stranded and the board is over with dots still on it.
+// Emptying it is the rare case, not the goal. A random board usually cannot be emptied
+// at all - at sizes small enough to search exhaustively, only about one dealt board in
+// ten can be, and the rest strand a colour whatever order the chains are taken in. So
+// what this mode asks for is how far a board can be whittled down, and clearing one
+// outright is a thing that happens occasionally and is worth a mention when it does.
+//
+// The designed boards, which are all clearable and known to be, are the puzzle mode.
 
 export const CLEAR_OUT = {
   id: "clearout",
   name: "Clear out",
-  blurb: "One board, no refill. Empty it",
+  blurb: "One random board, no refill. Whittle it down",
   cols: 6,
   rows: 7,
   minChain: 2,

@@ -391,6 +391,24 @@ export class GameView {
         size: 15,
         bold: true,
       })
+      // What this level has paid against the most it can, which is a real target: the
+      // best any order of chains could score while still clearing it. The running score
+      // is no use for that, since it carries across levels.
+      if (game.levelPar > 0) {
+        const reached = game.levelScore >= game.levelPar
+        renderer.text(`${game.levelScore} / ${game.levelPar}`, VIEW_W - 92, HUD_BOTTOM + 28, {
+          color: reached ? theme.accent : theme.text.dim,
+          size: 15,
+          align: "right",
+          bold: true,
+          glow: reached ? 0.8 : 0,
+        })
+        renderer.text("this level", VIEW_W - 92, HUD_BOTTOM + 12, {
+          color: theme.text.faint,
+          size: 11,
+          align: "right",
+        })
+      }
     }
 
     this.pauseVisible = game.phase === PHASE.PLAYING && !game.page
@@ -506,7 +524,10 @@ export class GameView {
 
     // The board stays visible behind the panel, dimmed rather than hidden: a menu is
     // over the game, not instead of it.
-    renderer.panel(0, 0, VIEW_W, VIEW_H, { fill: theme.background, alpha: 0.76 })
+    renderer.panel(0, 0, VIEW_W, VIEW_H, {
+      fill: theme.scrim.color,
+      alpha: theme.scrim.alpha,
+    })
     renderer.panel(x, y, width, height, { fill: theme.panel, radius: 18 })
     renderer.panel(x, y, width, height, { stroke: theme.panelEdge, width: 1.5, radius: 18 })
 
@@ -535,6 +556,8 @@ export class GameView {
         this.#drawOptions(game, theme, row, index, x, rowY, width, rowHeight)
       } else if (row.kind === "grid") {
         this.#drawGrid(game, theme, row, index, x, rowY, width)
+      } else if (row.kind === "button") {
+        this.#drawButton(game, theme, row, index, x, rowY, width, rowHeight)
       } else {
         this.#drawRow(game, theme, row, index, x, rowY, width, rowHeight)
       }
@@ -560,6 +583,9 @@ export class GameView {
     if (row.kind === "grid") {
       const lines = Math.ceil(row.options.length / (row.columns || 1))
       return lines * (GRID_CELL_H + GRID_GAP) + 6
+    }
+    if (row.kind === "button") {
+      return GRID_CELL_H + 14
     }
     return 32
   }
@@ -595,6 +621,35 @@ export class GameView {
     if (row.current) {
       renderer.disc(x + width - 34, middle, 4, { color: theme.accent, glow: 0.6 })
     }
+  }
+
+  // The one thing on a page most worth pressing: full width, centred, and filled
+  // whether or not the cursor is on it, so it reads as the way forward at a glance. The
+  // cursor adds an outline rather than the fill, since the fill is already spent saying
+  // what this row is.
+  #drawButton(game, theme, row, index, x, rowY, width, rowHeight) {
+    const renderer = this.renderer
+    const selected = index === game.menuIndex
+    const box = { x: x + 26, y: rowY, w: width - 52, h: rowHeight - 14 }
+    this.menuHits.push({ index, option: null, ...box })
+    // No glow: the halo is added over the frame in the composite pass, and this button
+    // has dark text on a bright fill, so lighting it washes out its own label. A filled
+    // accent box needs no help being noticed.
+    renderer.panel(box.x, box.y, box.w, box.h, { fill: theme.accent, radius: 12 })
+    if (selected) {
+      renderer.panel(box.x, box.y, box.w, box.h, {
+        stroke: theme.text.bright,
+        width: 2,
+        radius: 12,
+      })
+    }
+    renderer.text(row.label, box.x + box.w / 2, box.y + box.h / 2, {
+      color: theme.panel,
+      size: 19,
+      align: "center",
+      baseline: "middle",
+      bold: true,
+    })
   }
 
   // A block of buttons: the mode grid. Two across rather than a list of rows, because
@@ -750,7 +805,7 @@ export class GameView {
             : OUTCOMES[game.outcome] || "Game over"
         const best = game.best[game.mode.id] || 0
         const record = game.player.score >= best && game.player.score > 0
-        return [
+        const lines = [
           { text: outcome, colour: theme.text.bright, size: 26, bold: true },
           {
             text: `${game.player.score}`,
@@ -765,6 +820,18 @@ export class GameView {
             size: 13,
           },
         ]
+        // On a board that is never refilled and was never designed, what is left on it
+        // is the measure of the game: most random boards cannot be emptied at all, so
+        // "how few did you leave" is the question rather than "did you clear it".
+        if (game.mode.refill === false && !game.mode.levels && game.board) {
+          const left = game.board.count
+          lines.push({
+            text: left === 1 ? "1 dot left" : `${left} dots left`,
+            colour: theme.text.faint,
+            size: 13,
+          })
+        }
+        return lines
       }
       case "modes":
         return [

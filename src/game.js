@@ -193,6 +193,18 @@ export class Game {
     return this.mode.levels[clamp(this.level, 0, this.mode.levels.length - 1)]
   }
 
+  // What has been scored on the level being played, as against what it could be. The
+  // score itself carries across levels, so the running total is no use as a target: a
+  // level's par is only comparable with what that level has paid.
+  get levelScore() {
+    return this.player.score - this.levelStartScore
+  }
+
+  get levelPar() {
+    const level = this.currentLevel
+    return level && level.par ? level.par : 0
+  }
+
   get lastLevel() {
     return !this.mode.levels || this.level >= this.mode.levels.length - 1
   }
@@ -271,6 +283,8 @@ export class Game {
   // Move on to the next authored level, keeping the score. What a mode with levels
   // does instead of finishing when a board comes up clear.
   #nextLevel() {
+    const cleared = this.currentLevel
+    const scored = this.levelScore
     this.level++
     this.levelStartScore = this.player.score
     this.#dealBoard()
@@ -283,7 +297,10 @@ export class Game {
     }
     this.settleFor = 0
     this.overFor = 0
-    this.banner = { text: "Level cleared", sub: this.currentLevel.name, age: 0, life: 2.4 }
+    // What that level paid, against the most it could have. The next level's name is in
+    // the HUD; what a player wants at this moment is the mark they just got.
+    const par = cleared && cleared.par ? ` of ${cleared.par}` : ""
+    this.banner = { text: "Level cleared", sub: `${scored}${par}`, age: 0, life: 2.4 }
     Sound.clear()
   }
 
@@ -791,7 +808,7 @@ export class Game {
   menuRows() {
     switch (this.page) {
       case "title":
-        return [{ id: "modes", label: "New game", kind: "action" }, ...this.#settingRows()]
+        return [{ id: "modes", label: "New game", kind: "button" }, ...this.#settingRows()]
       case "modes":
         return [
           {
@@ -825,14 +842,17 @@ export class Game {
           rows.push({
             id: "retry",
             label: "Retry level",
-            kind: "action",
+            kind: "button",
             hint: `Level ${this.level + 1}: ${this.currentLevel.name}`,
           })
         }
         rows.push({
           id: "again",
           label: this.currentLevel ? "Start over" : "Play again",
-          kind: "action",
+          // The one thing most players want next, so it is a button on its own rather
+          // than a line in a list - except on a level, where trying that level again is
+          // what they want and this is the way back to the first one.
+          kind: this.currentLevel ? "action" : "button",
         })
         rows.push({ id: "modes", label: "Choose a mode", kind: "action" })
         rows.push({ id: "title", label: "Title", kind: "action" })

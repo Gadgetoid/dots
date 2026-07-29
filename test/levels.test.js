@@ -11,10 +11,11 @@ import assert from "node:assert/strict"
 
 import { LEVELS, PUZZLE_COLS, PUZZLE_ROWS } from "../src/modes/levels.js"
 import { PUZZLE } from "../src/modes/puzzle.js"
-import { solve, describe as shapeOf } from "./solver.js"
+import { maxScore, solve, describe as shapeOf } from "./solver.js"
 import { Game, PHASE } from "../src/game.js"
 import { Board } from "../src/board.js"
 import { modeRefills, defaultOutcome } from "../src/modes/index.js"
+import { CONFIG } from "../src/config.js"
 import { ELIMINATION } from "../src/modes/elimination.js"
 import { mulberry32 } from "../src/math.js"
 
@@ -111,6 +112,50 @@ test("every level can be cleared", () => {
     )
     assert.ok(result.moves >= 3, `level ${index + 1} takes more than a couple of chains`)
   }
+})
+
+// The scoring the game actually pays, handed to the search so the two cannot drift.
+const SCORING = {
+  scoreChain: CONFIG.chainScore,
+  multiplierAfter: (multiplier, length) =>
+    length >= CONFIG.MULTIPLIER_CHAIN ? Math.min(multiplier + 1, CONFIG.MULTIPLIER_MAX) : 1,
+}
+
+test("every level's par is the most it can actually score", () => {
+  for (const [index, level] of LEVELS.entries()) {
+    const best = maxScore(level.layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain, SCORING)
+    assert.equal(best.exhausted, false, `level ${index + 1} was searched to the end`)
+    assert.equal(
+      level.par,
+      best.score,
+      `level ${index + 1} "${level.name}" is written down as ${level.par} and can score ` +
+        `${best.score} (searched ${best.positions} positions)`,
+    )
+  }
+})
+
+test("par is a target, not a formality: greed does not reach it", () => {
+  // Taking the longest chain on the board every time is the obvious way to play, and on
+  // at least one level it leaves score on the table - otherwise showing a target would
+  // be telling the player nothing they could not get by not thinking.
+  let missedOne = false
+  for (const level of LEVELS) {
+    const greedy = solve(level.layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain)
+    if (!greedy.solved) {
+      continue
+    }
+    let score = 0
+    let multiplier = 1
+    for (const cells of greedy.sequence) {
+      score += SCORING.scoreChain(cells.length) * multiplier
+      multiplier = SCORING.multiplierAfter(multiplier, cells.length)
+    }
+    assert.ok(score <= level.par, `${level.name}: a real order cannot beat par`)
+    if (score < level.par) {
+      missedOne = true
+    }
+  }
+  assert.ok(missedOne, "at least one level rewards playing it better than greedily")
 })
 
 test("the levels get bigger as they go", () => {

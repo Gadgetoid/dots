@@ -58,15 +58,22 @@ by a pointer and this game is played as often with a pad or a keyboard.
 | Long game   | 8x8   | 3     | A pair is not a move                                   |
 | Endless     | 7x7   | 2     | Deals against itself: matches are hidden, never absent |
 | Elimination | 6x6   | 2     | A colour cleared off the board never comes back        |
-| Clear out   | 6x7   | 2     | No refill, and the board is random. Empty it           |
+| Clear out   | 6x7   | 2     | No refill, and the board is random. Whittle it down    |
 | Puzzle      | 6x7   | 2     | Seven designed boards, cleared one after another       |
 
 The last three all come from the original browser game, which had `puzzle`,
 `elimination` and an endless default. Elimination refills only with colours still in
-play, so the pool shrinks as the game goes on and winning means taking the final
-colour off the board. Puzzle is the authored one: nothing refills, so whether a level
-can be emptied at all depends on the order the chains are taken in, because every pop
-collapses the columns under it.
+play, so the pool shrinks as the game goes on and winning means taking the final colour
+off the board. Puzzle is the authored one: nothing refills, so whether a level can be
+emptied at all depends on the order the chains are taken in, because every pop collapses
+the columns under it.
+
+Clear out is the same premise on a random board, and a random board usually cannot be
+emptied at all - at sizes small enough to search exhaustively, only about one dealt board
+in ten can be, and the rest strand a colour whatever order they are taken in. So it asks
+how far a board can be whittled down and reports what was left on it, and clearing one
+outright is an occasional thing worth a mention. If you want a board that is certainly
+clearable, that is what the designed levels are for.
 
 A mode is a plain object - grid size, minimum chain length, how many colours, whether
 it refills, an optional clock, an optional tuning, optional levels - plus optional
@@ -99,6 +106,15 @@ Since nothing refills, a badly drawn level is one the player can only lose in, s
 test fails if it cannot find one. Every shipped level is therefore provably clearable,
 and the last one is deliberately not clearable by simply taking the longest chain every
 time.
+
+Each level also carries a `par`: the most it can score over every order that clears it.
+That is an exact answer to an exact question, because a pop only ever takes dots off the
+board - the positions reachable from a layout form a graph with no cycles, so each one
+need only be valued once, with the multiplier as part of what is valued. The largest
+level is about forty thousand positions, which is a second of work: too slow for a frame,
+so it is written down beside the layout and the test recomputes it, and a number that has
+drifted from its layout fails rather than quietly misleading a player. The board shows it
+as a target while a level is being played.
 
 ## Sound
 

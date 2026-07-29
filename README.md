@@ -18,6 +18,7 @@ Two of the three still exist to compare against: the 32blit version is in
 | ------------------------------------------------------ | ------------------------------------------------------------- |
 | ![A chain of six dots, glowing](screenshots/board.png) | ![A chain unzipping](screenshots/popping.png)                 |
 | ![The light theme, mid chain](screenshots/light.png)   | ![The board turned down for the night](screenshots/night.png) |
+| ![An authored puzzle level](screenshots/puzzle.png)    | ![The pause menu](screenshots/menu.png)                       |
 
 ## Playing
 
@@ -44,20 +45,71 @@ playing in the dark.
 
 ## Modes
 
-| Mode      | Board | Chain | What is different                                      |
-| --------- | ----- | ----- | ------------------------------------------------------ |
-| CLASSIC   | 6x6   | 2     | The 32blit game. Refills until nothing matches         |
-| RUSH      | 6x6   | 2     | Ninety seconds, as the original browser game gave      |
-| LONG GAME | 8x8   | 3     | A pair is not a move                                   |
-| ENDLESS   | 7x7   | 2     | Deals against itself: matches are hidden, never absent |
-| CLEAR OUT | 6x7   | 2     | No refill. Empty the board                             |
+| Mode        | Board | Chain | What is different                                      |
+| ----------- | ----- | ----- | ------------------------------------------------------ |
+| CLASSIC     | 6x6   | 2     | The 32blit game. Refills until nothing matches         |
+| RUSH        | 6x6   | 2     | Ninety seconds, as the original browser game gave      |
+| LONG GAME   | 8x8   | 3     | A pair is not a move                                   |
+| ENDLESS     | 7x7   | 2     | Deals against itself: matches are hidden, never absent |
+| ELIMINATION | 6x6   | 2     | A colour cleared off the board never comes back        |
+| CLEAR OUT   | 6x7   | 2     | No refill, and the board is random. Empty it           |
+| PUZZLE      | 6x7   | 2     | Seven designed boards, cleared one after another       |
+
+The last three all come from the original browser game, which had `puzzle`,
+`elimination` and an endless default. ELIMINATION refills only with colours still in
+play, so the pool shrinks as the game goes on and winning means taking the final
+colour off the board. PUZZLE is the authored one: nothing refills, so whether a level
+can be emptied at all depends on the order the chains are taken in, because every pop
+collapses the columns under it.
 
 A mode is a plain object - grid size, minimum chain length, how many colours, whether
-it refills, an optional clock - plus optional hooks for choosing what it deals and
-judging what it left. ENDLESS uses both: it picks colours that avoid their
-neighbours, so nothing is handed to you, and if that leaves a dead board it recolours
-the shortest legal run back in, somewhere in the middle where it is hardest to spot.
-Adding a mode is a file in `src/modes/` and a line in `src/modes/index.js`.
+it refills, an optional clock, an optional tuning, optional levels - plus optional
+hooks for choosing what it deals and judging what it left. ENDLESS uses the hooks: it
+picks colours that avoid their neighbours, so nothing is handed to you, and if that
+leaves a dead board it recolours the shortest legal run back in, somewhere in the
+middle where it is hardest to spot. Adding a mode is a file in `src/modes/` and a line
+in `src/modes/index.js`.
+
+### Levels
+
+A level is drawn rather than written, in `src/modes/levels.js`:
+
+```
+"......"
+"......"
+"......"
+"..11.."
+".1221."
+".1221."
+"331133"
+```
+
+A digit is a colour and a dot is an empty cell, numbered as the original game's level
+data numbered them. What is drawn is then allowed to fall, so a shape does not have to
+be bottom-aligned by hand.
+
+Since nothing refills, a badly drawn level is one the player can only lose in, so
+`test/solver.js` searches each layout for a sequence of chains that empties it and the
+test fails if it cannot find one. Every shipped level is therefore provably clearable,
+and the last one is deliberately not clearable by simply taking the longest chain every
+time.
+
+## Sound
+
+Linking and popping walk up a scale, so the scale is most of the character of a mode:
+the same board sounds patient in hirajoshi and impatient in blues. A mode names a root
+and a scale from `src/scales.js`, or asks for `"random"` and gets a different voice
+every session, which is what ENDLESS does.
+
+Slendro and pelog are given in cents rather than semitones because they are not
+equal-tempered scales, and flattening them onto twelve tones is most of what makes a
+sampled gamelan sound wrong. They are still approximations - every gamelan is tuned to
+itself - but of the right thing. PUZZLE plays in slendro.
+
+The engine underneath is Geometry II's, revoiced: sines and triangles through a
+low-pass, a soft-clip on the mix, and a few milliseconds of attack on every envelope,
+because an envelope that starts at full level clicks and a click is the one thing a
+mellow sound cannot have.
 
 ## How it is built
 
@@ -67,7 +119,8 @@ src/main.js         entry point: wires the DOM, creates everything, runs the loo
 src/config.js       every tuneable, the layout maths and the input mapping
 src/palette.js      the two themes
 src/board.js        the grid, the linking rules, collapse and refill
-src/modes/          one file per mode
+src/modes/          one file per mode, plus the puzzle levels
+src/scales.js       the tunings a mode can play in
 src/specials.js     powerup registry (the contract; nothing registered yet)
 src/game.js         phases, scoring, menus, settings, per-player chain state
 src/particles.js    sparks, dust, rings, flashes and score floaters

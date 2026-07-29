@@ -34,6 +34,12 @@ const CHROME_CANDIDATES = [
 const W = 600
 const H = 800
 
+// The card that turns up in a link on Bluesky, Discord or anywhere else reading Open Graph
+// tags. 1200x630 is what they all crop to, and it is landscape where the game is portrait,
+// so this one shot is cropped out of a tall render rather than fitted into a wide one.
+const CARD_W = 1200
+const CARD_H = 630
+
 const MIME = {
   ".html": "text/html",
   ".js": "text/javascript",
@@ -68,6 +74,50 @@ const SHOTS = [
       }
       game.player.score = 4820
       game.player.multiplier = 3
+    }`,
+  },
+  {
+    // The card a link to the game turns into. A held chain mid-draw, glowing, framed on the
+    // board rather than on the page: the one picture that has to read at thumbnail size.
+    file: "social.png",
+    theme: "dark",
+    // Rendered portrait at twice the field, then cropped to the card's shape: see clipAspect.
+    width: 1200,
+    height: 1600,
+    clipAspect: CARD_W / CARD_H,
+    frames: 26,
+    pose: `(game) => {
+      game.start("classic")
+      game.settle(2)
+      // Laid out by hand, unlike every other shot: a random deal puts the chain wherever it
+      // likes, and this picture is cropped to the chain, so the framing would be luck.
+      // Colour 4 draws the path, which is the orange run below.
+      const board = [
+        [0, 1, 2, 0, 1, 2],
+        [2, 0, 1, 2, 0, 1],
+        [1, 2, 4, 4, 4, 0],
+        [0, 1, 2, 0, 4, 1],
+        [2, 0, 1, 2, 4, 0],
+        [1, 2, 0, 1, 2, 3],
+      ]
+      for (const dot of game.board.dots) {
+        dot.colour = board[dot.row][dot.col]
+      }
+      const path = [
+        [2, 2],
+        [3, 2],
+        [4, 2],
+        [4, 3],
+        [4, 4],
+      ]
+      game.player.cursor = { col: path[0][0], row: path[0][1] }
+      game.startChain(0)
+      for (const [col, row] of path.slice(1)) {
+        game.extendTo(0, col, row)
+      }
+      if (game.player.chain.length !== path.length) {
+        throw new Error("the card's chain did not link: " + game.player.chain.length)
+      }
     }`,
   },
   {
@@ -345,7 +395,11 @@ try {
     // before it, and the pictures would depend on the order they were taken in.
     const context = await browser.createBrowserContext()
     const page = await context.newPage()
-    await page.setViewport({ width: W, height: H, deviceScaleFactor: 1 })
+    await page.setViewport({
+      width: shot.width || W,
+      height: shot.height || H,
+      deviceScaleFactor: 1,
+    })
     page.on("console", (message) => {
       if (message.type() === "error") {
         problems++
@@ -361,9 +415,10 @@ try {
     // Pose the scene, then step the loop by hand: the game's own rAF loop is left
     // running, but a fixed number of fixed-length frames is what makes a shot the
     // same picture every time.
-    await page.evaluate(
-      (theme, pose, frames) => {
+    const posed = await page.evaluate(
+      (theme, pose, frames, clipAspect) => {
         const { game, view, renderer } = window.__dots
+        const canvas = renderer.canvas
         game.settings.theme = theme
         // Settling a board by hand, so a shot never catches it mid-drop unless it
         // means to.
@@ -407,17 +462,40 @@ try {
         for (let i = 0; i < frames; i++) {
           game.advance(1 / 60)
         }
+        // Where the card should be cropped from: a band of this render, the shape of the
+        // card, centred on the chain. Cropping beats trying to draw straight into a landscape
+        // frame - the page holds the field's shape and the renderer letterboxes into it, so a
+        // canvas of another shape is two layers of fitting to fight rather than one.
+        let clip = null
+        if (clipAspect) {
+          const scale = canvas.width / 600
+          // The middle of what the chain covers rather than the average of its dots: an L has
+          // most of its dots along the top and the average leaves the foot of it off frame.
+          const held = game.player.chain.map((dot) => game.dotPosition(dot).y)
+          const middle = (held.length ? (Math.min(...held) + Math.max(...held)) / 2 : 400) * scale
+          const height = Math.round(canvas.width / clipAspect)
+          clip = {
+            x: 0,
+            y: Math.round(Math.min(Math.max(middle - height / 2, 0), canvas.height - height)),
+            width: canvas.width,
+            height,
+          }
+        }
         // Stop the clock before drawing, or the game's own loop carries on while the
         // picture is being taken and anything momentary is over by then.
         window.__dots.frozen = true
         view.render(game)
-        return renderer.ready
+        return { ready: renderer.ready, clip }
       },
       shot.theme,
       shot.pose,
       shot.frames,
+      shot.clipAspect || 0,
     )
-    await page.screenshot({ path: path.join(OUT, shot.file) })
+    await page.screenshot({
+      path: path.join(OUT, shot.file),
+      ...(posed.clip ? { clip: posed.clip } : {}),
+    })
     console.log(`wrote screenshots/${shot.file}`)
     await page.close()
     await context.close()

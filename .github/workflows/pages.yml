@@ -1,0 +1,54 @@
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time, and queued rather than cancelled: a half-finished deploy that is
+# replaced by the next push is fine, but a cancelled one is a site nobody asked for.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # The same gate CI applies, applied again here: CI runs beside this rather than before
+      # it, so without this a red commit would publish anyway.
+      - run: npm run check
+      - uses: actions/configure-pages@v6
+        id: pages
+      # The scripts go under a directory named after the commit, so a deploy is fetched fresh
+      # rather than served from a browser cache, and base_url makes the Open Graph tags
+      # absolute for whatever this site is published as.
+      - run: >
+          node tools/build.mjs
+          --out _site
+          --base "${{ steps.pages.outputs.base_url }}"
+          --version "${{ github.sha }}"
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/deploy-pages@v5
+        id: deployment

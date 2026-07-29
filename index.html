@@ -3,8 +3,36 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <!-- Discord tints an embed with this, as well as it being the browser's own chrome. -->
     <meta name="theme-color" content="#0a0c12" />
     <title>Dots</title>
+    <meta
+      name="description"
+      content="Draw a line through dots of one colour to pop them out of existence."
+    />
+
+    <!-- What a link to the game turns into on Bluesky, Discord, Mastodon and anywhere else
+         that reads Open Graph tags. These have to be absolute, so the build rewrites them
+         to wherever the site is actually being published: see tools/build.mjs. Every one of
+         those readers crops to about 1.9:1, which is what screenshots/social.png is. -->
+    <link rel="canonical" href="https://gadgetoid.github.io/dots/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Dots" />
+    <meta property="og:title" content="Dots" />
+    <meta
+      property="og:description"
+      content="Draw a line through dots of one colour to pop them out of existence."
+    />
+    <meta property="og:url" content="https://gadgetoid.github.io/dots/" />
+    <meta property="og:image" content="https://gadgetoid.github.io/dots/screenshots/social.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="A glowing chain drawn through four rows of coloured dots"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
     <!-- Three of the game's own dots, inline so the page asks the server for
          nothing but its scripts. -->
     <link

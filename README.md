@@ -2,6 +2,8 @@
 
 Draw a line through dots of one colour to pop them out of existence.
 
+**[Play it here](https://gadgetoid.github.io/dots/)** - it needs WebGL2 and nothing else.
+
 Dots started life around 2013 as a RaphaelJS toy - SVG circles, a drag handler and
 a 90 second clock. Very heavily inspired by the 2013 iPhone game of the same name, which in turn was basically a minimalist Bejeweled (Grandma would be proud <3). It got embedded into a couple of websites where people played and enjoyed it, but never amounted to more than that.
 
@@ -199,6 +201,17 @@ fails on any console or page error:
 ```
 npm install --no-save puppeteer-core
 node tools/screenshot.mjs
+```
+
+Publishing is a GitHub Actions workflow on every push to main, gated on the same checks.
+It moves the scripts into a directory named after the commit, which is what stops a
+browser serving an old game from its cache: every import in `src` is relative, so moving
+the directory takes the whole module graph with it and one line of `index.html` changes.
+The page itself cannot be versioned, since its URL is the URL people have, and GitHub
+Pages serves HTML with a ten minute cache - that is the longest a player can be behind.
+
+```
+npm run build      # _site/, with relative URLs, for a look
 ```
 
 ## Still to come

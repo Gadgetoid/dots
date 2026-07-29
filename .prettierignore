@@ -1,6 +1,9 @@
 node_modules
 package-lock.json
 
+# written by tools/verify-levels.mjs, in the shape that tool writes it
+data
+
 # where tools/find-levels.mjs writes what it turns up
 found
 big

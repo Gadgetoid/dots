@@ -1,0 +1,15 @@
+// The game as the 32blit version played it: six by six, five colours, pairs count,
+// and it refills until nothing matches.
+
+export const CLASSIC = {
+  id: "classic",
+  name: "CLASSIC",
+  blurb: "SIX BY SIX. PLAY UNTIL NOTHING MATCHES",
+  cols: 6,
+  rows: 6,
+  minChain: 2,
+  colours: 5,
+  refill: true,
+  timeLimit: 0,
+  specialChance: 0,
+}

@@ -27,9 +27,22 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 // these rewritten to its own base.
 const HOME = "https://gadgetoid.github.io/dots"
 
-// What goes up, besides the versioned scripts: the page, the card a link turns into, and the
-// file that tells Pages not to run the whole thing through Jekyll.
-const ASSETS = ["screenshots/social.png", ".nojekyll"]
+// What goes up, besides the versioned scripts: the page, the card a link turns into, the file
+// that tells Pages not to run the whole thing through Jekyll, and what has been proved about each
+// level, which the strategy guide reads its solutions out of.
+//
+// The proved boards are not versioned with the scripts. They are keyed by board and by a
+// fingerprint of what judged them, so a guide from one commit reading the file from another either
+// finds the board it wants or works it out for itself; and the path is one the page holds rather
+// than one a module holds.
+const ASSETS = ["screenshots/social.png", ".nojekyll", "data/verified-boards.json"]
+
+// The pages besides the game, each with the one script reference that has to be moved into the
+// versioned directory. Neither is linked from the game.
+const PAGES = [
+  { file: "editor.html", entry: "src/editor/main.js" },
+  { file: "strategy-guide.html", entry: "src/guide/main.js" },
+]
 
 function arg(name, fallback) {
   const at = process.argv.indexOf(`--${name}`)
@@ -78,18 +91,19 @@ if (!page.includes(entry)) {
 }
 page = page.replace(entry, `src="${scripts}/main.js"`)
 
-// The level editor goes up with it. Not linked from the game, and not part of it, but it is
-// how a level gets made and it needs the same modules the game does - which are already up
-// there under the versioned directory.
-const editor = fs.readFileSync(path.join(ROOT, "editor.html"), "utf8")
-const editorEntry = 'src="src/editor/main.js"'
-if (!editor.includes(editorEntry)) {
-  throw new Error("editor.html no longer loads src/editor/main.js")
+// The editor and the strategy guide go up with it. Neither is part of the game, and both are
+// built out of the same modules it is - which are already up there under the versioned directory.
+for (const { file, entry } of PAGES) {
+  const source = fs.readFileSync(path.join(ROOT, file), "utf8")
+  const reference = `src="${entry}"`
+  if (!source.includes(reference)) {
+    throw new Error(`${file} no longer loads ${entry}`)
+  }
+  fs.writeFileSync(
+    path.join(out, file),
+    source.replace(reference, `src="${scripts}/${entry.replace(/^src\//, "")}"`),
+  )
 }
-fs.writeFileSync(
-  path.join(out, "editor.html"),
-  editor.replace(editorEntry, `src="${scripts}/editor/main.js"`),
-)
 
 // Absolute URLs, for the readers that will not take a relative one: Open Graph, and the
 // canonical link. The card gets the version as well, so a new picture is a new URL rather
@@ -105,5 +119,8 @@ page = page.replace("<title>", `<meta name="version" content="${version}" />\n  
 fs.writeFileSync(path.join(out, "index.html"), page)
 
 const files = fs.readdirSync(path.join(out, scripts)).length
-console.log(`built ${path.relative(ROOT, out)}: ${files} scripts under ${scripts}, plus the editor`)
+console.log(
+  `built ${path.relative(ROOT, out)}: ${files} scripts under ${scripts}, ` +
+    `plus ${PAGES.map(({ file }) => file).join(" and ")}`,
+)
 console.log(`  base ${base || "(relative)"}`)

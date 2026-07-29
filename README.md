@@ -249,6 +249,12 @@ Pages serves HTML with a ten minute cache - that is the longest a player can be 
 npm run build      # _site/, with relative URLs, for a look
 ```
 
+`strategy-guide.html` is a guide to playing well, also outside the game and not linked from it:
+what a chain pays, what the sounds tell you, the traps, a table of every level and an animated
+solution to each one behind a spoiler. Its tables and boards are built from the game's own modules
+and its solutions come from `data/verified-boards.json`, so a level that changes takes the guide
+with it. A board the file does not cover is solved in a worker on the page instead.
+
 `editor.html` is a level editor, outside the game and not linked from it, built out of the
 game's own renderer, palette and analysis so a board drawn in it is drawn by the code that
 will draw it when it is played. It says whether the board can be cleared, what par and floor

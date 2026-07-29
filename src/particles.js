@@ -98,7 +98,8 @@ export class Particles {
 
   // A dot going: the flash, a hard burst of sparks, a little dust behind it, and a
   // ring. `scale` follows the dot radius, so the effect fits a 4x4 board and a 9x9
-  // one, and `radius` is the dot's own so the flash covers where it was.
+  // one, and `radius` is the dot's own, which is what the flash and the ring are sized
+  // against so both can be tuned in the units CONFIG states them in.
   pop(x, y, colour, scale, radius) {
     this.flash(x, y, colour, radius * CONFIG.POP_FLASH_SIZE)
     for (let i = 0; i < CONFIG.POP_SPARKS; i++) {
@@ -109,7 +110,9 @@ export class Particles {
       const speed = randRange(CONFIG.POP_DUST_SPEED[0], CONFIG.POP_DUST_SPEED[1]) * scale
       this.mote(x, y, colour, speed, randRange(3, 7) * scale)
     }
-    this.ring(x, y, colour, CONFIG.POP_RING_RADIUS * 20 * scale, CONFIG.POP_RING_LIFE, 3 * scale)
+    // A tenth of the dot, which is thin enough to read as a shockwave and not as a bubble.
+    const width = radius * 0.1
+    this.ring(x, y, colour, CONFIG.POP_RING_RADIUS * radius, CONFIG.POP_RING_LIFE, width)
   }
 
   // One spark thrown along a live chain, so a chain being built has something

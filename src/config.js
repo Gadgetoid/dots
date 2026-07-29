@@ -121,7 +121,7 @@ export const CONFIG = {
   POP_FLASH_SIZE: 2.2, // against the dot radius
   POP_DUST_SPEED: [10, 70],
   POP_RING_LIFE: 0.42,
-  POP_RING_RADIUS: 2.6, // final radius, against the dot radius
+  POP_RING_RADIUS: 1.75, // final radius, against the dot radius
   // A pop runs dot by dot from the start of the chain, so a long chain unzips.
   POP_STAGGER: 0.045,
 

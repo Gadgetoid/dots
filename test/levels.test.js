@@ -11,7 +11,7 @@ import assert from "node:assert/strict"
 
 import { LEVELS, PUZZLE_COLS, PUZZLE_ROWS } from "../src/modes/levels.js"
 import { PUZZLE } from "../src/modes/puzzle.js"
-import { solve, parse, columnGroups, describe as shapeOf } from "../src/solver.js"
+import { solve, parse, unpack, columnGroups, EMPTY, describe as shapeOf } from "../src/solver.js"
 import { analyse, parRoute } from "../src/analysis.js"
 import { loadCache, provenBoard } from "../tools/verify-levels.mjs"
 import { Game, PHASE } from "../src/game.js"
@@ -253,17 +253,76 @@ test("every level's floor is the least a clearing order scores", () => {
   }
 })
 
-test("the levels are in order of difficulty, and the ladder covers its range", () => {
+// The last stretch is arranged rather than sorted; see the head of src/modes/levels.js.
+const FINALE = 7
+
+test("the ladder climbs as far as the finale, and the finale is above all of it", () => {
   const difficulty = KNOWN.map((known) => known.difficulty)
-  for (let index = 1; index < difficulty.length; index++) {
+  const climb = difficulty.length - FINALE
+  for (let index = 1; index < climb; index++) {
     assert.ok(
       difficulty[index] >= difficulty[index - 1],
       `level ${index + 1} "${LEVELS[index].name}" measures ${difficulty[index].toFixed(1)}, ` +
         `easier than the level before it at ${difficulty[index - 1].toFixed(1)}`,
     )
   }
+  // The finale may swing about, but not back into the ladder: every one of it is harder than
+  // everything before it, so the game only gets harder however the last seven are arranged.
+  const highest = Math.max(...difficulty.slice(0, climb))
+  for (let index = climb; index < difficulty.length; index++) {
+    assert.ok(
+      difficulty[index] > highest,
+      `level ${index + 1} "${LEVELS[index].name}" measures ${difficulty[index].toFixed(1)}, ` +
+        `which is not above the ${highest.toFixed(1)} the ladder reaches`,
+    )
+  }
   assert.ok(KNOWN[0].band === 1, "it opens on the gentlest band")
   assert.ok(KNOWN.at(-1).band === 5, "and ends on the hardest")
+})
+
+test("the finale swings rather than climbing, and ends on the hardest board", () => {
+  // Sorted, the last seven run 11.97 to 13.26 without a pause, which is a wall rather than an
+  // ending. So the hardest are spread through them: what this insists on is that the run is not
+  // monotone - there are dips - and that the last level is the hardest in the game, since an
+  // ending should be the peak and not the trough after one.
+  const finale = KNOWN.slice(-FINALE).map((known) => known.difficulty)
+  const dips = finale.filter((value, at) => at > 0 && value < finale[at - 1]).length
+  assert.ok(
+    dips >= 2,
+    `the last ${FINALE} run ${finale.map((d) => d.toFixed(1)).join(", ")}, which has only ` +
+      `${dips} step down in it: sorted, they are a wall to climb`,
+  )
+  const hardest = Math.max(...KNOWN.map((known) => known.difficulty))
+  assert.equal(
+    KNOWN.at(-1).difficulty,
+    hardest,
+    `the game ends on "${LEVELS.at(-1).name}" and the hardest board is ${hardest.toFixed(1)}`,
+  )
+})
+
+test("no two levels next to each other are the same shape", () => {
+  // A silhouette is the column heights, which is what a board looks like before any of its colours
+  // are read. Two of those in a row read as the same puzzle again - and a sort by difficulty puts
+  // them together, since a shape's dot count largely decides how hard it measures.
+  const shapeOfLevel = (level) => {
+    const grid = unpack(parse(level.layout, PUZZLE_COLS, PUZZLE_ROWS), PUZZLE_COLS, PUZZLE_ROWS)
+    return Array.from(
+      { length: PUZZLE_COLS },
+      (_, col) =>
+        Array.from({ length: PUZZLE_ROWS }, (_, row) => grid[col + row * PUZZLE_COLS]).filter(
+          (cell) => cell !== EMPTY,
+        ).length,
+    ).join(",")
+  }
+  const shapes = LEVELS.map(shapeOfLevel)
+  for (let index = 1; index < shapes.length; index++) {
+    assert.notEqual(
+      shapes[index],
+      shapes[index - 1],
+      `levels ${index} "${LEVELS[index - 1].name}" and ${index + 1} "${LEVELS[index].name}" ` +
+        `are both ${shapes[index]}`,
+    )
+  }
 })
 
 test("the opening levels are warm ups and the rest are not", () => {

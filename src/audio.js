@@ -51,6 +51,20 @@ export const Sound = {
     return this.tuning.rootHz * ratios[Math.min(Math.max(step, 0), ratios.length - 1)]
   },
 
+  // The same, but carrying on into the next octave instead of holding at the top.
+  //
+  // Which is what a step has to do when it is counting something. A chain of six on a five note
+  // scale must not sound like a chain of five, and note() gives them the same pitch. Popping a
+  // chain wants the other behaviour - a long run walking up the scale and settling at the top of
+  // it - so both exist.
+  climbing(step) {
+    const ratios = this.tuning.ratios
+    const at = Math.max(step, 0)
+    return (
+      this.tuning.rootHz * ratios[at % ratios.length] * Math.pow(2, Math.floor(at / ratios.length))
+    )
+  },
+
   // Whether a real user gesture has happened yet. A browser will not open an audio device
   // outside one, and asking before it does leaves a suspended context and a complaint in
   // the console, so nothing here touches the device until the first key or touch. Set by
@@ -248,7 +262,9 @@ export const Sound = {
       this.voice(this.note(0) * 0.5, 0.05, { wave: "sine", volume: 0.01, attack: 0.004 })
       return
     }
-    this.voice(this.note(reach - 1), 0.08, {
+    // Climbing rather than holding: this is a count, and the point of it is that a longer run
+    // sounds like more of one.
+    this.voice(this.climbing(reach - 1), 0.08, {
       wave: "triangle",
       volume: 0.018,
       attack: 0.005,

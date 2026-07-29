@@ -23,13 +23,27 @@
 // finds them takes about a second on the larger levels. test/levels.test.js recomputes both,
 // proves each level can be emptied, and checks the order below.
 //
-// That order is by measured difficulty, which rises from 2.0 to 13.3 across the thirty-two: see
-// src/analysis.js for what it is made of, and tools/find-levels.mjs for how all but the first
-// seven were found. The first three fall to taking the longest chain every time; the next nine
-// have several clearing orders paying very differently; from the thirteenth exactly one order
-// pays par and the obvious play misses it or strands the board. The last three are thirty dots each
-// and take a minute or two to value, which is why what has been proved about a level is written down
-// in data/verified-boards.json rather than worked out again every run: see tools/verify-levels.mjs.
+// The order is by measured difficulty as far as the last seven, rising from 2.0 to 11.8: see
+// src/analysis.js for what that measure is made of, and tools/find-levels.mjs for how all but the
+// first seven levels were found. The first three fall to taking the longest chain every time; the
+// next nine have several clearing orders paying very differently; from the thirteenth exactly one
+// order pays par and the obvious play misses it or strands the board.
+//
+// The last seven are arranged rather than sorted. Sorted, they run 11.97 to 13.26 without a pause,
+// which is a wall to climb rather than an ending to play: so the three hardest are spread through
+// them and the rest fall between, giving a swing between hard and harder that finishes on the
+// hardest board in the game. They are all above everything before them, so the difficulty still
+// only goes one way overall.
+//
+// No two levels next to each other have the same silhouette, at the end or anywhere else. There are
+// three boards of thirty dots and two each of a couple of other shapes, and consecutively they read
+// as the same puzzle again.
+//
+// Both of those are checked in test/levels.test.js, since neither survives being left to a sort.
+//
+// The three thirty-dot boards take a minute or two each to value, which is why what has been proved
+// about a level is written down in data/verified-boards.json rather than worked out again on every
+// run: see tools/verify-levels.mjs.
 //
 // Boards found and not shipped are at the foot of this file, commented out.
 
@@ -459,6 +473,20 @@ export const LEVELS = [
     ],
   },
   {
+    name: "The wicket",
+    par: 783,
+    floor: 156,
+    layout: [
+      "......",
+      "......",
+      "3.21.1",
+      "3.11.1",
+      "3.41.1",
+      "334455",
+      "322555",
+    ],
+  },
+  {
     name: "The quarry",
     par: 2681,
     floor: 150,
@@ -473,6 +501,20 @@ export const LEVELS = [
     ],
   },
   {
+    name: "The ravine",
+    par: 5370,
+    floor: 161,
+    layout: [
+      "......",
+      "1....2",
+      "11..22",
+      "111.22",
+      "444222",
+      "515233",
+      "555233",
+    ],
+  },
+  {
     name: "The anvil",
     par: 6058,
     floor: 150,
@@ -484,6 +526,34 @@ export const LEVELS = [
       "444411",
       "422551",
       "335511",
+    ],
+  },
+  {
+    name: "Sally port",
+    par: 2555,
+    floor: 126,
+    layout: [
+      "......",
+      "......",
+      "1.11.3",
+      "1.13.3",
+      "1.33.3",
+      "122333",
+      "222223",
+    ],
+  },
+  {
+    name: "The chasm",
+    par: 6340,
+    floor: 131,
+    layout: [
+      "......",
+      "3....2",
+      "33..22",
+      "133.22",
+      "111112",
+      "441122",
+      "344122",
     ],
   },
   {

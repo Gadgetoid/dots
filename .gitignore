@@ -3,3 +3,4 @@ node_modules
 _site
 # where tools/find-levels.mjs writes what it turns up
 found
+all

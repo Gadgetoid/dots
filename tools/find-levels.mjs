@@ -22,8 +22,8 @@
 // | --seconds N | how long one board may be judged for (default 45)                     |
 // | --tries N   | stop after this many starting points (default 0, meaning never)       |
 // | --workers N | how many at once (default half the cores)                             |
-// | --shape S   | only this silhouette                                                  |
-// | --from N    | start at this number, to carry on where a run left off                |
+// | --shape S   | only this silhouette, or "all" for a broad run over all of them       |
+// | --from N    | start every shape here, overriding what state.json remembers          |
 // | --show N    | print starting point N and stop, to see or reproduce one              |
 // | --maxdots N | skip silhouettes with more dots than this (default 26)                |
 // | --duty N    | work only N percent of the time, to run cooler (default 100)          |
@@ -63,6 +63,14 @@
 //     into boards that cannot be judged at all.
 //   - a board that could not be judged inside the leash scores nothing, rather than scoring
 //     whatever the unfinished walk came to. Same reason.
+//
+// Work is handed out by the parent, a climb at a time, because only the parent knows what each
+// silhouette has yielded: it gives the next climb to whichever shape has produced least, then to
+// whichever has been tried least. Left to themselves the workers spend the night on the smallest
+// silhouette there is - a board costs about 1.5x more to judge per extra dot, so the cheapest shape
+// gets through a hundred climbs for another's one. Where each shape has got to is written to
+// state.json beside the finds, so running it again with the same --out carries on rather than
+// re-walking ground already covered.
 //
 // Still deterministic: a starting point and the whole climb from it are a pure function of the
 // number, so no two workers do the same work, `--from` carries on where the last run stopped, and
@@ -125,6 +133,16 @@ const SHAPES = {
   cliff: ["......", "###...", "###...", "####..", "#####.", "######", "######"],
   well: ["......", "##..##", "##..##", "##..##", "##..##", "######", "######"],
   mesa: ["......", "......", "######", "######", "######", "######", "######"],
+  // Reaching the top of the field, which nothing above does. A full column is seven dots of a
+  // colour or two stacked in one place, so a chain can run the height of the board and a pop near
+  // the floor drops a great deal onto whatever is left - a different thing to go wrong than
+  // anything a board with headroom can do.
+  chimney: ["..##..", "..##..", "..##..", "..##..", "..##..", "######", "######"],
+  mast: ["#.....", "#.....", "#.....", "#.....", "######", "######", "######"],
+  steeple: ["..##..", "..##..", "..##..", ".####.", ".####.", "######", "######"],
+  pylon: ["#....#", "#....#", "#....#", "#.##.#", "#.##.#", "######", "######"],
+  palisade: ["#.#.#.", "#.#.#.", "#.#.#.", "#.#.#.", "######", "######", "######"],
+  cathedral: [".#..#.", ".#..#.", ".####.", "######", "######", "######", "######"],
 }
 
 function arg(name, fallback) {
@@ -391,7 +409,7 @@ function wanted(found, min) {
 }
 
 // ---- one worker's share ----------------------------------------------------
-function hunt({ first, stride, min, seconds, tries, shape, maxDots, steps, out, duty, until }) {
+function hunt({ min, seconds, maxDots, steps, out, duty, until }) {
   // Whether to stop, checked between boards: a climb is up to `steps` boards and a board can take
   // `seconds`, so a check per climb could be minutes away from noticing. The file is only looked at
   // once a second, since asking the filesystem between boards that take a tenth of one is silly.
@@ -417,7 +435,6 @@ function hunt({ first, stride, min, seconds, tries, shape, maxDots, steps, out, 
   let judged = 0
   let tooBig = 0
   let told = Date.now()
-  let number = first
 
   // Judge one board and report it if it is worth keeping. What comes back is what the climb steers
   // by: the difficulty, or nothing at all for a board the cheap tests threw out or the walk could
@@ -470,18 +487,19 @@ function hunt({ first, stride, min, seconds, tries, shape, maxDots, steps, out, 
     return found.difficulty
   }
 
-  for (let done = 0; tries === 0 || done < tries; done++, number += stride) {
+  // One climb, from the starting point the parent handed out. Returns whether it wants another.
+  const climb = ({ shape, number }) => {
     // When this climb began, so the rest between climbs can be as long as the climb was.
     const climbStarted = Date.now()
     const made = candidate(number, shape)
     if (!made) {
-      continue
+      return true
     }
     // Too big to finish judging is as useless as unclearable, and costs the whole leash to find
     // out. Around thirty dots takes minutes to value exactly, so a mixed run skips them by
     // default; raise maxdots along with seconds to go looking there on purpose.
     if (made.layout.join("").replace(/\./g, "").length > maxDots) {
-      continue
+      return true
     }
     started++
 
@@ -492,7 +510,7 @@ function hunt({ first, stride, min, seconds, tries, shape, maxDots, steps, out, 
     let layout = made.layout
     let score = judge(layout, made.shape, number, 0)
     if (score == null) {
-      continue
+      return true
     }
     for (let stale = 0, taken = 0; stale < steps && !stopping();) {
       const next = step(layout, random)
@@ -514,18 +532,29 @@ function hunt({ first, stride, min, seconds, tries, shape, maxDots, steps, out, 
     }
 
     if (Date.now() - told > 10000) {
-      parentPort.postMessage({ kind: "progress", started, judged, tooBig, reached: number })
+      parentPort.postMessage({ kind: "progress", started, judged, tooBig })
       started = 0
       judged = 0
       tooBig = 0
       told = Date.now()
     }
     if (stopping()) {
-      break
+      return false
     }
     rest(Date.now() - climbStarted, duty)
+    return true
   }
-  parentPort.postMessage({ kind: "done", started, judged, tooBig, reached: number })
+
+  // Ask, climb, ask again. The parent decides what to hand out, so it can steer towards the shapes
+  // that have yielded least - which it is the only one in a position to know.
+  parentPort.on("message", (job) => {
+    if (job.kind === "stop" || !climb(job)) {
+      parentPort.postMessage({ kind: "done", started, judged, tooBig })
+      process.exit(0)
+    }
+    parentPort.postMessage({ kind: "want" })
+  })
+  parentPort.postMessage({ kind: "want" })
 }
 
 // Rest as long as the last board took to judge, scaled by the duty cycle, so a long run can be told
@@ -564,10 +593,16 @@ function main() {
     console.error("--out DIR is where finds are written. See the header for the rest.")
     process.exit(1)
   }
+  // "all" is the default said out loud, which is what a broad overnight run wants to be able to say.
+  if (OPTIONS.shape === "all") {
+    OPTIONS.shape = null
+  }
   if (OPTIONS.shape && !SHAPES[OPTIONS.shape]) {
-    console.error(`--shape must be one of: ${Object.keys(SHAPES).join(", ")}`)
+    console.error(`--shape must be "all" or one of: ${Object.keys(SHAPES).join(", ")}`)
     process.exit(1)
   }
+  // Which silhouettes this run is over: one, or all of them.
+  const shapeNames = OPTIONS.shape ? [OPTIONS.shape] : Object.keys(SHAPES)
   const out = path.resolve(OPTIONS.out)
   fs.mkdirSync(out, { recursive: true })
   // Left over from a previous run, this would stop the new one before it started.
@@ -580,7 +615,7 @@ function main() {
   let alike = 0
   // Finds that were kept and then let go: bettered by their own climb, or over their shape's share.
   let dropped = 0
-  let reached = OPTIONS.from
+  let handed = 0
   const started = Date.now()
 
   const write = () => {
@@ -595,7 +630,7 @@ function main() {
     )
     fs.writeFileSync(
       path.join(out, "summary.txt"),
-      `Carry on with --from ${reached}${OPTIONS.shape ? ` --shape ${OPTIONS.shape}` : ""}.\n` +
+      `Run it again with the same --out to carry on: state.json holds where each shape got to.\n` +
         `${found.length} kept, hardest first, measuring ${OPTIONS.min} or more.\n` +
         `${starts} started from, ${judged} judged, ${tooBig} too big to judge, ` +
         `${alike} dropped as too like a find already kept, ${dropped} let go again, ` +
@@ -606,11 +641,10 @@ function main() {
 
   // Written the moment it is found: a run of hours should not be lost to a closed terminal, and
   // looking at the directory while it runs should always work.
-  const drop = (which, why) => {
+  const drop = (which) => {
     found.splice(found.indexOf(which), 1)
     fs.rmSync(path.join(out, fileFor(which)), { force: true })
     dropped++
-    return why
   }
 
   const keep = (found_) => {
@@ -626,9 +660,9 @@ function main() {
     if (earlier) {
       if (earlier.difficulty >= found_.difficulty) {
         alike++
-        return
+        return false
       }
-      drop(earlier, "bettered by its own climb")
+      drop(earlier)
     }
     // And nothing that is another find with a few dots moved, whatever climb it came from.
     const like = found.some(
@@ -636,7 +670,7 @@ function main() {
     )
     if (like) {
       alike++
-      return
+      return false
     }
     found.push(found_)
     // No silhouette may take over: the weakest of a shape goes once it has more than its share, so
@@ -647,9 +681,10 @@ function main() {
     if (sameShape.length > OPTIONS.perShape) {
       const weakest = sameShape[sameShape.length - 1]
       if (weakest === found_) {
-        return drop(found_, "over its shape's share")
+        drop(found_)
+        return false
       }
-      drop(weakest, "over its shape's share")
+      drop(weakest)
     }
     // Two spaces and a closing newline, so a directory of finds inside the repo does not fail
     // the format check.
@@ -661,6 +696,43 @@ function main() {
         `greedy ${found_.greedy} dots ${found_.dots} ` +
         `(from ${found_.number} in ${found_.steps} steps, ${found.length} so far)`,
     )
+    return true
+  }
+
+  // Where each shape has got to, and what it has yielded. Written down beside the finds, so a run
+  // stopped overnight carries on from where each shape was rather than from one number for all of
+  // them - which was the old shape of this, and meant resuming re-walked whatever the last run had
+  // already tried on every other silhouette.
+  const statePath = path.join(out, "state.json")
+  const plan = {}
+  const saved = (() => {
+    try {
+      return JSON.parse(fs.readFileSync(statePath, "utf8")).shapes ?? {}
+    } catch {
+      return {}
+    }
+  })()
+  for (const name of shapeNames) {
+    const from = OPTIONS.from > 0 ? OPTIONS.from : (saved[name]?.next ?? 0)
+    plan[name] = { next: from, climbs: saved[name]?.climbs ?? 0, finds: saved[name]?.finds ?? 0 }
+  }
+  const saveState = () => {
+    fs.writeFileSync(statePath, `${JSON.stringify({ shapes: plan }, null, 1)}\n`)
+  }
+
+  // Which shape to hand out next: the one that has yielded least, then the one tried least, with a
+  // nudge of randomness so several workers asking at once do not all pile onto the same one. A
+  // broad run therefore spreads itself over the silhouettes instead of following whichever is
+  // cheapest to judge - a board costs about 1.5x more per extra dot, so left to itself the search
+  // spends the night on the smallest shape there is.
+  const nextJob = () => {
+    const name = [...shapeNames].sort(
+      (a, b) =>
+        plan[a].finds - plan[b].finds || plan[a].climbs - plan[b].climbs || Math.random() - 0.5,
+    )[0]
+    const number = plan[name].next++
+    plan[name].climbs++
+    return { shape: name, number }
   }
 
   const here = fileURLToPath(import.meta.url)
@@ -668,13 +740,8 @@ function main() {
   for (let index = 0; index < OPTIONS.workers; index++) {
     const worker = new Worker(here, {
       workerData: {
-        // Interleaved by worker, so no two ever climb from the same starting point.
-        first: OPTIONS.from + index,
-        stride: OPTIONS.workers,
         min: OPTIONS.min,
         seconds: OPTIONS.seconds,
-        tries: OPTIONS.tries === 0 ? 0 : Math.ceil(OPTIONS.tries / OPTIONS.workers),
-        shape: OPTIONS.shape,
         maxDots: OPTIONS.maxDots,
         steps: OPTIONS.steps,
         out,
@@ -684,22 +751,37 @@ function main() {
     })
     running++
     worker.on("message", (message) => {
+      if (message.kind === "want") {
+        // Out of starting points is the only reason to stop handing them out.
+        if (OPTIONS.tries > 0 && handed >= OPTIONS.tries) {
+          worker.postMessage({ kind: "stop" })
+          return
+        }
+        handed++
+        worker.postMessage(nextJob())
+        return
+      }
       if (message.kind === "found") {
-        reached = Math.max(reached, message.candidate.number)
         keep(message.candidate)
+        // Counted from what is actually being kept rather than tallied as it goes. A tally has to
+        // be right at both ends - a find kept and then let go, or one dropped the moment it
+        // arrives because it was the weakest of its shape - and it was not.
+        const shape = message.candidate.shape
+        plan[shape].finds = found.filter((other) => other.shape === shape).length
+        saveState()
         return
       }
       starts += message.started
       judged += message.judged
       tooBig += message.tooBig
-      reached = Math.max(reached, message.reached)
       if (message.kind === "progress") {
         const minutes = (Date.now() - started) / 60000
         console.log(
           `${starts} started from, ${judged} judged, ${tooBig} too big, ${found.length} kept ` +
-            `(${(judged / minutes).toFixed(0)} judged/min, ${minutes.toFixed(1)} min in, at ${reached})`,
+            `(${(judged / minutes).toFixed(0)} judged/min, ${minutes.toFixed(1)} min in)`,
         )
         write()
+        saveState()
       }
     })
     worker.on("error", (error) => console.error("worker:", error.message))
@@ -707,7 +789,14 @@ function main() {
       running--
       if (running === 0) {
         write()
-        console.log(`\n${found.length} kept in ${out}. Carry on with --from ${reached}.`)
+        saveState()
+        const spread = shapeNames
+          .filter((name) => plan[name].climbs > 0)
+          .sort((a, b) => plan[b].finds - plan[a].finds)
+          .map((name) => `${name} ${plan[name].finds}/${plan[name].climbs}`)
+          .join(", ")
+        console.log(`\n${found.length} kept in ${out}. Finds per climb: ${spread}.`)
+        console.log("Run it again with the same --out to carry on where each shape got to.")
       }
     })
   }
@@ -724,8 +813,7 @@ function main() {
     stopping = true
     fs.writeFileSync(path.join(out, "stop"), `asked to stop at ${new Date().toISOString()}\n`)
     console.log(
-      `\nfinishing the boards in hand, then stopping. Carry on with --from ${reached}. ` +
-        `Ctrl-C again to stop without waiting.`,
+      "\nfinishing the boards in hand, then stopping. Ctrl-C again to stop without waiting.",
     )
   })
 

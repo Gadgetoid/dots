@@ -344,10 +344,14 @@ export class Board {
     return pairs
   }
 
-  // How long a chain could be if it started at this dot: the deepest run of its own
-  // colour leading away from it. Capped, because the only thing asking is the sound the
-  // cursor makes, and that has to tell one from two from three from "several" and no more.
-  reachFrom(dot, cap = 6) {
+  // How long a chain could be if it started at this dot: the deepest run of its own colour
+  // leading away from it.
+  //
+  // Capped, because the longest path through a region is exponential to find and the only thing
+  // asking is the sound the cursor makes. Ten rather than six: six is inside what a board of this
+  // size holds, so every long run reported the same number and sounded the same. It runs once when
+  // the cursor lands, not per frame.
+  reachFrom(dot, cap = 10) {
     if (!dot) {
       return 0
     }

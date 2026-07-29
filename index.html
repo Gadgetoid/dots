@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0a0c12" />
-    <title>DOTS</title>
+    <title>Dots</title>
     <!-- Three of the game's own dots, inline so the page asks the server for
          nothing but its scripts. -->
     <link
@@ -12,9 +12,6 @@
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='9' cy='9' r='6' fill='%23b455e6'/%3E%3Ccircle cx='23' cy='9' r='6' fill='%233cc4ff'/%3E%3Ccircle cx='16' cy='23' r='6' fill='%23ffa640'/%3E%3C/svg%3E"
     />
     <style>
-      :root {
-        --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
-      }
       * {
         box-sizing: border-box;
       }
@@ -22,15 +19,17 @@
       body {
         height: 100%;
       }
+      /* The page is the game and nothing else: no buttons, no help line, no chrome.
+         Everything the player can work is drawn inside the field, where it can be
+         reached by a finger, a pad or a key alike - a control that only exists in the
+         page can only be reached by a pointer. The theme sets these colours from
+         script; these are the dark theme's, so nothing flashes before the first frame. */
       body {
         margin: 0;
-        /* The theme sets these from script; these are the dark theme's, so the page
-           does not flash before the first frame. */
         background: #0a0c12;
         color: #8b93ab;
-        font-family: var(--mono);
+        font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
         display: grid;
-        grid-template-rows: 1fr auto;
         place-items: center;
         overflow: hidden;
         overscroll-behavior: none;
@@ -39,18 +38,10 @@
          within it, so an odd window is still correct. */
       .stage {
         position: relative;
-        width: min(96vw, calc((100vh - 70px) * 0.75));
+        width: min(100vw, calc(100vh * 0.75));
         aspect-ratio: 600 / 800;
-        margin: 10px auto 0;
         display: grid;
         place-items: center;
-      }
-      .screen {
-        position: relative;
-        width: 100%;
-        height: 100%;
-        border-radius: 20px;
-        overflow: hidden;
       }
       canvas {
         display: block;
@@ -70,91 +61,12 @@
         font-size: 20px;
         line-height: 2.2;
       }
-      .hud-btns {
-        position: absolute;
-        top: 10px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 6;
-        display: flex;
-        gap: 6px;
-      }
-      .hud-btns button {
-        font-family: var(--mono);
-        font-size: 11px;
-        letter-spacing: 0.06em;
-        color: inherit;
-        background: color-mix(in srgb, currentColor 10%, transparent);
-        border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
-        border-radius: 6px;
-        padding: 5px 9px;
-        cursor: pointer;
-        min-width: 54px;
-      }
-      .hud-btns button:hover {
-        background: color-mix(in srgb, currentColor 20%, transparent);
-      }
-      .help {
-        font-size: 11px;
-        letter-spacing: 0.04em;
-        padding: 8px 10px 12px;
-        text-align: center;
-        line-height: 1.7;
-        max-width: 96vw;
-      }
-      .help b {
-        font-weight: 700;
-      }
-      .help .sep {
-        opacity: 0.4;
-        margin: 0 6px;
-      }
-      /* ?fullscreen: for a handheld or a kiosk. The frame and the help line go, and
-         the canvas takes the whole viewport. */
-      body.fullscreen {
-        grid-template-rows: 1fr;
-      }
-      body.fullscreen .stage {
-        width: 100vw;
-        height: 100vh;
-        margin: 0;
-        aspect-ratio: auto;
-      }
-      body.fullscreen .screen {
-        border-radius: 0;
-      }
-      body.fullscreen .help {
-        display: none;
-      }
-      button:focus-visible {
-        outline: 2px solid currentColor;
-        outline-offset: 2px;
-      }
     </style>
   </head>
   <body>
-    <div class="stage">
-      <div class="screen" id="screen">
-        <canvas id="game"></canvas>
-      </div>
-      <div class="hud-btns">
-        <button id="btnTheme" aria-pressed="true" title="Light or dark theme">DARK</button>
-        <button id="btnBright" aria-pressed="true" title="Brightness">FULL</button>
-        <button id="btnSound" aria-pressed="false" title="Sound">SND</button>
-      </div>
+    <div class="stage" id="screen">
+      <canvas id="game"></canvas>
     </div>
-    <p class="help" id="helpKeys">
-      <b>ARROWS</b> / <b>WASD</b> move <span class="sep">/</span> <b>SPACE</b> link, press again to
-      pop <span class="sep">/</span> <b>X</b> drop chain <span class="sep">/</span> <b>ESC</b> menu
-    </p>
-    <p class="help" id="helpPad" hidden>
-      <b>D-PAD</b> / <b>STICK</b> move <span class="sep">/</span> <b>A</b> link, press again to pop
-      <span class="sep">/</span> <b>B</b> drop chain <span class="sep">/</span> <b>SELECT</b> menu
-    </p>
-    <p class="help" id="helpTouch" hidden>
-      <b>DRAG</b> across dots of one colour to link them <span class="sep">/</span> let go to pop
-    </p>
-
     <script type="module" src="src/main.js"></script>
   </body>
 </html>

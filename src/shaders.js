@@ -69,10 +69,76 @@ export const DISC_FS = `#version 300 es
   }`
 
 // ---------------------------------------------------------------------------
-// Ribbons: the chain line, and the streak behind a spark. A triangle strip laid
-// along a polyline, one quad per segment, carrying the transverse coordinate so
-// the edges can be antialiased and the colour per vertex so a streak can fade
-// along its length.
+// The chain, as one body.
+//
+// Circles at the dots joined by rectangles between them: along a straight run the
+// outline is dead straight, perpendicular to the run, and exactly the dots' own
+// diameter - which is a plain union of a disc and a rod of the same radius, and
+// nothing more. A smooth minimum would be wrong here: two shapes that overlap along
+// their whole length are always within the smoothing distance of each other, so it
+// would inflate the entire run and the chain would read as a string of blobs.
+//
+// The one place the union is not enough is the inside of a turn, where two rods meet
+// at a right angle and cross in a notch. That corner, and only that corner, gets a
+// small fillet, so the smoothing distance arrives per link and is zero unless the
+// link actually turns - which the CPU knows and the shader does not have to work out.
+//
+// One quad per link, each also evaluating the rods either side of it so a corner is
+// filleted by the link that turns into it as well as the one that turns out.
+// Neighbouring quads overlap and each draws a subset of the same field, so the overlap
+// costs a slightly firmer edge and nothing else.
+// ---------------------------------------------------------------------------
+export const CHAIN_VS = `#version 300 es
+  precision highp float;
+  layout(location=0) in vec2 aPos;
+  layout(location=1) in vec4 aLink;       // this link: dot a, then dot b
+  layout(location=2) in vec4 aNeighbour;  // the dot before a, and the dot after b
+  layout(location=3) in vec4 aShape;      // dot radius, cord radius, fillet in, fillet out
+  layout(location=4) in vec4 aColor;
+  out vec2 vWorld; out vec4 vLink; out vec4 vNeighbour; out vec4 vShape; out vec4 vColor;
+  ${PROJECT}
+  void main() {
+    vWorld = aPos; vLink = aLink; vNeighbour = aNeighbour; vShape = aShape; vColor = aColor;
+    gl_Position = project(aPos);
+  }`
+export const CHAIN_FS = `#version 300 es
+  precision highp float;
+  in vec2 vWorld; in vec4 vLink; in vec4 vNeighbour; in vec4 vShape; in vec4 vColor;
+  out vec4 frag;
+  float sdDisc(vec2 p, vec2 centre, float r) { return length(p - centre) - r; }
+  float sdRod(vec2 p, vec2 a, vec2 b, float r) {
+    vec2 pa = p - a, ba = b - a;
+    float along = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-6), 0.0, 1.0);
+    return length(pa - ba * along) - r;
+  }
+  // Quadratic smooth minimum: a fillet of size k where the two shapes come within k of
+  // each other, and exactly min() outside that. Used only between two rods that turn
+  // through each other, which is the only join in this shape that has a notch in it.
+  float fillet(float a, float b, float k) {
+    if (k <= 0.0) { return min(a, b); }
+    float h = max(k - abs(a - b), 0.0) / k;
+    return min(a, b) - h * h * k * 0.25;
+  }
+  void main() {
+    vec2 a = vLink.xy, b = vLink.zw;
+    float dotRadius = vShape.x, cordRadius = vShape.y;
+    float rod = sdRod(vWorld, a, b, cordRadius);
+    // The body: two circles and the rectangle between them, joined exactly.
+    float d = min(min(sdDisc(vWorld, a, dotRadius), sdDisc(vWorld, b, dotRadius)), rod);
+    // And the corners, where this link turns out of the one before or into the one
+    // after. Both are a plain union unless the CPU said this link turns.
+    d = min(d, fillet(sdRod(vWorld, vNeighbour.xy, a, cordRadius), rod, vShape.z));
+    d = min(d, fillet(rod, sdRod(vWorld, b, vNeighbour.zw, cordRadius), vShape.w));
+    float aa = max(fwidth(d), 1e-5);
+    float cov = clamp(0.5 - d / aa, 0.0, 1.0);
+    float alpha = cov * vColor.a;
+    frag = vec4(vColor.rgb * alpha, alpha);
+  }`
+
+// ---------------------------------------------------------------------------
+// Ribbons: the streak behind a spark. A triangle strip laid along a polyline, one
+// quad per segment, carrying the transverse coordinate so the edges can be
+// antialiased and the colour per vertex so a streak can fade along its length.
 // ---------------------------------------------------------------------------
 export const RIBBON_VS = `#version 300 es
   precision highp float;

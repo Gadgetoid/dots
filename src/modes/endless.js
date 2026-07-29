@@ -30,8 +30,8 @@ function neighbourColours(board, col, row) {
 
 export const ENDLESS = {
   id: "endless",
-  name: "ENDLESS",
-  blurb: "MATCHES ARE HIDDEN, NEVER ABSENT",
+  name: "Endless",
+  blurb: "Matches are hidden, never absent",
   cols: 7,
   rows: 7,
   minChain: 2,

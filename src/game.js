@@ -127,6 +127,9 @@ export class Game {
     this.banner = null
 
     this.dealAttractBoard()
+    // The title screen opens with the cursor on a mode rather than on the section
+    // heading above them, which is a label and does nothing when pressed.
+    this.menuIndex = this.#currentModeRow()
     this.#restoreState()
   }
 
@@ -165,6 +168,7 @@ export class Game {
       // dealt for the title: deal the remembered mode's instead.
       if (this.phase === PHASE.TITLE) {
         this.dealAttractBoard()
+        this.menuIndex = this.#currentModeRow()
       }
     }
     if (bindings) {
@@ -263,9 +267,9 @@ export class Game {
   toTitle() {
     this.phase = PHASE.TITLE
     this.page = "title"
-    this.menuIndex = 0
     this.rebinding = null
     this.dealAttractBoard()
+    this.menuIndex = this.#currentModeRow()
   }
 
   // Move on to the next authored level, keeping the score. What a mode with levels
@@ -283,7 +287,7 @@ export class Game {
     }
     this.settleFor = 0
     this.overFor = 0
-    this.banner = { text: "LEVEL CLEARED", sub: this.currentLevel.name, age: 0, life: 2.4 }
+    this.banner = { text: "Level cleared", sub: this.currentLevel.name, age: 0, life: 2.4 }
     Sound.clear()
   }
 
@@ -515,12 +519,15 @@ export class Game {
   #claim(player, dot) {
     dot.claim = player.index
     dot.linked = true
+    // The link into this dot starts at nothing and reaches out to it.
+    dot.grow = 0
     player.chain.push(dot)
   }
 
   #release(dot) {
     dot.claim = null
     dot.linked = false
+    dot.grow = 0
   }
 
   // Start a chain at the cursor, if there is anything there to start one with.
@@ -773,29 +780,32 @@ export class Game {
   }
 
   // ---- menus --------------------------------------------------------------
-  // A page is a list of rows the view draws and the input layer walks. A row is
-  // data: what it is called, what it currently says, and what kind of thing it is.
-  // What each one does lives in #activate and #adjust, keyed by its id.
+  // A page is a list of rows the view draws and the input layer walks. A row is data:
+  // what it is called, what kind of thing it is, and for a row of options what those
+  // options are and which is chosen. What each one does lives in #activate,
+  // #chooseOption and #adjust, keyed by its id.
+  //
+  // The kinds:
+  //   heading   a section title. Not selectable; the cursor steps over it.
+  //   action    a press does something
+  //   options   a row of options, any of which can be pressed directly. This is what
+  //             a setting is, rather than a value that cycles: a tap has to be able to
+  //             reach a particular option, and left/right walks the same row.
+  //   binding   waiting-for-a-key row on the controls page
   menuRows() {
     switch (this.page) {
       case "title":
         return [
-          { id: "start", label: "START", kind: "action" },
-          {
-            id: "mode",
-            label: "MODE",
-            value: this.mode.name,
-            kind: "choice",
-            hint: this.mode.blurb,
-          },
+          { id: "head:mode", label: "Choose a mode", kind: "heading" },
+          ...this.#modeRows(),
           ...this.#settingRows(),
         ]
       case "pause":
         return [
-          { id: "resume", label: "RESUME", kind: "action" },
-          { id: "restart", label: "RESTART", kind: "action" },
+          { id: "resume", label: "Resume", kind: "action" },
+          { id: "restart", label: "Restart", kind: "action" },
           ...this.#settingRows(),
-          { id: "title", label: "QUIT TO TITLE", kind: "action" },
+          { id: "title", label: "Quit to title", kind: "action" },
         ]
       case "over": {
         const rows = []
@@ -804,24 +814,17 @@ export class Game {
         if (this.currentLevel && this.outcome !== "won") {
           rows.push({
             id: "retry",
-            label: "RETRY LEVEL",
+            label: "Retry level",
             kind: "action",
-            hint: `LEVEL ${this.level + 1}: ${this.currentLevel.name}`,
+            hint: `Level ${this.level + 1}: ${this.currentLevel.name}`,
           })
         }
         rows.push({
           id: "again",
-          label: this.currentLevel ? "START OVER" : "PLAY AGAIN",
+          label: this.currentLevel ? "Start over" : "Play again",
           kind: "action",
         })
-        rows.push({
-          id: "mode",
-          label: "MODE",
-          value: this.mode.name,
-          kind: "choice",
-          hint: this.mode.blurb,
-        })
-        rows.push({ id: "title", label: "TITLE", kind: "action" })
+        rows.push({ id: "title", label: "Choose a mode", kind: "action" })
         return rows
       }
       case "controls":
@@ -831,12 +834,49 @@ export class Game {
     }
   }
 
+  // Every mode, as a row that starts it. The title screen is the mode picker: it is
+  // the only choice that has to be made before playing, so it is the page rather than
+  // a value on it, and a tap goes straight from choosing to playing.
+  #modeRows() {
+    return GAME_MODES.map((mode) => ({
+      id: `mode:${mode.id}`,
+      label: mode.name,
+      kind: "action",
+      hint: mode.blurb,
+      // Marks the one that would be played by default, so a returning player can see
+      // where they left off.
+      current: mode.id === this.settings.mode,
+    }))
+  }
+
   #settingRows() {
     return [
-      { id: "theme", label: "THEME", value: this.theme.name, kind: "choice" },
-      { id: "brightness", label: "BRIGHTNESS", value: this.brightness.name, kind: "choice" },
-      { id: "sound", label: "SOUND", value: this.settings.sound ? "ON" : "OFF", kind: "choice" },
-      { id: "controls", label: "CONTROLS", kind: "action" },
+      { id: "head:look", label: "Look", kind: "heading" },
+      {
+        id: "theme",
+        kind: "options",
+        selected: Math.max(THEME_IDS.indexOf(this.settings.theme), 0),
+        // The preview is the option: a little board in that theme says more than its
+        // name does, and it is what makes the row worth pressing rather than reading.
+        options: THEME_IDS.map((id) => ({ id, label: THEMES[id].name, preview: id })),
+      },
+      {
+        id: "brightness",
+        kind: "options",
+        selected: clamp(this.settings.brightness, 0, CONFIG.BRIGHTNESS_LEVELS.length - 1),
+        options: CONFIG.BRIGHTNESS_LEVELS.map((level) => ({ id: level.name, label: level.name })),
+      },
+      { id: "head:sound", label: "Sound", kind: "heading" },
+      {
+        id: "sound",
+        kind: "options",
+        selected: this.settings.sound ? 0 : 1,
+        options: [
+          { id: "on", label: "On" },
+          { id: "off", label: "Off" },
+        ],
+      },
+      { id: "controls", label: "Controls", kind: "action" },
     ]
   }
 
@@ -862,8 +902,8 @@ export class Game {
         })
       }
     }
-    rows.push({ id: "resetBindings", label: "RESET TO DEFAULTS", kind: "action" })
-    rows.push({ id: "back", label: "BACK", kind: "action" })
+    rows.push({ id: "resetBindings", label: "Reset to defaults", kind: "action" })
+    rows.push({ id: "back", label: "Back", kind: "action" })
     return rows
   }
 
@@ -876,7 +916,7 @@ export class Game {
       return "-"
     }
     if (deviceId === "buttons") {
-      return `BTN ${value}`
+      return `Button ${value}`
     }
     const keys = Array.isArray(value) ? value : [value]
     return keys.map(keyLabel).join(" / ")
@@ -903,10 +943,16 @@ export class Game {
 
   menuAdjust(delta) {
     const row = this.menuRows()[this.menuIndex]
-    if (!row) {
+    if (!row || row.kind !== "options") {
       return
     }
-    this.#adjust(row, delta)
+    // Walked rather than wrapped: these are short lists where the ends are meaningful,
+    // and a brightness that jumps from full to night on one press is a nasty surprise
+    // in a dark room.
+    const next = clamp(row.selected + delta, 0, row.options.length - 1)
+    if (next !== row.selected) {
+      this.#chooseOption(row, next)
+    }
   }
 
   menuConfirm() {
@@ -914,8 +960,9 @@ export class Game {
     if (!row) {
       return
     }
-    if (row.kind === "choice") {
-      this.#adjust(row, 1)
+    if (row.kind === "options") {
+      // Nothing to confirm: an option is chosen by pressing it or by walking onto it,
+      // and either way it has already been applied.
       return
     }
     if (row.kind === "binding") {
@@ -925,6 +972,25 @@ export class Game {
       return
     }
     this.#activate(row)
+  }
+
+  // A press on a menu row, from a pointer. `option` is which option of an options row
+  // was hit, so a tap reaches a particular setting rather than cycling toward it.
+  menuTap(index, option = null) {
+    const rows = this.menuRows()
+    const row = rows[index]
+    if (!row || row.kind === "heading") {
+      return
+    }
+    this.menuIndex = index
+    if (row.kind === "options" && option != null && option !== row.selected) {
+      this.#chooseOption(row, option)
+      return
+    }
+    if (row.kind === "options") {
+      return
+    }
+    this.menuConfirm()
   }
 
   menuBack() {
@@ -996,6 +1062,12 @@ export class Game {
   }
 
   #activate(row) {
+    // A mode row is the choice and the confirmation at once: pressing one plays it.
+    if (row.id.startsWith("mode:")) {
+      Sound.menuConfirm()
+      this.start(row.id.slice(5))
+      return
+    }
     switch (row.id) {
       case "start":
       case "again":
@@ -1035,47 +1107,33 @@ export class Game {
     }
   }
 
-  #adjust(row, delta) {
+  // Take one option of an options row, whether it was walked onto or pressed. Applied
+  // at once: a setting a player is looking at is a setting they can see the effect of.
+  #chooseOption(row, option) {
     switch (row.id) {
-      case "mode": {
-        const index = GAME_MODES.indexOf(this.mode)
-        const next = GAME_MODES[(index + delta + GAME_MODES.length) % GAME_MODES.length]
-        this.mode = next
-        this.settings.mode = next.id
-        this.layout = boardLayout(next.cols, next.rows)
-        this.#storeSettings()
-        // The menu blips are in the mode's own tuning, so scrolling the list is also
-        // hearing what each one sounds like.
-        this.tuning = resolveTuning(next.tuning)
-        Sound.setTuning(this.tuning)
-        // The board behind the title is the mode being chosen, so it changes with
-        // it: a nine across board looks different before it is started.
-        if (this.phase !== PHASE.PLAYING) {
-          this.dealAttractBoard()
-        }
-        Sound.menuMove()
-        break
-      }
-      case "theme": {
-        const index = THEME_IDS.indexOf(this.settings.theme)
-        this.settings.theme = THEME_IDS[(index + delta + THEME_IDS.length) % THEME_IDS.length]
+      case "theme":
+        this.settings.theme = THEME_IDS[option] || THEME_IDS[0]
         this.#storeSettings()
         Sound.menuMove()
         break
-      }
-      case "brightness": {
-        const levels = CONFIG.BRIGHTNESS_LEVELS
-        this.settings.brightness = clamp(this.settings.brightness + delta, 0, levels.length - 1)
+      case "brightness":
+        this.settings.brightness = clamp(option, 0, CONFIG.BRIGHTNESS_LEVELS.length - 1)
         this.#storeSettings()
         Sound.menuMove()
         break
-      }
       case "sound":
-        this.setSound(!this.settings.sound)
+        this.setSound(option === 0)
         break
       default:
         break
     }
+  }
+
+  // Which mode the title screen's cursor should start on: the one last played.
+  #currentModeRow() {
+    const rows = this.menuRows()
+    const wanted = rows.findIndex((row) => row.id === `mode:${this.settings.mode}`)
+    return wanted >= 0 ? wanted : rows.findIndex((row) => row.kind !== "heading")
   }
 
   setSound(on) {
@@ -1083,21 +1141,11 @@ export class Game {
     Sound.enabled = on
     this.#storeSettings()
     if (on) {
+      // Turning sound on is always the result of a press, and a press is the user
+      // gesture a browser needs before it will open an audio device at all.
+      Sound.ensureContext()
       Sound.menuConfirm()
     }
-  }
-
-  setTheme(id) {
-    if (THEMES[id]) {
-      this.settings.theme = id
-      this.#storeSettings()
-    }
-  }
-
-  stepBrightness(delta = 1) {
-    const levels = CONFIG.BRIGHTNESS_LEVELS
-    this.settings.brightness = (this.settings.brightness + delta + levels.length) % levels.length
-    this.#storeSettings()
   }
 
   // ---- rebinding ----------------------------------------------------------
@@ -1141,8 +1189,9 @@ export class Game {
   }
 }
 
-// A key code as a player would recognise it: the code without its category, so
-// "KeyW" reads as W and "ArrowLeft" as LEFT.
+// A key code as a player would recognise it: the code without its category, so "KeyW"
+// reads as W and "ArrowLeft" as Left. What is left is split at its capitals, which
+// turns a code like "ShiftLeft" into words rather than a run of them.
 export function keyLabel(code) {
   if (code.startsWith("Key")) {
     return code.slice(3)
@@ -1151,10 +1200,13 @@ export function keyLabel(code) {
     return code.slice(5)
   }
   if (code.startsWith("Arrow")) {
-    return code.slice(5).toUpperCase()
+    return code.slice(5)
   }
   if (code.startsWith("Numpad")) {
-    return `NUM ${code.slice(6)}`
+    return `Num ${code.slice(6)}`
   }
-  return code.toUpperCase()
+  return code.replace(
+    /([a-z])([A-Z])/g,
+    (_match, before, after) => `${before} ${after.toLowerCase()}`,
+  )
 }

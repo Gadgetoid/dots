@@ -56,20 +56,34 @@ export const CONFIG = {
   // reads as picking dots up rather than only shaking them.
   LINK_SWELL: 0.16,
   LINK_SWELL_RATE: 9,
+  // How much of its wobble a dot in the chain shows. None: the chain's outline is
+  // meant to be straight and exactly a dot wide, and a dot deforming inside it is a
+  // dent in that. The whole chain swells together instead, and the wobble comes back
+  // the moment a dot is let go.
+  WOBBLE_LINKED: 0,
 
   // ---- the chain --------------------------------------------------------
-  // Subdivisions per link of the Catmull-Rom that rounds the chain's corners.
-  CHAIN_SMOOTHING: 10,
-  // Line thickness as a multiple of the dot radius. Two is the dot's full
-  // diameter, so a chain and the dots on it merge into one continuous blob rather
-  // than reading as beads on a cord - which is what the 32blit version drew, at
-  // two dot radii and one pixel.
-  CHAIN_WIDTH_RATIO: 2,
+  // The chain is one distance field: a disc at each dot and a rod between them,
+  // combined with a smooth minimum. These are what that field is made of, all as
+  // fractions of the dot radius.
+  //
+  // The cord is exactly the dots' own radius, so a straight run is a rectangle
+  // between two circles of the same width: the outline is straight, perpendicular to
+  // the run, and never wider than a dot. The smoothing is not applied along a run at
+  // all - it is the small fillet that softens the inside of a right-angle turn, and
+  // nothing else.
+  CHAIN_CORD_RATIO: 1,
+  CHAIN_SMOOTH_RATIO: 0.5,
+  // How fast a new link reaches out from the dot before it, per second. Fast enough
+  // to keep up with a dragging finger, slow enough that the chain visibly grows
+  // toward each dot rather than appearing joined to it.
+  LINK_GROW_RATE: 13,
   // Glow builds as the chain grows: `base` at two dots, climbing by `perDot` and
-  // holding at `max`. This is the bloom the player is playing toward, and the
-  // ceiling is where it stops: past about one the halo is wide enough to swallow
-  // the colour it came from and every long chain looks the same white.
-  CHAIN_GLOW: { base: 0.22, perDot: 0.16, max: 1.05 },
+  // holding at `max`. This is the bloom the player is playing toward, and the ceiling
+  // is where it stops: the chain is a solid body the width of its dots, so it throws a
+  // great deal of light for its length, and much past this the halo swallows the
+  // colour it came from and every long chain looks the same white.
+  CHAIN_GLOW: { base: 0.13, perDot: 0.075, max: 0.5 },
   // How fast the drawn glow chases the value above, per second, so a long chain
   // brightens smoothly and a pop does not snap dark.
   CHAIN_GLOW_RATE: 7,
@@ -131,9 +145,9 @@ export const CONFIG = {
   // Brightness settings, for playing at night. The composite pass multiplies the
   // whole frame by this, bloom included.
   BRIGHTNESS_LEVELS: [
-    { name: "NIGHT", value: 0.45 },
-    { name: "DIM", value: 0.7 },
-    { name: "FULL", value: 1 },
+    { name: "Night", value: 0.45 },
+    { name: "Dim", value: 0.7 },
+    { name: "Full", value: 1 },
   ],
   // Bloom shape. The glow layer is drawn and blurred separately from the scene,
   // so this is how much of it is added back rather than a brightness threshold.
@@ -223,21 +237,21 @@ export const REPEAT_RATE = 0.075
 // device. Cursor movement is bindable on a keyboard and fixed on a pad, where the
 // D-pad and the left stick both already move it.
 export const BINDABLE_CONTROLS = [
-  { id: "up", name: "UP", defaults: { keys: ["ArrowUp", "KeyW"] } },
-  { id: "down", name: "DOWN", defaults: { keys: ["ArrowDown", "KeyS"] } },
-  { id: "left", name: "LEFT", defaults: { keys: ["ArrowLeft", "KeyA"] } },
-  { id: "right", name: "RIGHT", defaults: { keys: ["ArrowRight", "KeyD"] } },
+  { id: "up", name: "Up", defaults: { keys: ["ArrowUp", "KeyW"] } },
+  { id: "down", name: "Down", defaults: { keys: ["ArrowDown", "KeyS"] } },
+  { id: "left", name: "Left", defaults: { keys: ["ArrowLeft", "KeyA"] } },
+  { id: "right", name: "Right", defaults: { keys: ["ArrowRight", "KeyD"] } },
   {
     id: "link",
-    name: "LINK / POP",
+    name: "Link and pop",
     defaults: { keys: ["Space"], buttons: GAMEPAD.buttons.confirmAlt },
   },
-  { id: "cancel", name: "DROP CHAIN", defaults: { keys: ["KeyX"], buttons: GAMEPAD.buttons.back } },
+  { id: "cancel", name: "Drop chain", defaults: { keys: ["KeyX"], buttons: GAMEPAD.buttons.back } },
 ]
 
 export const BINDING_DEVICES = [
-  { id: "keys", name: "KEYBOARD", prompt: "PRESS A KEY" },
-  { id: "buttons", name: "GAMEPAD", prompt: "PRESS A BUTTON" },
+  { id: "keys", name: "Keyboard", prompt: "Press a key" },
+  { id: "buttons", name: "Gamepad", prompt: "Press a button" },
 ]
 
 // Keys that cannot be bound to a game control: ENTER and ESCAPE work the menu, so

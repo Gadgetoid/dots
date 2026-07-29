@@ -33,77 +33,77 @@ export function noteFrequency(name) {
 export const SCALES = [
   {
     id: "minorPentatonic",
-    name: "MINOR PENTATONIC",
+    name: "Minor pentatonic",
     // The one the game has always used. Five notes, no interval that can clash, which
     // is why a chain of any length walks up it and still sounds deliberate.
     degrees: [0, 3, 5, 7, 10],
   },
   {
     id: "majorPentatonic",
-    name: "MAJOR PENTATONIC",
+    name: "Major pentatonic",
     degrees: [0, 2, 4, 7, 9],
   },
   {
     id: "blues",
-    name: "BLUES",
+    name: "Blues",
     // The minor pentatonic with the flat fifth wedged in. That note between the
     // fourth and the fifth is the whole point: a long chain leans on it on the way up.
     degrees: [0, 3, 5, 6, 7, 10],
   },
   {
     id: "hirajoshi",
-    name: "HIRAJOSHI",
+    name: "Hirajoshi",
     // Japanese koto tuning. Two semitone steps in five notes, which is what makes it
     // sound still rather than cheerful.
     degrees: [0, 2, 3, 7, 8],
   },
   {
     id: "insen",
-    name: "INSEN",
+    name: "Insen",
     // Also Japanese, and darker: a flat second straight off the root.
     degrees: [0, 1, 5, 7, 10],
   },
   {
     id: "iwato",
-    name: "IWATO",
+    name: "Iwato",
     degrees: [0, 1, 5, 6, 10],
   },
   {
     id: "kumoi",
-    name: "KUMOI",
+    name: "Kumoi",
     degrees: [0, 2, 3, 7, 9],
   },
   {
     id: "hijaz",
-    name: "HIJAZ",
+    name: "Hijaz",
     // The maqam. The semitone-then-augmented-second off the root is the sound
     // everything else in this list is not.
     degrees: [0, 1, 4, 5, 7, 8, 10],
   },
   {
     id: "bhairav",
-    name: "BHAIRAV",
+    name: "Bhairav",
     // The raga's scale, flat second and flat sixth against natural thirds and
     // sevenths. Sometimes called the double harmonic.
     degrees: [0, 1, 4, 5, 7, 8, 11],
   },
   {
     id: "slendro",
-    name: "SLENDRO",
+    name: "Slendro",
     // Javanese, five roughly even steps across the octave - which is why it cannot be
     // written in semitones: even steps of 240 cents are not any 12-TET interval.
     cents: [0, 231, 474, 717, 955],
   },
   {
     id: "pelog",
-    name: "PELOG",
+    name: "Pelog",
     // The other Javanese tuning, and deliberately uneven: two narrow steps and two
     // wide ones. This is the five-note subset a bar of it is usually played in.
     cents: [0, 137, 316, 702, 814],
   },
   {
     id: "wholeTone",
-    name: "WHOLE TONE",
+    name: "Whole tone",
     degrees: [0, 2, 4, 6, 8, 10],
   },
 ]

@@ -13,8 +13,8 @@ import { LEVELS, PUZZLE_COLS, PUZZLE_ROWS } from "./levels.js"
 
 export const PUZZLE = {
   id: "puzzle",
-  name: "PUZZLE",
-  blurb: "DESIGNED BOARDS. CLEAR EACH ONE",
+  name: "Puzzle",
+  blurb: "Designed boards, cleared one after another",
   cols: PUZZLE_COLS,
   rows: PUZZLE_ROWS,
   minChain: 2,

@@ -4,8 +4,8 @@
 
 export const LONG_GAME = {
   id: "long",
-  name: "LONG GAME",
-  blurb: "EIGHT BY EIGHT. THREE DOTS OR MORE",
+  name: "Long game",
+  blurb: "Eight by eight, and a pair is not a move",
   cols: 8,
   rows: 8,
   minChain: 3,

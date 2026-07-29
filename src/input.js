@@ -160,7 +160,11 @@ export class PointerInput {
     // Which menu row a press went down on, so a tap only counts if it comes up on
     // the same row - a drag off a row is a change of mind.
     this.pressedRow = null
+    this.pressedPause = false
     this.activePointer = null
+    // Whether a gesture has already opened the audio device. A browser only allows it
+    // inside a real one, so the first touch of the board is where it happens.
+    this.unlocked = false
   }
 
   attach(canvas) {
@@ -186,9 +190,16 @@ export class PointerInput {
     if (this.game.page) {
       const point = this.view.toViewSpace(event.clientX, event.clientY)
       this.pressedRow = point ? this.view.menuRowAt(point.x, point.y) : null
-      if (this.pressedRow != null) {
-        this.game.menuIndex = this.pressedRow
+      if (this.pressedRow) {
+        this.game.menuIndex = this.pressedRow.index
       }
+      return
+    }
+    // The pause button, which is the only way into the menu for a player holding
+    // nothing but the screen.
+    const point = this.view.toViewSpace(event.clientX, event.clientY)
+    if (point && this.view.pauseButtonAt(point.x, point.y)) {
+      this.pressedPause = true
       return
     }
     this.game.pointerDown(this.playerIndex, this.#cellAt(event))
@@ -211,13 +222,23 @@ export class PointerInput {
       return
     }
     this.activePointer = null
-    if (this.game.page) {
-      const point = this.view.toViewSpace(event.clientX, event.clientY)
-      const row = point ? this.view.menuRowAt(point.x, point.y) : null
-      if (row != null && row === this.pressedRow) {
-        this.game.menuConfirm()
+    const point = this.view.toViewSpace(event.clientX, event.clientY)
+    if (this.pressedPause) {
+      this.pressedPause = false
+      // Only if it comes up on the button too: a press that slid off it is a change of
+      // mind, as it is for a menu row.
+      if (point && this.view.pauseButtonAt(point.x, point.y)) {
+        this.game.togglePause()
       }
+      return
+    }
+    if (this.game.page) {
+      const row = point ? this.view.menuRowAt(point.x, point.y) : null
+      const pressed = this.pressedRow
       this.pressedRow = null
+      if (row && pressed && row.index === pressed.index && row.option === pressed.option) {
+        this.game.menuTap(row.index, row.option)
+      }
       return
     }
     this.game.pointerUp(this.playerIndex)
@@ -229,6 +250,7 @@ export class PointerInput {
     }
     this.activePointer = null
     this.pressedRow = null
+    this.pressedPause = false
     this.game.pointerUp(this.playerIndex)
   }
 }

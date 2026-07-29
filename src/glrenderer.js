@@ -24,6 +24,8 @@ import { clamp } from "./math.js"
 import {
   DISC_VS,
   DISC_FS,
+  CHAIN_VS,
+  CHAIN_FS,
   RIBBON_VS,
   RIBBON_FS,
   SPRITE_VS,
@@ -134,6 +136,23 @@ function buildAtlas() {
 // Vertex layout per pipeline: floats per vertex, the [location, size] attribute
 // list, and whether the pipeline draws over what is behind it or adds to it.
 const LAYOUTS = {
+  chain: {
+    stride: 18,
+    attrs: [
+      [0, 2],
+      [1, 4],
+      [2, 4],
+      [3, 4],
+      [4, 4],
+    ],
+    blend: "over",
+    // One quad per link, and neighbouring quads overlap. Over the scene that costs
+    // nothing, since both draw the same opaque colour - but the glow layer adds what
+    // it is given, and two copies of the same light is twice as much of it: the chain
+    // came out with a bright band at every join. Taking the brightest value instead is
+    // exact here, because every quad of a chain is drawing one colour.
+    glowBlend: "max",
+  },
   disc: {
     stride: 12,
     attrs: [
@@ -262,6 +281,7 @@ export class WebGLRenderer extends Renderer {
     this.vboCapacity = 0
     this.progs = {
       disc: program(gl, DISC_VS, DISC_FS),
+      chain: program(gl, CHAIN_VS, CHAIN_FS),
       ribbon: program(gl, RIBBON_VS, RIBBON_FS),
       sprite: program(gl, SPRITE_VS, SPRITE_FS),
       panel: program(gl, PANEL_VS, PANEL_FS),
@@ -462,10 +482,16 @@ export class WebGLRenderer extends Renderer {
         }
         boundProg = prog
       }
-      if (additive || layout.blend === "add") {
-        gl.blendFunc(gl.ONE, gl.ONE)
+      if (additive && layout.glowBlend === "max") {
+        gl.blendEquation(gl.MAX)
+        gl.blendFunc(gl.ONE, gl.ONE) // factors are ignored under MAX
       } else {
-        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+        gl.blendEquation(gl.FUNC_ADD)
+        if (additive || layout.blend === "add") {
+          gl.blendFunc(gl.ONE, gl.ONE)
+        } else {
+          gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+        }
       }
       const stride = layout.stride * 4
       let offset = command.offset * 4
@@ -476,6 +502,7 @@ export class WebGLRenderer extends Renderer {
       }
       gl.drawArrays(gl.TRIANGLES, 0, command.floats / layout.stride)
     }
+    gl.blendEquation(gl.FUNC_ADD) // MAX is per-pipeline; leave it as everything expects
     gl.bindVertexArray(null)
   }
 
@@ -517,6 +544,77 @@ export class WebGLRenderer extends Renderer {
         write(dx * (extent / r), dy * (extent / r), shape, col)
       }),
     )
+  }
+
+  // The chain as one smooth body. `points` are the dot centres in order, each with a
+  // `grow` of 0..1 for how far the link into it has reached out from the one before -
+  // which is what makes a chain extend toward a dot rather than snap to it.
+  //
+  // One quad per link, sized to hold the link plus everything that can bulge outside
+  // it. The shader does the rest; see CHAIN_FS.
+  blobChain(points, opts = {}) {
+    if (points.length < 2) {
+      return
+    }
+    const colour = this.#colour(opts)
+    const dotRadius = opts.radius ?? 10
+    const cordRadius = opts.cord ?? dotRadius
+    const smooth = opts.smooth ?? dotRadius * 0.5
+    const pad = dotRadius + smooth + 2
+    // Where a link actually reaches, which is short of its dot while it is growing.
+    const reach = (index) => {
+      const to = points[index]
+      const from = points[index - 1]
+      const grow = to.grow ?? 1
+      return { x: from.x + (to.x - from.x) * grow, y: from.y + (to.y - from.y) * grow }
+    }
+    // Does the chain turn between these two links? Only a turn has a notch on the
+    // inside of it to soften; two links in a line are already one straight rod, and
+    // filleting them would swell the run.
+    const turns = (from, at, to) =>
+      Math.abs((at.x - from.x) * (to.y - at.y) - (at.y - from.y) * (to.x - at.x)) > 1e-4
+    this.#emit("chain", colour, opts.glow || 0, (layer, col) => {
+      this.#reserve(layer, (points.length - 1) * 6 * 18)
+      const data = layer.data
+      for (let i = 1; i < points.length; i++) {
+        const a = points[i - 1]
+        const b = reach(i)
+        // The dots either side of this link, so a corner is smoothed by both of the
+        // links that turn through it. At either end of the chain the neighbour is the
+        // link's own dot, which is a rod of no length and costs nothing.
+        const before = i >= 2 ? points[i - 2] : a
+        const after = i + 1 < points.length ? reach(i + 1) : b
+        const filletIn = i >= 2 && turns(before, a, b) ? smooth : 0
+        const filletOut = i + 1 < points.length && turns(a, b, after) ? smooth : 0
+        const minX = Math.min(a.x, b.x) - pad
+        const maxX = Math.max(a.x, b.x) + pad
+        const minY = Math.min(a.y, b.y) - pad
+        const maxY = Math.max(a.y, b.y) + pad
+        const corner = (dx, dy) => {
+          let index = layer.count
+          data[index++] = dx < 0 ? minX : maxX
+          data[index++] = dy < 0 ? minY : maxY
+          data[index++] = a.x
+          data[index++] = a.y
+          data[index++] = b.x
+          data[index++] = b.y
+          data[index++] = before.x
+          data[index++] = before.y
+          data[index++] = after.x
+          data[index++] = after.y
+          data[index++] = dotRadius
+          data[index++] = cordRadius
+          data[index++] = filletIn
+          data[index++] = filletOut
+          data[index++] = col[0]
+          data[index++] = col[1]
+          data[index++] = col[2]
+          data[index++] = col[3]
+          layer.count = index
+        }
+        this.#corners(corner)
+      }
+    })
   }
 
   ring(x, y, r, opts = {}) {

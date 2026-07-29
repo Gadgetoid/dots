@@ -40,6 +40,10 @@ export class Dot {
     // snapped so picking one up has some give.
     this.swell = 0
     this.linked = false
+    // How far the chain has reached from the dot before this one to this one, 0..1.
+    // The link belongs to the dot it arrives at, so retracting a dot takes its link
+    // with it.
+    this.grow = 0
     // A powerup riding on this dot, as an id into the specials registry, or null.
     this.special = null
     // Which player's chain holds it. One player never needs this; two do, and the
@@ -88,6 +92,9 @@ export class Dot {
     springStep(this.wobble, CONFIG.WOBBLE_STIFFNESS, CONFIG.WOBBLE_DAMPING, dt)
     const target = this.linked ? CONFIG.LINK_SWELL : 0
     this.swell += (target - this.swell) * Math.min(1, CONFIG.LINK_SWELL_RATE * dt)
+    if (this.linked) {
+      this.grow = Math.min(1, this.grow + CONFIG.LINK_GROW_RATE * dt)
+    }
     return landed
   }
 }

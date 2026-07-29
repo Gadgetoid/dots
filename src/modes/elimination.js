@@ -9,8 +9,8 @@
 
 export const ELIMINATION = {
   id: "elimination",
-  name: "ELIMINATION",
-  blurb: "A CLEARED COLOUR NEVER COMES BACK",
+  name: "Elimination",
+  blurb: "A colour cleared off the board never returns",
   cols: 6,
   rows: 6,
   minChain: 2,

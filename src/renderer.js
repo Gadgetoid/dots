@@ -34,8 +34,13 @@ export class Renderer {
   ring(_x, _y, _r, _opts) {
     throw new Error("not implemented")
   }
-  // A smooth thick line through `points`, which the chain and the spark streaks
-  // are drawn with. `taper` fades the alpha along its length.
+  // A run of dots as one smooth body: the chain. Points carry a `grow` for how far
+  // the link into each has reached, and the backend fillets the joins and the corners.
+  blobChain(_points, _opts) {
+    throw new Error("not implemented")
+  }
+  // A thick line through `points`, which the spark streaks are drawn with. `taper`
+  // fades the alpha along its length.
   ribbon(_points, _opts) {
     throw new Error("not implemented")
   }

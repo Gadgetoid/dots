@@ -4,8 +4,8 @@
 
 export const RUSH = {
   id: "rush",
-  name: "RUSH",
-  blurb: "NINETY SECONDS. SCORE WHAT YOU CAN",
+  name: "Rush",
+  blurb: "Ninety seconds. Score what you can",
   cols: 6,
   rows: 6,
   minChain: 2,

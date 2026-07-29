@@ -23,7 +23,7 @@ export const PUZZLE_ROWS = 7
 // prettier-ignore
 export const LEVELS = [
   {
-    name: "WARM UP",
+    name: "Warm up",
     layout: [
       "......",
       "......",
@@ -35,7 +35,7 @@ export const LEVELS = [
     ],
   },
   {
-    name: "STACKS",
+    name: "Stacks",
     layout: [
       "......",
       "......",
@@ -47,7 +47,7 @@ export const LEVELS = [
     ],
   },
   {
-    name: "PYRAMID",
+    name: "Pyramid",
     layout: [
       "......",
       "......",
@@ -59,7 +59,7 @@ export const LEVELS = [
     ],
   },
   {
-    name: "PILLARS",
+    name: "Pillars",
     layout: [
       "......",
       "......",
@@ -71,7 +71,7 @@ export const LEVELS = [
     ],
   },
   {
-    name: "ZIGZAG",
+    name: "Zigzag",
     layout: [
       "......",
       "......",
@@ -83,7 +83,7 @@ export const LEVELS = [
     ],
   },
   {
-    name: "CHECKMATE",
+    name: "Checkmate",
     layout: [
       "......",
       "......",
@@ -98,7 +98,7 @@ export const LEVELS = [
     // The last one, and the only one that cannot be cleared by taking the longest
     // chain on the board every time: some of the orders that look right strand a
     // colour, and the solver had to back out of them to find one that does not.
-    name: "THE LOCK",
+    name: "The lock",
     layout: [
       "......",
       ".1..2.",

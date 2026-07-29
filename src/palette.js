@@ -15,7 +15,7 @@ export const DOT_COLOURS = 5
 
 const DARK = {
   id: "dark",
-  name: "DARK",
+  name: "Dark",
   // The page around the canvas follows these, so the frame and the field agree.
   page: "#0a0c12",
   background: "#12141c",
@@ -51,7 +51,7 @@ const DARK = {
 
 const LIGHT = {
   id: "light",
-  name: "LIGHT",
+  name: "Light",
   page: "#eef0f4",
   background: "#ffffff",
   well: "#f2f3f7",

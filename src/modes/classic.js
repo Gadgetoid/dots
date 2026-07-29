@@ -3,8 +3,8 @@
 
 export const CLASSIC = {
   id: "classic",
-  name: "CLASSIC",
-  blurb: "SIX BY SIX. PLAY UNTIL NOTHING MATCHES",
+  name: "Classic",
+  blurb: "Six by six, playing until nothing matches",
   cols: 6,
   rows: 6,
   minChain: 2,

@@ -6,8 +6,8 @@
 
 export const CLEAR_OUT = {
   id: "clearout",
-  name: "CLEAR OUT",
-  blurb: "ONE BOARD, NO REFILL. EMPTY IT",
+  name: "Clear out",
+  blurb: "One board, no refill. Empty it",
   cols: 6,
   rows: 7,
   minChain: 2,

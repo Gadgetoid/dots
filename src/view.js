@@ -8,20 +8,25 @@
 
 import { VIEW_W, VIEW_H, CONFIG, cellCentre } from "./config.js"
 import { PHASE } from "./game.js"
-import { catmullRom, clamp, easeOutCubic, lerp } from "./math.js"
+import { THEMES } from "./palette.js"
+import { clamp, easeOutCubic, lerp } from "./math.js"
 
-// Where the mode line sits, under the board. The score bar above it needs no
-// constant: it is measured from the top of the field.
+// The strip under the board, which holds the pause button and anything the board
+// has to say for itself.
 const HUD_BOTTOM = VIEW_H - 74
 
-const TITLE = "DOTS"
+const TITLE = "Dots"
 
 // What a finished board is told it did.
 const OUTCOMES = {
-  lost: "NO MOVES LEFT",
-  timeup: "TIME UP",
-  won: "BOARD CLEARED",
+  lost: "No moves left",
+  timeup: "Time up",
+  won: "Board cleared",
 }
+
+// The pause button, in the strip under the board. A touch player has no escape key,
+// so this is the only way into the menu for them, and it is where a thumb already is.
+const PAUSE_BUTTON = { w: 46, h: 34, x: VIEW_W - 28 - 46, y: HUD_BOTTOM - 4 }
 
 export class GameView {
   constructor(renderer) {
@@ -33,14 +38,26 @@ export class GameView {
     this.menuHits = []
   }
 
-  // Which menu row a point in view space is over, or null.
+  // Which menu row a point in view space is over, and which of its options if it is a
+  // row of them, or null. Options are recorded before rows, so the more specific hit
+  // wins.
   menuRowAt(x, y) {
     for (const hit of this.menuHits) {
       if (x >= hit.x && y >= hit.y && x <= hit.x + hit.w && y <= hit.y + hit.h) {
-        return hit.index
+        return { index: hit.index, option: hit.option ?? null }
       }
     }
     return null
+  }
+
+  // Is this point on the pause button? Only while it is drawn, which is while a board
+  // is being played.
+  pauseButtonAt(x, y) {
+    if (!this.pauseVisible) {
+      return false
+    }
+    const box = PAUSE_BUTTON
+    return x >= box.x && y >= box.y && x <= box.x + box.w && y <= box.y + box.h
   }
 
   // Fit the fixed field into the canvas, letterboxing whatever is left over.
@@ -139,14 +156,20 @@ export class GameView {
       const radius = layout.radius * (1 + dot.swell)
       this.renderer.disc(at.x, at.y, radius, {
         color: linked ? colours.bright : colours.base,
-        wobble: { amount: dot.wobbleAmount, axis: dot.wobbleAxis },
+        // A dot in the chain shows only a little of its wobble: the rest of the chain
+        // is not deforming with it, and a dot squashing hard inside one body reads as
+        // a dent in it.
+        wobble: {
+          amount: dot.wobbleAmount * (linked ? CONFIG.WOBBLE_LINKED : 1),
+          axis: dot.wobbleAxis,
+        },
         // A dot at rest is a bead and is lit like one. A linked one is part of the
         // chain's single unbroken shape, and a highlight on each would show through
         // it as a row of patches.
         sheen: linked ? 0 : theme.id === "dark" ? 0.18 : 0.1,
-        // Only what is held glows, so the board is calm until the player picks
-        // something up and the bloom is entirely theirs.
-        glow: linked ? game.players[dot.claim ?? 0].glow * 0.35 : 0,
+        // A linked dot is inside the chain's own body, which is what glows: lighting
+        // it again here only doubles the light in the same place.
+        glow: 0,
       })
     }
     // A dot on its way out shrinks into its own burst.
@@ -164,34 +187,36 @@ export class GameView {
     }
   }
 
-  // The line through a chain: one smooth curve, drawn under the dots, glowing by
-  // how much is on it.
-  //
-  // It is as thick as the dots it runs through are wide, swell included, so the chain
-  // and its dots are one continuous shape rather than beads on a cord. The dots are
-  // drawn over it in the same colour, so where they meet there is no seam - and a dot
-  // wobbling still pinches and bulges the outline, which is the jelly showing through.
+  // The chain, as one body: a disc at every dot and a cord between them, filleted
+  // together by the shader so the dots reach out to each other and a right-angle turn
+  // is a curve rather than a notch. Drawn under the dots, which are the same colour,
+  // so nothing about it reads as two shapes overlapping.
   #drawChains(game, theme) {
     for (const player of game.players) {
       if (player.chain.length < 2) {
         continue
       }
       const colours = theme.dots[player.chainColour % theme.dots.length]
-      const points = catmullRom(
-        player.chain.map((dot) => game.dotPosition(dot)),
-        CONFIG.CHAIN_SMOOTHING,
-      )
-      // Whatever the fattest dot on the chain has swelled to: the line may be wider
-      // than a dot and must never be narrower, or it cuts a notch out of the blob.
+      // Whatever the fattest dot on the chain has swelled to, so the body of the shape
+      // is never narrower than the dots drawn on top of it.
       let swell = 0
       for (const dot of player.chain) {
         swell = Math.max(swell, dot.swell)
       }
-      this.renderer.ribbon(points, {
-        color: colours.bright,
-        width: game.layout.radius * (1 + swell) * CONFIG.CHAIN_WIDTH_RATIO,
-        glow: player.glow,
-      })
+      const radius = game.layout.radius * (1 + swell)
+      this.renderer.blobChain(
+        player.chain.map((dot) => {
+          const at = game.dotPosition(dot)
+          return { x: at.x, y: at.y, grow: dot.grow }
+        }),
+        {
+          color: colours.bright,
+          radius,
+          cord: radius * CONFIG.CHAIN_CORD_RATIO,
+          smooth: radius * CONFIG.CHAIN_SMOOTH_RATIO,
+          glow: player.glow,
+        },
+      )
     }
   }
 
@@ -300,10 +325,10 @@ export class GameView {
     // The title screen has no score to show, and a zero under a panel that says
     // START is just noise.
     if (game.phase !== PHASE.TITLE) {
-      renderer.text("SCORE", 28, 34, { color: theme.text.faint, size: 12 })
+      renderer.text("Score", 28, 34, { color: theme.text.faint, size: 12 })
       const score = String(player.score)
       renderer.text(score, 28, 64, { color: theme.text.bright, size: 34, bold: true })
-      renderer.text("BEST", VIEW_W - 28, 34, { color: theme.text.faint, size: 12, align: "right" })
+      renderer.text("Best", VIEW_W - 28, 34, { color: theme.text.faint, size: 12, align: "right" })
       renderer.text(String(Math.max(best, player.score)), VIEW_W - 28, 60, {
         color: theme.text.dim,
         size: 22,
@@ -340,53 +365,83 @@ export class GameView {
       this.#drawTimer(game, theme)
     }
 
-    // The bottom line: what a special under the cursor does, else which level is
-    // being played, else the mode's own description. The blurb takes precedence
-    // because it is the only place a player is told what a powerup is.
+    // The strip under the board says only what the board cannot: which level this is,
+    // and what a special under the cursor would do. What mode is being played and what
+    // that mode is belong in the pause menu, where they are read once, rather than
+    // under the board for the whole game.
     const special = game.hoveredSpecial()
     const level = game.currentLevel
-    const line = special
-      ? `${special.name}: ${special.blurb}`
-      : level
-        ? `LEVEL ${game.level + 1}/${game.mode.levels.length} - ${level.name}`
-        : game.mode.blurb
-    renderer.text(line, VIEW_W / 2, HUD_BOTTOM + 30, {
-      color: special ? theme.accent : level ? theme.text.dim : theme.text.faint,
-      size: 12,
-      align: "center",
-    })
-    renderer.text(game.mode.name, VIEW_W / 2, HUD_BOTTOM + 8, {
-      color: theme.text.dim,
-      size: 15,
-      align: "center",
-      bold: true,
-    })
+    if (special) {
+      renderer.text(`${special.name}: ${special.blurb}`, 28, HUD_BOTTOM + 22, {
+        color: theme.accent,
+        size: 12,
+      })
+    } else if (level && game.phase === PHASE.PLAYING) {
+      renderer.text(`Level ${game.level + 1} of ${game.mode.levels.length}`, 28, HUD_BOTTOM + 16, {
+        color: theme.text.faint,
+        size: 12,
+      })
+      renderer.text(level.name, 28, HUD_BOTTOM + 34, {
+        color: theme.text.dim,
+        size: 15,
+        bold: true,
+      })
+    }
+
+    this.pauseVisible = game.phase === PHASE.PLAYING && !game.page
+    if (this.pauseVisible) {
+      this.#drawPauseButton(theme)
+    }
     if (game.banner) {
       this.#drawBanner(game, theme)
     }
   }
 
-  // The clock, under the score rather than over the board: the page's own buttons
-  // sit above the field and a bar up there would be behind them.
+  // Two bars in a rounded box. Drawn rather than written, because a glyph for this is
+  // not in the atlas and a word would need translating.
+  #drawPauseButton(theme) {
+    const box = PAUSE_BUTTON
+    this.renderer.panel(box.x, box.y, box.w, box.h, { fill: theme.cell, radius: 10 })
+    const barW = 4
+    const barH = 14
+    const gap = 5
+    const top = box.y + (box.h - barH) / 2
+    const left = box.x + box.w / 2 - gap / 2 - barW
+    for (const x of [left, left + barW + gap]) {
+      this.renderer.panel(x, top, barW, barH, { fill: theme.text.dim, radius: 2 })
+    }
+  }
+
+  // The clock: the width of the board, above it, with what is left of it written
+  // inside the bar. A thin line with a number beside it reads as a detail; this reads
+  // as the thing the mode is about.
   #drawTimer(game, theme) {
-    const width = 180
-    const x = (VIEW_W - width) / 2
-    const y = 84
+    const layout = game.layout
+    const height = 24
+    const y = layout.y - layout.cell * 0.22 - height - 12
     const left = game.timeLeft / game.mode.timeLimit
-    this.renderer.panel(x, y, width, 6, { fill: theme.cell, radius: 3 })
+    const running = left < 0.2 ? theme.warn : theme.accent
+    this.renderer.panel(layout.x, y, layout.width, height, {
+      fill: theme.cell,
+      radius: height / 2,
+    })
     if (left > 0) {
-      // It goes red at the end, which is the only warning the mode gives.
-      const colour = left < 0.2 ? theme.warn : theme.accent
-      this.renderer.panel(x, y, Math.max(width * left, 2), 6, {
-        fill: colour,
-        radius: 3,
-        glow: left < 0.2 ? 1.2 : 0.4,
+      // Never shorter than the number written in it, or the last few seconds are dark
+      // text hanging off the end of a stub.
+      const filled = Math.max(layout.width * left, 58)
+      this.renderer.panel(layout.x, y, filled, height, {
+        fill: running,
+        radius: height / 2,
+        glow: left < 0.2 ? 1.2 : 0.35,
       })
     }
-    this.renderer.text(`${Math.ceil(game.timeLeft)}`, VIEW_W / 2, y - 8, {
-      color: left < 0.2 ? theme.warn : theme.text.dim,
-      size: 14,
-      align: "center",
+    // Inside the bar, at its left end where the time still is. On the theme's own
+    // background colour, so it reads against the filled part behind it.
+    this.renderer.text(`${Math.ceil(game.timeLeft)}`, layout.x + 14, y + height / 2, {
+      color: theme.background,
+      size: 15,
+      baseline: "middle",
+      bold: true,
     })
   }
 
@@ -420,36 +475,37 @@ export class GameView {
   }
 
   // ---- menus --------------------------------------------------------------
+  // Rows in a panel. Three kinds of row are drawn: a heading, a pressable row, and a
+  // row of options laid out side by side - which is what a setting is here, so a tap
+  // can reach a particular value instead of pressing the same row until it comes round.
   #drawMenu(game, theme) {
     const renderer = this.renderer
     const rows = game.menuRows()
-    const rowHeight = 34
-    const headingHeight = 26
+    const heading = this.#menuHeading(game)
+    const headerHeight = heading.reduce((total, line) => total + line.size + 10, 0) + 22
+    const width = 460
+    const x = (VIEW_W - width) / 2
     let contentHeight = 0
     for (const row of rows) {
-      contentHeight += row.kind === "heading" ? headingHeight : rowHeight
+      contentHeight += this.#rowHeight(row)
     }
-    const heading = this.#menuHeading(game)
-    const headerHeight = heading.length * 30 + 18
-    const width = 460
-    // The hint lives inside the panel: under it, it lands on the board behind and
-    // is unreadable on a busy field.
-    const hintHeight = 34
-    const height = contentHeight + headerHeight + hintHeight + 46
-    const x = (VIEW_W - width) / 2
-    const y = clamp((VIEW_H - height) / 2, 24, VIEW_H - height - 24)
+    // The hint lives inside the panel: under it, it lands on the board behind and is
+    // unreadable on a busy field. It says what the selected row is for - never how to
+    // work a menu, which needs no saying.
+    const hint = this.#menuHint(game, rows)
+    // The room for it is always there, whether or not the selected row has anything to
+    // say: a panel that changes height as the cursor moves down it is a panel that
+    // jumps under the cursor.
+    const height = contentHeight + headerHeight + 30 + 30
+    const y = clamp((VIEW_H - height) / 2, 16, Math.max(16, VIEW_H - height - 16))
 
-    // The board stays visible behind the panel, dimmed rather than hidden: a menu
-    // is over the game, not instead of it.
-    renderer.panel(0, 0, VIEW_W, VIEW_H, { fill: theme.background, alpha: 0.72 })
+    // The board stays visible behind the panel, dimmed rather than hidden: a menu is
+    // over the game, not instead of it.
+    renderer.panel(0, 0, VIEW_W, VIEW_H, { fill: theme.background, alpha: 0.76 })
     renderer.panel(x, y, width, height, { fill: theme.panel, radius: 18 })
-    renderer.panel(x, y, width, height, {
-      stroke: theme.panelEdge,
-      width: 1.5,
-      radius: 18,
-    })
+    renderer.panel(x, y, width, height, { stroke: theme.panelEdge, width: 1.5, radius: 18 })
 
-    let textY = y + 40
+    let textY = y + 38
     for (const line of heading) {
       renderer.text(line.text, VIEW_W / 2, textY, {
         color: line.colour,
@@ -461,69 +517,169 @@ export class GameView {
       textY += line.size + 10
     }
 
-    let rowY = y + headerHeight + 30
+    let rowY = y + headerHeight + 12
     this.menuHits.length = 0
     rows.forEach((row, index) => {
+      const rowHeight = this.#rowHeight(row)
       if (row.kind === "heading") {
-        renderer.text(row.label, x + 28, rowY + 16, {
+        renderer.text(row.label, x + 26, rowY + rowHeight - 8, {
           color: theme.text.faint,
           size: 12,
         })
-        rowY += headingHeight
-        return
-      }
-      const selected = index === game.menuIndex
-      this.menuHits.push({ index, x: x + 14, y: rowY - 2, w: width - 28, h: rowHeight - 4 })
-      if (selected) {
-        renderer.panel(x + 14, rowY - 2, width - 28, rowHeight - 4, {
-          fill: theme.panelEdge,
-          radius: 8,
-        })
-      }
-      renderer.text(row.label, x + 28, rowY + 20, {
-        color: selected ? theme.text.bright : theme.text.normal,
-        size: 17,
-        bold: selected,
-      })
-      if (row.value != null) {
-        renderer.text(row.value, x + width - 28, rowY + 20, {
-          color: selected ? theme.accent : theme.text.dim,
-          size: 17,
-          align: "right",
-          bold: selected,
-        })
-      }
-      // A row that can be adjusted says so, so it is obvious which rows take a
-      // left and right and which take a press.
-      if (selected && row.kind === "choice") {
-        renderer.text(
-          "<",
-          x + width - 28 - renderer.measureText(row.value ?? "", 17) - 14,
-          rowY + 20,
-          {
-            color: theme.text.faint,
-            size: 14,
-            align: "right",
-          },
-        )
-        renderer.text(">", x + width - 18, rowY + 20, {
-          color: theme.text.faint,
-          size: 14,
-        })
+      } else if (row.kind === "options") {
+        this.#drawOptions(game, theme, row, index, x, rowY, width, rowHeight)
+      } else {
+        this.#drawRow(game, theme, row, index, x, rowY, width, rowHeight)
       }
       rowY += rowHeight
     })
 
-    // What the selected row is for, or how to work the menu at all.
-    const row = rows[game.menuIndex]
-    const hint = game.rebinding
-      ? "PRESS A KEY OR BUTTON. ESCAPE TO CANCEL"
-      : (row && row.hint) || "MOVE TO CHOOSE, PRESS TO CONFIRM"
-    renderer.text(hint, VIEW_W / 2, y + height - 14, {
-      color: game.rebinding ? theme.accent : theme.text.faint,
-      size: 12,
-      align: "center",
+    if (hint) {
+      renderer.text(hint.text, VIEW_W / 2, y + height - 12, {
+        color: hint.colour,
+        size: 12,
+        align: "center",
+      })
+    }
+  }
+
+  #rowHeight(row) {
+    if (row.kind === "heading") {
+      return 24
+    }
+    if (row.kind === "options") {
+      return row.options.some((option) => option.preview) ? 58 : 40
+    }
+    return 32
+  }
+
+  // A pressable row: the label, whatever it currently reads, and a filled box behind
+  // it when it is the one selected.
+  #drawRow(game, theme, row, index, x, rowY, width, rowHeight) {
+    const renderer = this.renderer
+    const selected = index === game.menuIndex
+    const box = { x: x + 14, y: rowY, w: width - 28, h: rowHeight - 4 }
+    this.menuHits.push({ index, option: null, ...box })
+    if (selected) {
+      renderer.panel(box.x, box.y, box.w, box.h, { fill: theme.panelEdge, radius: 9 })
+    }
+    const middle = box.y + box.h / 2
+    renderer.text(row.label, x + 26, middle, {
+      color: selected ? theme.text.bright : theme.text.normal,
+      size: 17,
+      baseline: "middle",
+      bold: selected,
     })
+    if (row.value != null) {
+      renderer.text(row.value, x + width - 26, middle, {
+        color: selected ? theme.accent : theme.text.dim,
+        size: 16,
+        align: "right",
+        baseline: "middle",
+        bold: selected,
+      })
+    }
+    // A mode the player last played is marked, so a returning player can see where
+    // they left off without it being pre-pressed for them.
+    if (row.current) {
+      renderer.disc(x + width - 34, middle, 4, { color: theme.accent, glow: 0.6 })
+    }
+  }
+
+  // A row of options, each its own pressable box. The chosen one is filled; the row is
+  // outlined while the cursor is on it, so a keyboard player can see where they are
+  // without the row looking pressed.
+  #drawOptions(game, theme, row, index, x, rowY, width, rowHeight) {
+    const renderer = this.renderer
+    const onRow = index === game.menuIndex
+    const gap = 8
+    const count = row.options.length
+    const available = width - 52
+    const boxW = (available - gap * (count - 1)) / count
+    const boxH = rowHeight - 10
+    row.options.forEach((option, optionIndex) => {
+      const box = {
+        x: x + 26 + optionIndex * (boxW + gap),
+        y: rowY,
+        w: boxW,
+        h: boxH,
+      }
+      const chosen = optionIndex === row.selected
+      this.menuHits.push({ index, option: optionIndex, ...box })
+      renderer.panel(box.x, box.y, box.w, box.h, {
+        fill: chosen ? theme.accent : theme.cell,
+        radius: 10,
+        alpha: chosen ? 1 : 0.7,
+      })
+      if (onRow && chosen) {
+        renderer.panel(box.x, box.y, box.w, box.h, {
+          stroke: theme.text.bright,
+          width: 2,
+          radius: 10,
+        })
+      }
+      if (option.preview) {
+        this.#drawThemePreview(option.preview, box, chosen ? theme.accent : null)
+      } else {
+        renderer.text(option.label, box.x + box.w / 2, box.y + box.h / 2, {
+          color: chosen ? theme.panel : theme.text.normal,
+          size: 15,
+          align: "center",
+          baseline: "middle",
+          bold: chosen,
+        })
+      }
+    })
+  }
+
+  // A theme as three by three dots on its own background: what the option does rather
+  // than what it is called, which is the point of a preview.
+  #drawThemePreview(themeId, box, ring) {
+    const renderer = this.renderer
+    const preview = THEMES[themeId]
+    if (!preview) {
+      return
+    }
+    const inset = 5
+    const inner = { x: box.x + inset, y: box.y + inset, w: box.w - inset * 2, h: box.h - inset * 2 }
+    renderer.panel(inner.x, inner.y, inner.w, inner.h, {
+      fill: preview.background,
+      radius: 7,
+    })
+    const cells = 3
+    const cell = Math.min(inner.w, inner.h) / cells
+    const radius = cell * 0.3
+    const left = inner.x + (inner.w - cell * cells) / 2
+    const top = inner.y + (inner.h - cell * cells) / 2
+    for (let row = 0; row < cells; row++) {
+      for (let col = 0; col < cells; col++) {
+        const colours = preview.dots[(row * cells + col) % preview.dots.length]
+        renderer.disc(left + (col + 0.5) * cell, top + (row + 0.5) * cell, radius, {
+          color: colours.base,
+        })
+      }
+    }
+    if (ring) {
+      renderer.panel(inner.x, inner.y, inner.w, inner.h, {
+        stroke: ring,
+        width: 1.5,
+        radius: 7,
+      })
+    }
+  }
+
+  // What the selected row is for. A rebind says what it is waiting for, a mode says
+  // what it is, and anything else says nothing: how to work a menu is not worth a line.
+  #menuHint(game, rows) {
+    const theme = game.theme
+    if (game.rebinding) {
+      return { text: "Press a key or button, or escape to cancel", colour: theme.accent }
+    }
+    const row = rows[game.menuIndex]
+    if (row && row.hint) {
+      return { text: row.hint, colour: theme.text.faint }
+    }
+    return null
   }
 
   // What sits above the rows: the game's name on the title, and what happened on
@@ -533,16 +689,16 @@ export class GameView {
     switch (game.page) {
       case "title":
         return [
-          { text: TITLE, colour: theme.text.bright, size: 44, bold: true, glow: 0.45 },
-          { text: "LINK DOTS OF A COLOUR TO POP THEM", colour: theme.text.dim, size: 13 },
+          { text: TITLE, colour: theme.text.bright, size: 42, bold: true, glow: 0.45 },
+          { text: "Link dots of a colour to pop them", colour: theme.text.dim, size: 13 },
         ]
       case "over": {
         // Clearing the last authored level is not "a board cleared", it is the whole
         // mode finished, which is the one thing in this game that can be won.
         const outcome =
           game.outcome === "won" && game.mode.levels
-            ? "ALL LEVELS CLEARED"
-            : OUTCOMES[game.outcome] || "GAME OVER"
+            ? "All levels cleared"
+            : OUTCOMES[game.outcome] || "Game over"
         const best = game.best[game.mode.id] || 0
         const record = game.player.score >= best && game.player.score > 0
         return [
@@ -555,16 +711,21 @@ export class GameView {
             glow: record ? 1 : 0,
           },
           {
-            text: record ? "BEST YET" : `BEST ${best}`,
+            text: record ? "Best yet" : `Best ${best}`,
             colour: theme.text.dim,
             size: 13,
           },
         ]
       }
       case "controls":
-        return [{ text: "CONTROLS", colour: theme.text.bright, size: 26, bold: true }]
+        return [{ text: "Controls", colour: theme.text.bright, size: 26, bold: true }]
       default:
-        return [{ text: "PAUSED", colour: theme.text.bright, size: 26, bold: true }]
+        // The pause menu is where the mode says what it is. It used to be written under
+        // the board for the whole game, where it was read once and then in the way.
+        return [
+          { text: game.mode.name, colour: theme.text.bright, size: 26, bold: true },
+          { text: game.mode.blurb, colour: theme.text.dim, size: 13 },
+        ]
     }
   }
 }

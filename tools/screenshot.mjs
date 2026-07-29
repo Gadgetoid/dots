@@ -247,7 +247,7 @@ try {
       problems++
       console.error(`[${shot.file}] page error: ${error.message}`)
     })
-    await page.goto(`http://localhost:${port}/index.html?fullscreen`, { waitUntil: "load" })
+    await page.goto(`http://localhost:${port}/index.html`, { waitUntil: "load" })
     await page.waitForFunction("window.__dots && window.__dots.game")
     // Pose the scene, then step the loop by hand: the game's own rAF loop is left
     // running, but a fixed number of fixed-length frames is what makes a shot the
@@ -255,7 +255,7 @@ try {
     await page.evaluate(
       (theme, pose, frames) => {
         const { game, view, renderer } = window.__dots
-        game.setTheme(theme)
+        game.settings.theme = theme
         // Settling a board by hand, so a shot never catches it mid-drop unless it
         // means to.
         game.settle = (seconds) => {

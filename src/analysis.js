@@ -451,9 +451,16 @@ function valueOrdering(lengths, rules) {
   return from(counts, 1)
 }
 
+// The obvious way to play, from a layout: what the search uses to throw out a candidate before
+// spending real time on it, since a level at the hard end always punishes greed.
+//
 // The obvious way to play: take the longest chain on the board, every time. Ties go to the
 // one the move list found first, which is the top-left of the board - a player's eye has to
 // start somewhere too.
+export function greedily(layout, cols, rows, minChain, rules) {
+  return playGreedily(parse(layout, cols, rows), cols, rows, minChain, rules)
+}
+
 function playGreedily(start, cols, rows, minChain, rules) {
   let grid = new Int8Array(start)
   let multiplier = 1

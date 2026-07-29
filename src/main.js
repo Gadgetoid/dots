@@ -11,6 +11,7 @@ import { Game } from "./game.js"
 import { KeyboardInput, PointerInput } from "./input.js"
 import { GamepadInput } from "./gamepad.js"
 import { Sound } from "./audio.js"
+import { Speech } from "./speech.js"
 
 const canvas = document.getElementById("game")
 const renderer = WebGLRenderer.create(canvas)
@@ -68,6 +69,30 @@ function syncTheme() {
   document.querySelector('meta[name="theme-color"]').setAttribute("content", theme.page)
 }
 
+// The spoken-menus toggle in the page. The field is a canvas and a canvas cannot be read
+// out, so the setting drawn inside it can only be found by someone who can see it: this is
+// the same setting, in the one place a screen reader will announce without being asked.
+// Turning it on hands focus to the field, so the next key played is a move and not another
+// press of this.
+const speakToggle = document.getElementById("speak")
+speakToggle.addEventListener("click", () => {
+  const on = game.setSpeech(!game.speechOn)
+  if (on) {
+    canvas.focus()
+  }
+})
+
+// Kept in step with the setting whichever of the two was used to change it, so the button
+// never announces the opposite of what the game is doing.
+let appliedSpeech = null
+function syncSpeech() {
+  if (appliedSpeech === game.speechOn) {
+    return
+  }
+  appliedSpeech = game.speechOn
+  speakToggle.setAttribute("aria-pressed", appliedSpeech ? "true" : "false")
+}
+
 function resize() {
   view.resize(canvas.getBoundingClientRect())
 }
@@ -82,6 +107,9 @@ document.addEventListener("visibilitychange", () => {
       Sound.ctx.suspend()
     }
     keyboard.onBlur()
+    // Speech carries on talking to an empty room otherwise: it is not part of the audio
+    // context and suspending that does not stop it.
+    Speech.silence()
   } else if (Sound.enabled && Sound.ctx && Sound.ctx.resume) {
     Sound.ctx.resume().catch(() => {})
   }
@@ -106,6 +134,7 @@ function loop(timestamp) {
   keyboard.poll(dt)
   gamepad.poll(dt)
   syncTheme()
+  syncSpeech()
   game.advance(dt)
   // The simulation still runs while a lost GPU context is being restored.
   if (renderer.ready) {

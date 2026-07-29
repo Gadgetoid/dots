@@ -18,6 +18,20 @@ const DIRECTIONS = {
   right: [1, 0],
 }
 
+// Whether a key was aimed at a control in the page rather than at the game.
+//
+// The page holds one control, the spoken-menus toggle, and it is worked with Space or
+// Enter - both of which the game takes for itself and calls preventDefault on. Without
+// this the toggle could be reached by Tab and then never pressed: the game would take the
+// press and confirm whatever the menu cursor was on instead.
+function forPageControl(target) {
+  return Boolean(
+    target &&
+    typeof target.closest === "function" &&
+    target.closest("button, a[href], input, select, textarea"),
+  )
+}
+
 // A held direction fires once immediately, then again after a pause, then at a
 // steady rate: the same feel on a keyboard, a D-pad and a stick, from one place.
 export class DirectionRepeater {
@@ -74,6 +88,9 @@ export class KeyboardInput {
   }
 
   onKeyDown(event) {
+    if (forPageControl(event.target)) {
+      return
+    }
     if (event.repeat) {
       // The repeat is the repeater's business, not the browser's: a held key steps
       // the cursor at the game's own rate.
@@ -119,6 +136,9 @@ export class KeyboardInput {
   }
 
   onKeyUp(event) {
+    if (forPageControl(event.target)) {
+      return
+    }
     const control = this.#controlFor(event.code)
     if (!control) {
       return

@@ -6,7 +6,7 @@
 // dots over it, then the particles, then a curtain over the strip above the board
 // where refilled dots are still falling in, and the HUD and any menu over that.
 
-import { VIEW_W, VIEW_H, CONFIG, cellCentre } from "./config.js"
+import { VIEW_W, VIEW_H, CONFIG, cellCentre, PAGE_TITLES } from "./config.js"
 import { PHASE } from "./game.js"
 import { THEMES, DOT_SHAPES } from "./palette.js"
 import { clamp, easeOutCubic, lerp } from "./math.js"
@@ -14,15 +14,6 @@ import { clamp, easeOutCubic, lerp } from "./math.js"
 // The strip under the board, which holds the pause button and anything the board
 // has to say for itself.
 const HUD_BOTTOM = VIEW_H - 74
-
-const TITLE = "Dots"
-
-// What a finished board is told it did.
-const OUTCOMES = {
-  lost: "No moves left",
-  timeup: "Time up",
-  won: "Board cleared",
-}
 
 // Menu metrics. A button is big: these are tap targets first, and on a phone the field
 // is scaled down, so what looks generous here is about a fingertip there. The padding is
@@ -832,16 +823,11 @@ export class GameView {
     switch (game.page) {
       case "title":
         return [
-          { text: TITLE, colour: theme.text.bright, size: 50, bold: true, glow: 0.45 },
+          { text: PAGE_TITLES.title, colour: theme.text.bright, size: 50, bold: true, glow: 0.45 },
           { text: "Link dots of a colour to pop them", colour: theme.text.dim, size: 19 },
         ]
       case "over": {
-        // Clearing the last authored level is not "a board cleared", it is the whole
-        // mode finished, which is the one thing in this game that can be won.
-        const outcome =
-          game.outcome === "won" && game.mode.levels
-            ? "All levels cleared"
-            : OUTCOMES[game.outcome] || "Game over"
+        const outcome = game.outcomeText
         const best = game.best[game.mode.id] || 0
         const record = game.player.score >= best && game.player.score > 0
         const lines = [
@@ -874,13 +860,13 @@ export class GameView {
       }
       case "modes":
         return [
-          { text: "New game", colour: theme.text.bright, size: 30, bold: true },
+          { text: PAGE_TITLES.modes, colour: theme.text.bright, size: 30, bold: true },
           { text: "Choose a mode", colour: theme.text.dim, size: 19 },
         ]
       case "settings":
-        return [{ text: "Settings", colour: theme.text.bright, size: 30, bold: true }]
+        return [{ text: PAGE_TITLES.settings, colour: theme.text.bright, size: 30, bold: true }]
       case "controls":
-        return [{ text: "Controls", colour: theme.text.bright, size: 30, bold: true }]
+        return [{ text: PAGE_TITLES.controls, colour: theme.text.bright, size: 30, bold: true }]
       default:
         // The pause menu is where the mode says what it is. It used to be written under
         // the board for the whole game, where it was read once and then in the way.

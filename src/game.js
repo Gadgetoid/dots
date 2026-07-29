@@ -11,6 +11,7 @@
 import { Board } from "./board.js"
 import { Particles } from "./particles.js"
 import { Sound } from "./audio.js"
+import { Speech } from "./speech.js"
 import { GAME_MODES, modeById, defaultOutcome, modeRefills } from "./modes/index.js"
 import { SPECIAL_BY_ID } from "./specials.js"
 import {
@@ -26,6 +27,8 @@ import {
   MENU_NOTES,
   MENU_STEP,
   REDUCED_MOTION_RATE,
+  PAGE_TITLES,
+  OUTCOMES,
 } from "./config.js"
 import { THEMES, THEME_IDS, DOT_SHAPES } from "./palette.js"
 import { resolveTuning } from "./scales.js"
@@ -140,6 +143,10 @@ export class Game {
     // When a refused move was last sounded, so holding a direction against the edge of the
     // board does not rattle.
     this.blockedAt = -1
+    // What speech has already been told about, so a page or a banner is announced when it
+    // changes and not every frame it is up. See #announce.
+    this.spokenPage = null
+    this.spokenBanner = null
 
     this.dealAttractBoard()
     this.#resetMenuCursor()
@@ -184,6 +191,21 @@ export class Game {
     return this.settings.hints !== "off"
   }
 
+  // Whether the menus read themselves out. See speech.js for why this can only ever be
+  // something the player asks for.
+  get speechOn() {
+    return this.settings.speech === "on"
+  }
+
+  // What a finished board is told it did, which the game-over page prints and, with
+  // speech on, says.
+  get outcomeText() {
+    if (this.outcome === "won" && this.mode.levels) {
+      return OUTCOMES.levels
+    }
+    return OUTCOMES[this.outcome] || "Game over"
+  }
+
   // The shape a dot of this colour carries, or null while shapes are off. A second signal
   // for anyone who cannot rely on the colours; see DOT_SHAPES.
   shapeFor(colour) {
@@ -205,6 +227,7 @@ export class Game {
       this.mode = modeById(this.settings.mode)
       this.layout = boardLayout(this.mode.cols, this.mode.rows)
       Sound.enabled = this.settings.sound
+      Speech.setEnabled(this.settings.speech === "on")
       // Storage answers a frame or two in, by which time a board has already been
       // dealt for the title: deal the remembered mode's instead.
       if (this.phase === PHASE.TITLE) {
@@ -403,6 +426,7 @@ export class Game {
   // ---- the frame ----------------------------------------------------------
   advance(dt) {
     this.time += dt
+    this.#announce()
     // Score still floats up off a chain in a reduced-motion session, but it stays where
     // it was spent rather than rising: it is the one particle carrying information.
     this.particles.motion = this.reducedMotion ? 0 : 1
@@ -1124,6 +1148,16 @@ export class Game {
         ],
       },
       {
+        id: "speech",
+        kind: "options",
+        label: "Speech",
+        selected: this.speechOn ? 0 : 1,
+        options: [
+          { id: "on", label: "On", hint: "The menus read themselves out" },
+          { id: "off", label: "Off", hint: "The menus are silent" },
+        ],
+      },
+      {
         id: "motion",
         kind: "options",
         label: "Motion",
@@ -1407,6 +1441,78 @@ export class Game {
 
   #playCursor() {
     Sound.menuMove(this.menuNote())
+    Speech.say(this.menuSpeech())
+  }
+
+  // What the thing under the cursor is, in words: the same item the note describes, for
+  // anyone who would rather be told than learn the tune.
+  //
+  // The name comes first and its state after it, so the word being listened for arrives
+  // before anything qualifying it, and the line explaining it comes last: it is the
+  // longest part and the least new, and the next move cuts it off harmlessly.
+  menuSpeech() {
+    const rows = this.menuRows()
+    const row = rows[this.menuIndex]
+    if (!row) {
+      return ""
+    }
+    if (row.kind === "options") {
+      const chosen = row.options[clamp(row.selected, 0, row.options.length - 1)]
+      if (!chosen) {
+        return row.label || ""
+      }
+      return [row.label, chosen.label, chosen.hint].filter(Boolean).join(", ")
+    }
+    if (row.kind === "buttons") {
+      const cell = row.options[this.menuOption]
+      if (!cell) {
+        return ""
+      }
+      return [cell.label, cell.hint ?? row.hint].filter(Boolean).join(", ")
+    }
+    if (row.kind === "binding") {
+      return [row.label, row.value].filter(Boolean).join(", ")
+    }
+    return row.label || ""
+  }
+
+  // What page this is, said the way the page reads: its heading, and on the game-over
+  // page the score with it, since that is what the page is for.
+  pageSpeech() {
+    if (this.page === "over") {
+      const best = this.best[this.mode.id] || 0
+      const record = this.player.score >= best && this.player.score > 0
+      return `${this.outcomeText}. ${this.player.score}${record ? ", best yet" : ""}`
+    }
+    if (this.page === "pause") {
+      return this.mode.name
+    }
+    return PAGE_TITLES[this.page] || ""
+  }
+
+  // Say what changed, from one place: a page can be opened, closed, replaced or finished
+  // from half a dozen places, and what matters to a listener is only that it is different
+  // now. Called every frame, which costs two comparisons while speech is off.
+  #announce() {
+    if (this.page !== this.spokenPage) {
+      this.spokenPage = this.page
+      if (this.page) {
+        Speech.say(`${this.pageSpeech()}. ${this.menuSpeech()}`)
+      } else {
+        // Back to the board: nothing more to read, and a half-read menu is not worth
+        // hearing over the game.
+        Speech.silence()
+      }
+    }
+    // A banner is the board saying something on its own account, which is the one event
+    // that has no cursor behind it.
+    const banner = this.banner ? `${this.banner.text}. ${this.banner.sub ?? ""}` : null
+    if (banner !== this.spokenBanner) {
+      this.spokenBanner = banner
+      if (banner) {
+        Speech.say(banner)
+      }
+    }
   }
 
   // Moving onto a cell, which for most of them is nothing at all. The mode grid is the
@@ -1586,6 +1692,9 @@ export class Game {
         this.#storeSettings()
         this.#playCursor()
         break
+      case "speech":
+        this.setSpeech(option === 0)
+        break
       case "motion":
         this.settings.motion = option === 1 ? "reduced" : "full"
         if (this.reducedMotion) {
@@ -1627,6 +1736,22 @@ export class Game {
       Sound.ensureContext()
       Sound.menuConfirm()
     }
+  }
+
+  // Turn the spoken menus on or off. Called from the settings row and from the page's own
+  // toggle, which is the one a player who cannot see the settings row will find first.
+  setSpeech(on) {
+    const enabled = Speech.setEnabled(on)
+    this.settings.speech = enabled ? "on" : "off"
+    this.#storeSettings()
+    Sound.menuConfirm()
+    if (enabled) {
+      // Said at once and not after the usual wait: this is the press that asked for
+      // speech, so it is the one announcement that has to arrive immediately, and it
+      // doubles as proof the voice works.
+      Speech.sayNow(`Speech on. ${this.menuSpeech()}`)
+    }
+    return enabled
   }
 
   // ---- rebinding ----------------------------------------------------------

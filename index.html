@@ -51,6 +51,40 @@
         touch-action: none;
         user-select: none;
       }
+      /* The spoken-menus toggle: the first thing in the tab order and out of sight until
+         it is focused, which is the skip-link pattern. It has to live in the page rather
+         than only inside the field, because the field is a canvas and a canvas cannot be
+         read out: a player who needs the game to talk has no way to find a setting that
+         is only drawn. Nothing can ask the browser whether that player is here, so this
+         is how they are met - it costs a sighted player nothing and one Tab finds it. */
+      .speak {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        padding: 0;
+        border: 0;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+      .speak:focus-visible {
+        position: fixed;
+        top: 12px;
+        left: 12px;
+        z-index: 2;
+        width: auto;
+        height: auto;
+        margin: 0;
+        padding: 12px 18px;
+        clip-path: none;
+        border-radius: 4px;
+        font: inherit;
+        font-size: 18px;
+        color: #0a0c12;
+        background: #6fd8ff;
+        outline: 3px solid #fff;
+      }
       .unsupported {
         display: grid;
         place-content: center;
@@ -64,8 +98,24 @@
     </style>
   </head>
   <body>
+    <button
+      type="button"
+      class="speak"
+      id="speak"
+      aria-pressed="false"
+      aria-describedby="speakhelp"
+    >
+      Speak menus
+    </button>
+    <p class="speak" id="speakhelp">
+      Turns on spoken menus, then moves to the game field. Move with the arrow keys, hold Space to
+      gather dots of one colour and let go to pop them.
+    </p>
     <div class="stage" id="screen">
-      <canvas id="game"></canvas>
+      <!-- role="application" is what stops a screen reader taking the arrow keys for its
+           own browse cursor: the field is played with them, and the canvas has nothing in
+           it to browse. -->
+      <canvas id="game" tabindex="0" role="application" aria-label="Dots game field"></canvas>
     </div>
     <script type="module" src="src/main.js"></script>
   </body>

@@ -233,3 +233,25 @@ test("a pad drives the toggle setting with two taps", () => {
   assert.equal(game.player.chain.length, 0)
   assert.ok(game.player.score > 0, "it was spent, not dropped")
 })
+
+test("a key pressed on a control in the page is left to that control", () => {
+  const game = new Game()
+  const keyboard = new KeyboardInput(game)
+  const page = game.page
+  const index = game.menuIndex
+  // What Space on the focused spoken-menus toggle looks like from here. Space is bound to
+  // link, so without the guard this would confirm whatever the menu cursor was on and the
+  // button itself would never fire: the game calls preventDefault on its own keys.
+  const onButton = { closest: (selector) => (selector.includes("button") ? {} : null) }
+  keyboard.onKeyDown({ code: "Space", repeat: false, target: onButton, preventDefault() {} })
+  keyboard.onKeyUp({ code: "Space", target: onButton })
+  assert.equal(game.page, page, "the menu was not worked")
+  assert.equal(game.menuIndex, index)
+  assert.equal(game.player.chain.length, 0, "and nothing was picked up")
+
+  // The field is not a page control, so the same key played there still reaches the game.
+  const onCanvas = { closest: () => null }
+  keyboard.onKeyDown({ code: "ArrowDown", repeat: false, target: onCanvas, preventDefault() {} })
+  keyboard.poll(1 / 60)
+  assert.notEqual(game.menuIndex, index, "the cursor moved")
+})

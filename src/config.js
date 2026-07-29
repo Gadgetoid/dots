@@ -64,6 +64,16 @@ export const CONFIG = {
   HINT_WOBBLE: 6,
   HINT_RING_LIFE: 1.1,
 
+  // ---- spoken menus -----------------------------------------------------
+  // A shade over speaking pace. Fast enough that walking a page is not a wait, slow
+  // enough to be understood the first time.
+  SPEECH_RATE: 1.05,
+  // How long after landing on an item it is spoken, in seconds. Two jobs at once: it
+  // clears the item's own tone, which is 90ms long, so the two do not talk over each
+  // other; and being longer than REPEAT_RATE it means a held direction plays tones the
+  // whole way down a page and speaks only the item it comes to rest on.
+  SPEECH_DELAY: 0.13,
+
   // ---- the chain --------------------------------------------------------
   // The chain is one distance field: a disc at each dot and a rod between them,
   // combined with a smooth minimum. These are what that field is made of, all as
@@ -336,6 +346,28 @@ export const DEFAULT_SETTINGS = {
   // Whether each dot colour also carries a shape of its own, for anyone who cannot rely on
   // the colours. See DOT_SHAPES in palette.js for which shape goes where and why.
   shapes: "off",
+  // Whether the menus read themselves out. Off unless asked for, because there is no way
+  // to ask the browser: see speech.js.
+  speech: "off",
+}
+
+// What each menu page is called. Shared, because the page's heading and the page's spoken
+// announcement are the same words and only have to be written once.
+export const PAGE_TITLES = {
+  title: "Dots",
+  modes: "New game",
+  settings: "Settings",
+  controls: "Controls",
+}
+
+// What a finished board is told it did.
+export const OUTCOMES = {
+  lost: "No moves left",
+  timeup: "Time up",
+  won: "Board cleared",
+  // Clearing the last authored level is not a board cleared, it is the whole mode
+  // finished, which is the one thing in this game that can be won.
+  levels: "All levels cleared",
 }
 
 // How much of the game's motion a reduced-motion session keeps. The fall is slowed

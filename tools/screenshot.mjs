@@ -215,6 +215,23 @@ const SHOTS = [
     }`,
   },
   {
+    // The level picker, part way down: the ladder of puzzles, with what has been cleared,
+    // what is still locked, and which ones have a star to be had.
+    file: "levels.png",
+    theme: "dark",
+    frames: 20,
+    pose: `(game, art) => {
+      game.start("puzzle")
+      game.settle(1)
+      // Four cleared, the fourth of them for a star, so the shot shows every state a cell
+      // can be in at once.
+      game.progress = { puzzle: { 0: 24, 1: 81, 2: 1120, 3: 900, 4: 1248, 5: 1229, 6: 2000 } }
+      game.togglePause()
+      art.press(game, "modes")
+      art.press(game, "mode:puzzle")
+    }`,
+  },
+  {
     // Everything a player can change about how the game looks, sounds and plays, over a
     // board frosted behind it.
     file: "settings.png",

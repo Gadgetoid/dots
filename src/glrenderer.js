@@ -435,7 +435,7 @@ export class WebGLRenderer extends Renderer {
     gl.viewport(0, 0, this.scene.w, this.scene.h)
     gl.clearColor(c[0], c[1], c[2], 1)
     gl.clear(gl.COLOR_BUFFER_BIT)
-    this.#replay(this.layers.scene, false)
+    this.#replay(this.layers.scene, false, this.scene)
 
     // Anything drawn over the finished frame, with a blurred copy of that frame ready
     // for whatever wants to frost itself against it.
@@ -443,7 +443,7 @@ export class WebGLRenderer extends Renderer {
       this.#blurBehind()
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.scene.fbo)
       gl.viewport(0, 0, this.scene.w, this.scene.h)
-      this.#replay(this.layers.overlay, false)
+      this.#replay(this.layers.overlay, false, this.scene)
     }
 
     // The glow layer starts from nothing: it is light to be added, so anywhere
@@ -452,7 +452,7 @@ export class WebGLRenderer extends Renderer {
     gl.viewport(0, 0, this.glow.w, this.glow.h)
     gl.clearColor(0, 0, 0, 0)
     gl.clear(gl.COLOR_BUFFER_BIT)
-    this.#replay(this.layers.glow, true)
+    this.#replay(this.layers.glow, true, this.glow)
 
     this.#blurGlow()
     this.#composite()
@@ -511,7 +511,7 @@ export class WebGLRenderer extends Renderer {
 
   // Upload one layer and issue its recorded draws in order. The glow layer adds
   // whatever it holds, whichever pipeline drew it: it is light, not shapes.
-  #replay(layer, additive) {
+  #replay(layer, additive, target) {
     if (layer.commands.length === 0) {
       return
     }
@@ -524,7 +524,15 @@ export class WebGLRenderer extends Renderer {
     }
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, layer.data, 0, layer.count)
     let boundProg = null
+    gl.disable(gl.SCISSOR_TEST)
     for (const command of layer.commands) {
+      // A scroll region: everything recorded after it is confined to the rectangle, until
+      // another one turns it off. Recorded in the list rather than applied when it was asked
+      // for, because the layers are replayed long after that.
+      if (command.clip !== undefined) {
+        this.#applyClip(command.clip, target)
+        continue
+      }
       const layout = LAYOUTS[command.prog]
       const prog = this.progs[command.prog]
       if (prog !== boundProg) {
@@ -706,6 +714,44 @@ export class WebGLRenderer extends Renderer {
         this.#corners(corner)
       }
     })
+  }
+
+  // Confine drawing to a rectangle in view space, or turn that off with clipOff(). Used by
+  // the scrolling level picker: without it a grid taller than its window draws over the
+  // heading and the way out.
+  clip(x, y, w, h) {
+    this.#pushClip({ x, y, w, h })
+  }
+
+  clipOff() {
+    this.#pushClip(null)
+  }
+
+  #pushClip(rect) {
+    // The glow layer gets it too, or the light from something scrolled out of sight is still
+    // added over whatever is there.
+    for (const layer of [this.layers[this.target], this.layers.glow]) {
+      this.#closeCommand(layer)
+      layer.commands.push({ clip: rect })
+    }
+  }
+
+  #applyClip(rect, target) {
+    const gl = this.gl
+    if (!rect) {
+      gl.disable(gl.SCISSOR_TEST)
+      return
+    }
+    const scaleX = target.w / VIEW_W
+    const scaleY = target.h / VIEW_H
+    gl.enable(gl.SCISSOR_TEST)
+    gl.scissor(
+      Math.round(rect.x * scaleX),
+      // The scissor origin is the bottom left of the target, and the view's is the top left.
+      Math.round(target.h - (rect.y + rect.h) * scaleY),
+      Math.max(0, Math.round(rect.w * scaleX)),
+      Math.max(0, Math.round(rect.h * scaleY)),
+    )
   }
 
   // A dot's shape, as the shader wants it: how many sides, how far round they are turned,

@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dots level editor</title>
+    <!-- Not part of the game and not linked from it: an authoring tool that happens to be
+         built out of the game's own parts, so a board drawn here is drawn by the code that
+         will draw it when it is played. -->
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        display: grid;
+        grid-template-columns: minmax(300px, 1fr) 400px;
+        background: #0a0c12;
+        color: #8b93ab;
+        font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+        font-size: 15px;
+        overflow: hidden;
+      }
+      @media (max-width: 800px) {
+        body {
+          grid-template-columns: 1fr;
+          grid-template-rows: 60vh 1fr;
+          overflow: auto;
+        }
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        touch-action: none;
+        user-select: none;
+      }
+      aside {
+        padding: 22px 24px;
+        overflow-y: auto;
+        border-left: 1px solid #1b2030;
+      }
+      h1 {
+        margin: 0 0 4px;
+        font-size: 21px;
+        color: #eef1f7;
+        font-weight: 700;
+      }
+      .hint {
+        margin: 0 0 18px;
+        color: #5c6479;
+        line-height: 1.6;
+      }
+      .verdict {
+        font-size: 20px;
+        font-weight: 700;
+        color: #eef1f7;
+        padding: 12px 0;
+      }
+      .verdict.good {
+        color: #6fd8ff;
+      }
+      .verdict.bad {
+        color: #ff6b6b;
+      }
+      .note {
+        min-height: 20px;
+        color: #5c6479;
+      }
+      .note.working {
+        color: #ffa640;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+        padding: 7px 0;
+        border-bottom: 1px solid #151a27;
+      }
+      .row b {
+        color: #eef1f7;
+      }
+      .row i {
+        grid-column: 1 / -1;
+        color: #5c6479;
+        font-style: normal;
+        font-size: 13px;
+      }
+      pre {
+        margin: 14px 0 0;
+        padding: 12px;
+        background: #10141f;
+        border-radius: 4px;
+        color: #b8c0d4;
+        font-size: 13px;
+        line-height: 1.5;
+        overflow-x: auto;
+        white-space: pre;
+        min-height: 40px;
+      }
+      .buttons {
+        display: flex;
+        gap: 8px;
+        margin-top: 14px;
+        flex-wrap: wrap;
+      }
+      button {
+        font: inherit;
+        padding: 10px 16px;
+        border: 0;
+        border-radius: 4px;
+        background: #1b2030;
+        color: #b8c0d4;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #253048;
+        color: #eef1f7;
+      }
+      .warn {
+        padding: 40px;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="board"></canvas>
+    <aside>
+      <h1>Level editor</h1>
+      <p class="hint">
+        Press a column to add a dot, and the eraser to take one off the top. Keys 1 to 5 pick a
+        colour, 0 erases, f shows the layout as written instead of as it falls, c clears.
+      </p>
+      <div id="verdict" class="verdict">empty</div>
+      <div id="note" class="note"></div>
+      <div id="numbers"></div>
+      <div class="buttons">
+        <button id="copy">copy</button>
+        <button id="paste">paste</button>
+        <button id="fall">as written / as it falls</button>
+        <button id="clear">clear</button>
+      </div>
+      <pre id="snippet"></pre>
+    </aside>
+    <script type="module" src="src/editor/main.js"></script>
+  </body>
+</html>

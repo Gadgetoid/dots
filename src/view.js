@@ -6,9 +6,10 @@
 // dots over it, then the particles, then a curtain over the strip above the board
 // where refilled dots are still falling in, and the HUD and any menu over that.
 
-import { VIEW_W, VIEW_H, CONFIG, cellCentre, PAGE_TITLES } from "./config.js"
+import { VIEW_W, VIEW_H, CONFIG, cellCentre, PAGE_TITLES, LEVEL_COLUMNS } from "./config.js"
 import { PHASE } from "./game.js"
 import { THEMES, DOT_SHAPES } from "./palette.js"
+import { levelGrid, PUZZLE_COLS, PUZZLE_ROWS } from "./modes/levels.js"
 import { clamp, easeOutCubic, lerp } from "./math.js"
 
 // The strip under the board, which holds the pause button and anything the board
@@ -32,6 +33,16 @@ const HINT_H = 46
 // The gutter a settings row's name sits in, to the left of its values.
 const LABEL_W = 116
 
+// How wide a menu is. Everything in one is laid out from this, including how tall a scrolling
+// row has to be.
+const MENU_W = 460
+
+// The level picker: a square cell per puzzle, and how many lines of them are on screen at
+// once. Four lines of four is sixteen visible out of twenty, which is enough that a player can
+// see the shape of what is ahead without the cells becoming too small to tell apart.
+const LEVEL_GAP = 8
+const LEVEL_LINES = 4
+
 // The pause button, in the strip under the board. A touch player has no escape key,
 // so this is the only way into the menu for them, and it is where a thumb already is.
 const PAUSE_BUTTON = { w: 46, h: 34, x: VIEW_W - 28 - 46, y: HUD_BOTTOM - 4 }
@@ -44,6 +55,9 @@ export class GameView {
     // Where each menu row was drawn this frame, so a tap can find it. Recorded by
     // the drawing rather than worked out twice: the layout is only written once.
     this.menuHits = []
+    // How far the level picker has been scrolled, in view pixels. Held here rather than in
+    // the game: where a list has been scrolled to is a property of looking at it.
+    this.levelScroll = 0
   }
 
   // Which menu row a point in view space is over, and which of its options if it is a
@@ -56,6 +70,12 @@ export class GameView {
       }
     }
     return null
+  }
+
+  // Scroll the level picker, from a wheel or a dragging finger. Clamped when it is drawn,
+  // which is the only place the extent is known.
+  scrollLevels(by) {
+    this.levelScroll += by
   }
 
   // Is this point on the pause button? Only while it is drawn, which is while a board
@@ -534,7 +554,7 @@ export class GameView {
     const rows = game.menuRows()
     const heading = this.#menuHeading(game)
     const headerHeight = PANEL_PAD + heading.reduce((total, line) => total + line.size + 10, 0) + 6
-    const width = 460
+    const width = MENU_W
     const x = (VIEW_W - width) / 2
     let contentHeight = 0
     for (const row of rows) {
@@ -591,6 +611,8 @@ export class GameView {
         this.#drawButtons(game, theme, row, index, x, rowY, width)
       } else if (row.kind === "options") {
         this.#drawOptions(game, theme, row, index, x, rowY, width, rowHeight)
+      } else if (row.kind === "levels") {
+        this.#drawLevels(game, theme, row, index, x, rowY, width, rowHeight)
       } else if (row.kind === "hint") {
         this.#drawHint(game, theme, rows, x, rowY, width, rowHeight)
       } else {
@@ -613,6 +635,12 @@ export class GameView {
     }
     if (row.kind === "options") {
       return (row.options.some((option) => option.preview) ? PREVIEW_H : OPTION_H) + 10
+    }
+    if (row.kind === "levels") {
+      const columns = row.columns || LEVEL_COLUMNS
+      const cell = (MENU_W - PANEL_PAD * 2 - LEVEL_GAP * (columns - 1)) / columns
+      const lines = Math.min(LEVEL_LINES, Math.ceil(row.options.length / columns))
+      return lines * (cell + LEVEL_GAP)
     }
     return 32
   }
@@ -778,6 +806,166 @@ export class GameView {
     })
   }
 
+  // The level picker: a grid of puzzles, each showing the board it is, scrolling under a clip
+  // so a ladder longer than the window does not draw over the heading or the way out.
+  //
+  // A cell says four things at once: which puzzle it is, what it looks like, whether it can be
+  // played yet, and whether there is a star on it. The star is the interesting one - see
+  // #drawStar for why some are outlines and some are not there at all.
+  #drawLevels(game, theme, row, index, x, rowY, width, rowHeight) {
+    const renderer = this.renderer
+    const columns = row.columns || LEVEL_COLUMNS
+    const cell = (width - PANEL_PAD * 2 - LEVEL_GAP * (columns - 1)) / columns
+    const step = cell + LEVEL_GAP
+    const lines = Math.ceil(row.options.length / columns)
+    const overflow = Math.max(0, lines * step - LEVEL_GAP - rowHeight)
+
+    // Follow the cursor: whichever line it is on has to be on screen, and moving onto a line
+    // that is not brings it into view rather than the other way round.
+    if (index === game.menuIndex) {
+      const line = Math.floor(game.menuOption / columns)
+      this.levelScroll = clamp(this.levelScroll, line * step + cell - rowHeight, line * step)
+    }
+    this.levelScroll = clamp(this.levelScroll, 0, overflow)
+
+    renderer.clip(x, rowY, width, rowHeight)
+    row.options.forEach((option, optionIndex) => {
+      if (!option) {
+        return
+      }
+      const line = Math.floor(optionIndex / columns)
+      const box = {
+        x: x + PANEL_PAD + (optionIndex % columns) * step,
+        y: rowY + line * step - this.levelScroll,
+        w: cell,
+        h: cell,
+      }
+      // Nothing off the window may be pressed, whatever the clip lets through.
+      if (box.y + box.h > rowY && box.y < rowY + rowHeight && !option.locked) {
+        this.menuHits.push({ index, option: optionIndex, ...box })
+      }
+      this.#drawLevelCell(
+        game,
+        theme,
+        option,
+        box,
+        index === game.menuIndex && optionIndex === game.menuOption,
+      )
+    })
+    renderer.clipOff()
+
+    // How far down the ladder this is, for a player who cannot see the whole of it.
+    if (overflow > 0) {
+      const track = rowHeight - 8
+      const held = Math.max(24, track * (rowHeight / (rowHeight + overflow)))
+      const at = (this.levelScroll / overflow) * (track - held)
+      renderer.panel(x + width - PANEL_PAD + 8, rowY + 4 + at, 4, held, {
+        fill: theme.text.faint,
+        alpha: 0.5,
+        radius: 2,
+      })
+    }
+  }
+
+  #drawLevelCell(game, theme, option, box, under) {
+    const renderer = this.renderer
+    const locked = option.locked
+    renderer.panel(box.x, box.y, box.w, box.h, {
+      fill: under ? theme.accent : theme.cell,
+      alpha: locked ? 0.5 : under ? 1 : 0.92,
+    })
+    if (under) {
+      renderer.panel(box.x, box.y, box.w, box.h, { stroke: theme.text.bright, width: 2 })
+    }
+
+    const label = String(option.label)
+    renderer.text(label, box.x + 9, box.y + 20, {
+      color: under ? theme.panel : locked ? theme.text.faint : theme.text.dim,
+      size: 17,
+      bold: true,
+    })
+
+    if (locked) {
+      this.#drawLock(theme, box)
+      return
+    }
+    this.#drawLevelPreview(option.level, box, under ? theme.panel : null)
+    // A star sits over the top right corner of the board it belongs to.
+    if (option.contested) {
+      this.#drawStar(
+        box.x + box.w - 20,
+        box.y + 19,
+        9,
+        option.starred ? theme.accent : under ? theme.panel : theme.text.faint,
+        option.starred,
+      )
+    }
+  }
+
+  // The board a level is, small: the layout with its columns fallen, which is what a player
+  // will actually be looking at when they open it.
+  #drawLevelPreview(level, box, tint) {
+    if (!level) {
+      return
+    }
+    const renderer = this.renderer
+    const grid = levelGrid(level)
+    const inset = 8
+    // Room at the top for the number and the star, so the board sits under them.
+    const top = box.y + 26
+    const area = { x: box.x + inset, y: top, w: box.w - inset * 2, h: box.y + box.h - inset - top }
+    const size = Math.min(area.w / PUZZLE_COLS, area.h / PUZZLE_ROWS)
+    const left = area.x + (area.w - size * PUZZLE_COLS) / 2
+    const above = area.y + (area.h - size * PUZZLE_ROWS) / 2
+    const radius = size * 0.34
+    for (let row = 0; row < PUZZLE_ROWS; row++) {
+      for (let col = 0; col < PUZZLE_COLS; col++) {
+        const colour = grid[col + row * PUZZLE_COLS]
+        if (colour < 0) {
+          continue
+        }
+        const dots = THEMES[tint ? "light" : "dark"].dots
+        renderer.disc(left + (col + 0.5) * size, above + (row + 0.5) * size, radius, {
+          color: dots[colour % dots.length].base,
+        })
+      }
+    }
+  }
+
+  // A five pointed star, as one closed line. Filled is the same outline drawn thick enough to
+  // meet in the middle, with a disc to close what is left, so both states are the same shape
+  // and an earned star is plainly the one that was outlined before.
+  //
+  // An outline means there is a star here to be had: a level where how it is played changes
+  // what it pays. Levels where every clearing order pays the same have no star drawn at all,
+  // since there would be nothing to earn.
+  #drawStar(x, y, r, colour, filled) {
+    const points = []
+    for (let i = 0; i <= 10; i++) {
+      const angle = (i / 10) * Math.PI * 2 - Math.PI / 2
+      const reach = i % 2 === 0 ? r : r * 0.44
+      points.push({ x: x + Math.cos(angle) * reach, y: y + Math.sin(angle) * reach })
+    }
+    this.renderer.ribbon(points, {
+      color: colour,
+      width: filled ? r * 0.62 : 2,
+      glow: filled ? 0.5 : 0,
+    })
+    if (filled) {
+      this.renderer.disc(x, y, r * 0.34, { color: colour, glow: 0.5 })
+    }
+  }
+
+  // A padlock: a ring for the shackle with the body over it, which is as much of one as
+  // reads at this size.
+  #drawLock(theme, box) {
+    const renderer = this.renderer
+    const x = box.x + box.w / 2
+    const y = box.y + box.h / 2
+    renderer.ring(x, y - 5, 7, { color: theme.text.faint, width: 3, alpha: 0.8 })
+    renderer.panel(x - 9, y - 2, 18, 14, { fill: theme.text.faint, alpha: 0.8, radius: 3 })
+  }
+
   // A theme as three by three dots on its own background: what the option does rather
   // than what it is called, which is the point of a preview.
   #drawThemePreview(themeId, box, ring, shapes) {
@@ -863,6 +1051,22 @@ export class GameView {
           { text: PAGE_TITLES.modes, colour: theme.text.bright, size: 30, bold: true },
           { text: "Choose a mode", colour: theme.text.dim, size: 19 },
         ]
+      case "levels": {
+        // What the ladder amounts to so far. Stars are only on the levels that have one to
+        // give, so the total is of those and not of every level.
+        const levels = game.mode.levels || []
+        const cleared = levels.filter((level, index) => game.levelCleared(index)).length
+        const stars = levels.filter((level, index) => game.levelStarred(index)).length
+        const possible = levels.filter((level, index) => game.levelContested(index)).length
+        return [
+          { text: PAGE_TITLES.levels, colour: theme.text.bright, size: 30, bold: true },
+          {
+            text: `${cleared} of ${levels.length} cleared, ${stars} of ${possible} stars`,
+            colour: theme.text.dim,
+            size: 19,
+          },
+        ]
+      }
       case "settings":
         return [{ text: PAGE_TITLES.settings, colour: theme.text.bright, size: 30, bold: true }]
       case "controls":

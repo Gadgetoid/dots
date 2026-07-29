@@ -72,6 +72,12 @@ class Recorder {
   panel(x, y, w, h, opts) {
     this.#record("panel", [x, y, w, h], opts)
   }
+  clip(x, y, w, h) {
+    this.#record("clip", [x, y, w, h])
+  }
+  clipOff() {
+    this.#record("clipOff", [])
+  }
   text(str, x, y, opts) {
     this.#record("text", [x, y], { ...opts, str })
   }
@@ -135,7 +141,21 @@ function assertSane(calls, where) {
 // out of it - so this is worth insisting on rather than checking by eye every time a row
 // or a font size is added.
 function assertOnScreen(calls, where) {
+  // Anything drawn inside a clip is confined by the renderer, so it is allowed to be outside
+  // the field: that is what a scrolling list is. The level picker's grid is the only one.
+  let clipped = false
   for (const call of calls) {
+    if (call.kind === "clip") {
+      clipped = true
+      continue
+    }
+    if (call.kind === "clipOff") {
+      clipped = false
+      continue
+    }
+    if (clipped) {
+      continue
+    }
     if (call.kind === "text") {
       const [, y] = call.args
       assert.ok(y >= 0 && y <= VIEW_H, `${where}: "${call.opts.str}" is at y=${Math.round(y)}`)
@@ -367,7 +387,7 @@ test("no menu page runs off the field", () => {
   game.start("puzzle")
   // Every page, including the two with the most on them: the settings, and the controls
   // with a row per control per device.
-  for (const page of ["title", "modes", "pause", "over", "settings", "controls"]) {
+  for (const page of ["title", "modes", "levels", "pause", "over", "settings", "controls"]) {
     game.page = page
     game.menuIndex = 0
     game.menuOption = 0

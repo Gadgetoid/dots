@@ -11,7 +11,8 @@ import assert from "node:assert/strict"
 
 import { LEVELS, PUZZLE_COLS, PUZZLE_ROWS } from "../src/modes/levels.js"
 import { PUZZLE } from "../src/modes/puzzle.js"
-import { maxScore, solve, describe as shapeOf } from "./solver.js"
+import { solve, describe as shapeOf } from "../src/solver.js"
+import { analyse } from "../src/analysis.js"
 import { Game, PHASE } from "../src/game.js"
 import { Board } from "../src/board.js"
 import { modeRefills, defaultOutcome } from "../src/modes/index.js"
@@ -121,16 +122,84 @@ const SCORING = {
     length >= CONFIG.MULTIPLIER_CHAIN ? Math.min(multiplier + 1, CONFIG.MULTIPLIER_MAX) : 1,
 }
 
+// One walk of each level's positions, which answers everything written down about it at once.
+// Twenty of these take about twenty seconds, and they are worth it: a par that has drifted from
+// its layout misleads every player who aims at it, and neither number can be checked by eye.
+const ANALYSED = LEVELS.map((level) =>
+  analyse(level.layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain, SCORING, { seconds: 60 }),
+)
+
 test("every level's par is the most it can actually score", () => {
   for (const [index, level] of LEVELS.entries()) {
-    const best = maxScore(level.layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain, SCORING)
-    assert.equal(best.exhausted, false, `level ${index + 1} was searched to the end`)
+    const found = ANALYSED[index]
+    assert.equal(found.exhausted, false, `level ${index + 1} was searched to the end`)
     assert.equal(
       level.par,
-      best.score,
+      found.par,
       `level ${index + 1} "${level.name}" is written down as ${level.par} and can score ` +
-        `${best.score} (searched ${best.positions} positions)`,
+        `${found.par} (searched ${found.positions} positions)`,
     )
+  }
+})
+
+test("every level's floor is the least a clearing order scores", () => {
+  // What says whether a level has anything to aim at: where the floor is the par, every order
+  // that clears pays the same, and the picker offers no star for it.
+  for (const [index, level] of LEVELS.entries()) {
+    assert.equal(
+      level.floor,
+      ANALYSED[index].floor,
+      `level ${index + 1} "${level.name}" is written down with a floor of ${level.floor} and ` +
+        `the least a clearing order pays is ${ANALYSED[index].floor}`,
+    )
+  }
+})
+
+test("the levels are in order of difficulty, and the ladder covers its range", () => {
+  const difficulty = ANALYSED.map((found) => found.difficulty)
+  for (let index = 1; index < difficulty.length; index++) {
+    assert.ok(
+      difficulty[index] >= difficulty[index - 1],
+      `level ${index + 1} "${LEVELS[index].name}" measures ${difficulty[index].toFixed(1)}, ` +
+        `easier than the level before it at ${difficulty[index - 1].toFixed(1)}`,
+    )
+  }
+  assert.ok(ANALYSED[0].band === 1, "it opens on the gentlest band")
+  assert.ok(ANALYSED.at(-1).band === 5, "and ends on the hardest")
+})
+
+test("the opening levels are warm ups and the rest are not", () => {
+  // A warm up is a level where nothing can go wrong: no order strands the board, and every
+  // order that clears pays the same. Two of those is a welcome; three would be a waste of the
+  // player's time.
+  const forced = ANALYSED.map((found) => found.forced)
+  assert.deepEqual(forced.slice(0, 2), [true, true], "the first two ask nothing")
+  assert.equal(
+    forced.slice(2).some(Boolean),
+    false,
+    "and every level after them pays differently depending on how it is played",
+  )
+})
+
+test("the hard half has one best order, and the obvious play does not find it", () => {
+  // What the later levels are for: a single order pays par, so there is something to find, and
+  // taking the longest chain every time is not it.
+  const half = ANALYSED.slice(LEVELS.length / 2)
+  assert.ok(
+    half.filter((found) => found.parPaths === 1).length >= 6,
+    "at least six of the back half have exactly one best order",
+  )
+  assert.ok(
+    half.filter((found) => !found.greedy.clears).length >= 6,
+    "and at least six of them strand the board if played greedily",
+  )
+  for (const [index, found] of ANALYSED.entries()) {
+    if (index >= 3) {
+      assert.ok(
+        found.greedy.score < found.par,
+        `level ${index + 1} "${LEVELS[index].name}" pays par to greed, so there is nothing to work out`,
+      )
+    }
   }
 })
 

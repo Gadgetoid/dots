@@ -186,6 +186,9 @@ export class PointerInput {
     this.pressedRow = null
     this.pressedPause = false
     this.activePointer = null
+    // Where a drag on the level picker last was, so the next move can scroll by the
+    // difference, or null when nothing is being dragged.
+    this.dragFrom = null
   }
 
   attach(canvas) {
@@ -208,6 +211,7 @@ export class PointerInput {
   onDown(event) {
     this.game.inputMode = event.pointerType === "touch" ? "touch" : "pointer"
     this.activePointer = event.pointerId
+    this.dragFrom = this.game.page === "levels" ? event.clientY : null
     if (this.game.page) {
       const point = this.view.toViewSpace(event.clientX, event.clientY)
       this.pressedRow = point ? this.view.menuRowAt(point.x, point.y) : null
@@ -227,6 +231,13 @@ export class PointerInput {
   }
 
   onMove(event) {
+    // A drag over the level picker scrolls it. The ladder is taller than its window and a
+    // touch player has no other way down it: the cursor can only reach what is on screen.
+    if (this.game.page === "levels" && this.dragFrom !== null) {
+      this.view.scrollLevels(this.dragFrom - event.clientY)
+      this.dragFrom = event.clientY
+      return
+    }
     if (this.game.page) {
       // The menu cursor follows the pointer, so a mode can be hovered to read what it
       // is without pressing it. Nothing is applied by hovering: a setting still takes a
@@ -254,6 +265,13 @@ export class PointerInput {
       return
     }
     this.activePointer = null
+    const scrolled = this.dragFrom !== null && Math.abs(this.dragFrom - event.clientY) > 6
+    this.dragFrom = null
+    if (scrolled) {
+      // A drag that moved the picker is not a press on whatever it started over.
+      this.pressedRow = null
+      return
+    }
     const point = this.view.toViewSpace(event.clientX, event.clientY)
     if (this.pressedPause) {
       this.pressedPause = false

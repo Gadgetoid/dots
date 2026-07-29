@@ -48,3 +48,11 @@ export const saveSettings = (settings) => save("settings", settings)
 
 export const loadBindings = () => load("bindings")
 export const saveBindings = (bindings) => save("bindings", bindings)
+
+// How far a mode with authored levels has got, as { [modeId]: { [levelIndex]: best score } }.
+// The best score per level is the whole record: a key being present is what says the level
+// has been cleared, which is what unlocks the next one, and the score against that level's
+// par is what says whether it was cleared for a star. Kept apart from `best`, which is one
+// number for a whole mode.
+export const loadProgress = () => load("progress")
+export const saveProgress = (progress) => save("progress", progress)

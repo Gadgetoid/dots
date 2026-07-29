@@ -1,5 +1,10 @@
-// A solver for the puzzle levels, used by levels.test.js to prove that each one can
-// actually be emptied.
+// A solver for the puzzle levels: what proves a level can actually be emptied, and what
+// the most it can score is.
+//
+// Shared by three callers, which is why it lives here rather than beside a test. The level
+// test proves every shipped level is clearable and that its par is the number written down;
+// tools/levels.mjs reports on a candidate while it is being authored; and the editor scores
+// a board as it is drawn.
 //
 // It works on a plain array of colour codes rather than a Board, so it can search
 // thousands of positions without allocating dots, and it applies the same two rules
@@ -17,7 +22,7 @@
 // clearable; running out of budget proves nothing, so the test treats it as a
 // failure and the level is redesigned.
 
-const EMPTY = -1
+export const EMPTY = -1
 
 export function parse(layout, cols, rows) {
   const grid = new Int8Array(cols * rows).fill(EMPTY)
@@ -34,7 +39,7 @@ export function parse(layout, cols, rows) {
 }
 
 // Everything falls to the lowest free cell in its column.
-function collapse(grid, cols, rows) {
+export function collapse(grid, cols, rows) {
   const out = new Int8Array(grid)
   for (let col = 0; col < cols; col++) {
     let free = rows - 1
@@ -51,11 +56,11 @@ function collapse(grid, cols, rows) {
   return out
 }
 
-const key = (grid) => grid.join(",")
+export const gridKey = (grid) => grid.join(",")
 
 // Every distinct set of cells one legal chain could remove, each as the ordered path
 // that takes them.
-function moves(grid, cols, rows, minChain) {
+export function movesFrom(grid, cols, rows, minChain) {
   const found = new Map()
   const path = []
   const inPath = new Set()
@@ -96,28 +101,28 @@ function moves(grid, cols, rows, minChain) {
   return [...found.values()].sort((a, b) => b.length - a.length)
 }
 
-const empty = (grid) => grid.every((value) => value === EMPTY)
+export const isEmpty = (grid) => grid.every((value) => value === EMPTY)
 
 // Can this layout be emptied? Returns the sequence of pops that does it.
 export function solve(layout, cols, rows, minChain, budget = 200000) {
   const start = parse(layout, cols, rows)
-  const seen = new Set([key(start)])
+  const seen = new Set([gridKey(start)])
   let states = 0
   const search = (grid) => {
-    if (empty(grid)) {
+    if (isEmpty(grid)) {
       return []
     }
     if (states >= budget) {
       return null
     }
-    for (const cells of moves(grid, cols, rows, minChain)) {
+    for (const cells of movesFrom(grid, cols, rows, minChain)) {
       states++
       const next = new Int8Array(grid)
       for (const cell of cells) {
         next[cell] = EMPTY
       }
       const settled = collapse(next, cols, rows)
-      const id = key(settled)
+      const id = gridKey(settled)
       if (seen.has(id)) {
         continue
       }
@@ -169,21 +174,21 @@ export function maxScore(layout, cols, rows, minChain, rules, budget = 4000000) 
   // The best that can still be scored from this position, or null if it cannot be
   // cleared from here at all.
   const from = (grid, multiplier) => {
-    if (empty(grid)) {
+    if (isEmpty(grid)) {
       return 0
     }
     if (states >= budget) {
       exhausted = true
       return null
     }
-    const id = `${key(grid)}|${multiplier}`
+    const id = `${gridKey(grid)}|${multiplier}`
     const known = memo.get(id)
     if (known !== undefined) {
       return known
     }
     states++
     let best = null
-    for (const cells of moves(grid, cols, rows, minChain)) {
+    for (const cells of movesFrom(grid, cols, rows, minChain)) {
       const next = new Int8Array(grid)
       for (const cell of cells) {
         next[cell] = EMPTY

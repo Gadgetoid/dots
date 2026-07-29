@@ -102,6 +102,18 @@ function syncSpeech() {
   speakToggle.setAttribute("aria-pressed", appliedSpeech ? "true" : "false")
 }
 
+// The wheel turns the level picker, which is the one page taller than its window.
+canvas.addEventListener(
+  "wheel",
+  (event) => {
+    if (game.page === "levels") {
+      event.preventDefault()
+      view.scrollLevels(event.deltaY)
+    }
+  },
+  { passive: false },
+)
+
 function resize() {
   view.resize(canvas.getBoundingClientRect())
 }

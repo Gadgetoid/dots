@@ -26,6 +26,7 @@ import {
   freshBindings,
   MENU_NOTES,
   MENU_STEP,
+  LEVEL_COLUMNS,
   REDUCED_MOTION_RATE,
   PAGE_TITLES,
   OUTCOMES,
@@ -36,6 +37,8 @@ import { clamp, lerp } from "./math.js"
 import {
   loadBest,
   saveBest,
+  loadProgress,
+  saveProgress,
   loadSettings,
   saveSettings,
   loadBindings,
@@ -94,6 +97,8 @@ export class Game {
     this.settings = { ...DEFAULT_SETTINGS }
     this.bindings = freshBindings()
     this.best = {}
+    // How far each mode with levels has got: see levelBest.
+    this.progress = {}
     this.phase = PHASE.TITLE
     // Which menu is open, or null while the board is being played. The title and
     // the game-over screen are menus like any other, which is why a press does the
@@ -229,10 +234,11 @@ export class Game {
 
   // ---- persistence --------------------------------------------------------
   async #restoreState() {
-    const [settings, bindings, best] = await Promise.all([
+    const [settings, bindings, best, progress] = await Promise.all([
       loadSettings(),
       loadBindings(),
       loadBest(),
+      loadProgress(),
     ])
     if (settings) {
       this.settings = { ...this.settings, ...settings }
@@ -256,6 +262,9 @@ export class Game {
     if (best) {
       this.best = best
     }
+    if (progress) {
+      this.progress = progress
+    }
   }
 
   #storeSettings() {
@@ -269,6 +278,64 @@ export class Game {
       return null
     }
     return this.mode.levels[clamp(this.level, 0, this.mode.levels.length - 1)]
+  }
+
+  // ---- authored levels ----------------------------------------------------
+  // The best score on each level of a mode with them, as { [index]: score }. A level with a
+  // record has been cleared, which is what opens the one after it, and how that score
+  // compares with the level's par is what says whether it was cleared for a star.
+  levelBest(modeId = this.mode.id) {
+    return this.progress[modeId] || {}
+  }
+
+  // Whether this level may be played. The first always; after that, only once the one
+  // before it has been cleared. A level nobody has reached is not a level to be dropped
+  // into, since the whole mode is one board leading to the next.
+  levelUnlocked(index, modeId = this.mode.id) {
+    if (index <= 0) {
+      return true
+    }
+    return this.levelBest(modeId)[index - 1] !== undefined
+  }
+
+  levelCleared(index, modeId = this.mode.id) {
+    return this.levelBest(modeId)[index] !== undefined
+  }
+
+  // Whether this level has been cleared for everything it is worth. The par is exact - it is
+  // the most any clearing order pays - so this is a real mark and not a threshold somebody
+  // picked.
+  levelStarred(index, modeId = this.mode.id) {
+    // Only where there was a star to be had. Clearing a level whose every order pays the same
+    // is not an achievement, so those have no star at all rather than one nobody can miss.
+    if (!this.levelContested(index, modeId)) {
+      return false
+    }
+    const level = modeById(modeId).levels[index]
+    const scored = this.levelBest(modeId)[index]
+    return scored !== undefined && scored >= level.par
+  }
+
+  // Whether how a level is played changes what it pays at all. Where the least any clearing
+  // order scores is also the most, there is nothing to aim at and no star to miss: the picker
+  // marks the others so a player knows which ones have something in them.
+  levelContested(index, modeId = this.mode.id) {
+    const mode = modeById(modeId)
+    const level = mode.levels && mode.levels[index]
+    return Boolean(level && level.par && level.floor !== undefined && level.floor < level.par)
+  }
+
+  // Write down what a level paid, if it is the most it has paid. Returns whether that
+  // cleared it for a star, which is what the banner says.
+  #recordLevel(index, scored) {
+    const modeId = this.mode.id
+    const kept = { ...(this.progress[modeId] || {}) }
+    if (!(kept[index] >= scored)) {
+      kept[index] = scored
+    }
+    this.progress = { ...this.progress, [modeId]: kept }
+    saveProgress({ ...this.progress })
+    return this.levelStarred(index, modeId)
   }
 
   // What has been scored on the level being played, as against what it could be. The
@@ -322,7 +389,7 @@ export class Game {
     }
   }
 
-  start(modeId = this.settings.mode) {
+  start(modeId = this.settings.mode, options = {}) {
     this.mode = modeById(modeId)
     this.settings.mode = this.mode.id
     this.#storeSettings()
@@ -331,7 +398,14 @@ export class Game {
     // a mode may ask for a random tuning and then it is a different one per session.
     this.tuning = resolveTuning(this.mode.tuning)
     Sound.setTuning(this.tuning)
-    this.level = 0
+    // Where to begin, for a mode with levels: the one asked for if it has been reached, and
+    // the first otherwise. Gated here as well as in the picker, so nothing can be dropped
+    // into a level by asking for it.
+    const wanted = Number(options.level) || 0
+    this.level =
+      this.mode.levels && this.levelUnlocked(wanted, this.mode.id)
+        ? clamp(wanted, 0, this.mode.levels.length - 1)
+        : 0
     this.levelStartScore = 0
     this.banner = null
     this.#dealBoard()
@@ -366,6 +440,7 @@ export class Game {
   #nextLevel() {
     const cleared = this.currentLevel
     const scored = this.levelScore
+    const starred = this.#recordLevel(this.level, scored)
     this.level++
     this.levelStartScore = this.player.score
     this.#dealBoard()
@@ -381,7 +456,13 @@ export class Game {
     // What that level paid, against the most it could have. The next level's name is in
     // the HUD; what a player wants at this moment is the mark they just got.
     const par = cleared && cleared.par ? ` of ${cleared.par}` : ""
-    this.banner = { text: "Level cleared", sub: `${scored}${par}`, age: 0, life: 2.4 }
+    this.banner = {
+      text: starred ? "Level cleared, star" : "Level cleared",
+      sub: `${scored}${par}`,
+      star: starred,
+      age: 0,
+      life: 2.4,
+    }
     Sound.clear()
   }
 
@@ -648,6 +729,10 @@ export class Game {
     if (verdict === "won" && !this.lastLevel) {
       this.#nextLevel()
       return
+    }
+    // The last level is not followed by another, so this is where its own record is kept.
+    if (verdict === "won" && this.currentLevel) {
+      this.#recordLevel(this.level, this.levelScore)
     }
     this.#finish(verdict)
   }
@@ -1012,6 +1097,9 @@ export class Game {
           // same place. Not filled like the one there, though: on the title it is the
           // thing to press, and here it is the thing to press instead of resuming.
           this.#buttons([{ action: "modes", label: "New game" }]),
+          ...(this.mode.levels && this.mode.levels.length > 1
+            ? [this.#buttons([{ action: "levels", label: "Puzzles" }])]
+            : []),
           this.#buttons([
             { action: "title", label: "Quit to title" },
             { action: "settings", label: "Settings" },
@@ -1043,7 +1131,7 @@ export class Game {
         rows.push({ id: "hint", kind: "hint" })
         rows.push(
           this.#buttons([
-            this.currentLevel ? { action: "again", label: "Start over" } : null,
+            this.currentLevel ? { action: "levels", label: "Puzzles" } : null,
             { action: "modes", label: "Choose a mode" },
           ]),
         )
@@ -1066,6 +1154,36 @@ export class Game {
               // left off without it being pressed for them.
               marked: mode.id === this.settings.mode,
             })),
+          },
+          { id: "hint", kind: "hint" },
+          this.#buttons([{ action: "back", label: "Back" }, null]),
+        ]
+      case "levels":
+        return [
+          {
+            id: "levels",
+            kind: "levels",
+            columns: LEVEL_COLUMNS,
+            options: (this.mode.levels || []).map((level, index) => {
+              const unlocked = this.levelUnlocked(index)
+              const best = this.levelBest()[index]
+              return {
+                action: `level:${index}`,
+                label: String(index + 1),
+                // Locked cells are drawn - a ladder with gaps in it is not a ladder - but
+                // nothing may land on one.
+                locked: !unlocked,
+                cleared: this.levelCleared(index),
+                starred: this.levelStarred(index),
+                // Whether there is a star to be had here at all: see levelContested.
+                contested: this.levelContested(index),
+                best,
+                level,
+                hint: unlocked
+                  ? `${level.name}${best === undefined ? "" : `, best ${best} of ${level.par}`}`
+                  : "Clear the one before it first",
+              }
+            }),
           },
           { id: "hint", kind: "hint" },
           this.#buttons([{ action: "back", label: "Back" }, null]),
@@ -1232,16 +1350,28 @@ export class Game {
     return row.kind !== "heading" && row.kind !== "hint"
   }
 
+  // Whether the cursor may land on a cell. A null is a place-holder keeping a corner empty;
+  // a locked level is drawn but cannot be played, and both are stepped over.
+  #pressable(cell) {
+    return Boolean(cell) && !cell.locked
+  }
+
   // Where the cursor lands when it arrives on a row: the first cell there is to press,
   // except on the mode grid, where it is the mode already chosen.
   #firstOption(row) {
-    if (!row || row.kind !== "buttons") {
+    if (!row || (row.kind !== "buttons" && row.kind !== "levels")) {
       return 0
+    }
+    // The furthest level reached, so a picker opens where a player left off rather than at
+    // the beginning of a ladder they have already climbed.
+    if (row.id === "levels") {
+      const last = row.options.findLastIndex((cell) => this.#pressable(cell))
+      return last < 0 ? 0 : last
     }
     if (row.id === "modes") {
       return Math.max(GAME_MODES.indexOf(this.mode), 0)
     }
-    const first = row.options.findIndex(Boolean)
+    const first = row.options.findIndex((cell) => this.#pressable(cell))
     return first < 0 ? 0 : first
   }
 
@@ -1260,7 +1390,7 @@ export class Game {
     // is short of the column being left - the last line of the mode grid holds one - the
     // cursor takes the nearest cell along it rather than stepping out of the block.
     const here = rows[this.menuIndex]
-    if (here && here.kind === "buttons") {
+    if (here && (here.kind === "buttons" || here.kind === "levels")) {
       const columns = here.columns || here.options.length
       const line = Math.floor(this.menuOption / columns) + delta
       const lines = Math.ceil(here.options.length / columns)
@@ -1269,10 +1399,10 @@ export class Game {
         const end = Math.min(start + columns, here.options.length) - 1
         let target = Math.min(start + (this.menuOption % columns), end)
         // And back along the line past anything only holding its place.
-        while (target > start && !here.options[target]) {
+        while (target > start && !this.#pressable(here.options[target])) {
           target--
         }
-        if (here.options[target]) {
+        if (this.#pressable(here.options[target])) {
           this.menuOption = target
           this.#hover(here, target)
           this.#playCursor()
@@ -1299,11 +1429,11 @@ export class Game {
     if (!row) {
       return
     }
-    if (row.kind === "buttons") {
+    if (row.kind === "buttons" || row.kind === "levels") {
       // Left and right step across the block, over any cell that is only holding its
       // place, and off the end of a line onto the next.
       let next = this.menuOption + delta
-      while (next >= 0 && next < row.options.length && !row.options[next]) {
+      while (next >= 0 && next < row.options.length && !this.#pressable(row.options[next])) {
         next += delta
       }
       if (next >= 0 && next < row.options.length) {
@@ -1441,7 +1571,7 @@ export class Game {
   }
 
   #itemCount(row) {
-    if (row.kind === "buttons") {
+    if (row.kind === "buttons" || row.kind === "levels") {
       return row.options.filter(Boolean).length
     }
     if (row.kind === "options") {
@@ -1615,13 +1745,32 @@ export class Game {
   #activate(action) {
     if (action.startsWith("mode:")) {
       Sound.menuConfirm()
-      this.start(action.slice(5))
+      const mode = modeById(action.slice(5))
+      // A mode of authored levels is a list of boards, not one game: which one to play is
+      // the next thing to ask, so it opens its picker instead of starting.
+      if (mode.levels && mode.levels.length > 1) {
+        this.mode = mode
+        this.settings.mode = mode.id
+        this.#storeSettings()
+        this.#openPage("levels")
+        return
+      }
+      this.start(mode.id)
+      return
+    }
+    if (action.startsWith("level:")) {
+      Sound.menuConfirm()
+      this.start(this.mode.id, { level: Number(action.slice(6)) })
       return
     }
     switch (action) {
       case "modes":
         Sound.menuConfirm()
         this.#openPage("modes")
+        break
+      case "levels":
+        Sound.menuConfirm()
+        this.#openPage("levels")
         break
       case "again":
         Sound.menuConfirm()

@@ -303,6 +303,11 @@ export const RESERVED_BUTTONS = new Set([GAMEPAD.buttons.pause, GAMEPAD.buttons.
 // How far apart two neighbouring items are, in semitones. A whole tone: two neighbouring
 // semitones are the hardest interval there is to tell apart, and telling one item from the
 // next is the entire job here.
+// How many levels the picker puts on a line. Four across a 600 wide field leaves a preview
+// big enough to tell one board from another at a glance, which is the whole point of it, and
+// twelve of the twenty on screen at once.
+export const LEVEL_COLUMNS = 4
+
 export const MENU_STEP = 2
 
 export const MENU_NOTES = {
@@ -311,6 +316,7 @@ export const MENU_NOTES = {
   resume: -10,
   restart: -9,
   modes: -8, // new game, from the title screen or mid-game
+  levels: -7.5, // the puzzle ladder, which sits beside new game and sounds next to it
   again: -7,
   retry: -6,
   settings: -4,
@@ -368,6 +374,7 @@ export const PAGE_TITLES = {
   modes: "New game",
   settings: "Settings",
   controls: "Controls",
+  levels: "Puzzles",
 }
 
 // What a finished board is told it did.

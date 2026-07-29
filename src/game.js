@@ -818,9 +818,9 @@ export class Game {
   //
   // Two cursors: `menuIndex` is the row, `menuOption` the cell within it.
   //
-  // The bottom right of every page is the way out of it - Controls where there is a
-  // game to configure, Back inside a sub-page - so the button a player reaches for
-  // without looking is always in the same place.
+  // Two corners of the panel are fixed, so the button a player reaches for without
+  // looking is always in the same place: Back at the bottom left, since back is a
+  // leftward thing everywhere else, and Controls at the bottom right.
   menuRows() {
     switch (this.page) {
       case "title":
@@ -880,15 +880,15 @@ export class Game {
             })),
           },
           { id: "hint", kind: "hint" },
-          this.#buttons([null, { action: "back", label: "Back" }]),
+          this.#buttons([{ action: "back", label: "Back" }, null]),
         ]
       case "controls":
         return [
           ...this.#controlRows(),
           { id: "hint", kind: "hint" },
           this.#buttons([
-            { action: "resetBindings", label: "Reset to defaults" },
             { action: "back", label: "Back" },
+            { action: "resetBindings", label: "Reset to defaults" },
           ]),
         ]
       default:

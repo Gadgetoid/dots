@@ -463,62 +463,6 @@ function greedyPaths(members, beside, minChain) {
   return paths
 }
 
-// The most a level can score, over every order that clears it.
-//
-// This is computable, and cheaply, because every pop takes dots off the board and none
-// puts any back: the positions reachable from a layout form a directed graph with no
-// cycles, so each one need only be valued once. The multiplier is part of what is
-// valued - the same position is worth more with a multiplier banked - so the memo is
-// keyed on both.
-//
-// Only orders that empty the board are counted. Stranding a colour scores whatever was
-// popped on the way, and sometimes more than clearing would, but it loses the level and
-// the score with it: it is not a target a player could aim at.
-//
-// `scoreChain` and `multiplierAfter` are passed in rather than written here, so this
-// cannot drift from what the game actually pays.
-export function maxScore(layout, cols, rows, minChain, rules, budget = 4000000) {
-  const start = parse(layout, cols, rows)
-  const memo = new Map()
-  let states = 0
-  let exhausted = false
-  // The best that can still be scored from this position, or null if it cannot be
-  // cleared from here at all.
-  const from = (position, multiplier) => {
-    if (isEmpty(position)) {
-      return 0
-    }
-    if (states >= budget) {
-      exhausted = true
-      return null
-    }
-    const id = `${positionKey(position)}|${multiplier}`
-    const known = memo.get(id)
-    if (known !== undefined) {
-      return known
-    }
-    states++
-    let best = null
-    for (const cells of movesFrom(position, cols, rows, minChain, MOVE_LIMIT).moves) {
-      const rest = from(
-        without(position, cells, cols, rows),
-        rules.multiplierAfter(multiplier, cells.length),
-      )
-      if (rest == null) {
-        continue
-      }
-      const total = rules.scoreChain(cells.length) * multiplier + rest
-      if (best == null || total > best) {
-        best = total
-      }
-    }
-    memo.set(id, best)
-    return best
-  }
-  const best = from(start, 1)
-  return { score: best, states, positions: memo.size, exhausted }
-}
-
 // The shape of a level, for a test failure to be readable.
 export function describe(level, cols, rows) {
   const counts = coloursIn(parse(level.layout, cols, rows))

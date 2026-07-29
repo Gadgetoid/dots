@@ -8,7 +8,10 @@
 //
 //   clearable   whether the board can be emptied at all. A level that cannot is not a
 //               level, and the editor refuses to save one.
-//   par         the most any clearing order scores. See maxScore in solver.js.
+//   par         the most any clearing order scores. Only orders that empty the board count:
+//               stranding a colour scores whatever was popped on the way and sometimes more
+//               than clearing would, but it loses the level and the score with it, so it is
+//               not a target a player could aim at. parRoute below is the cross-check.
 //   floor       the least any clearing order scores. This is what says whether how you
 //               play matters: where the floor is the par, every order that clears pays
 //               the same and there is nothing to aim at.

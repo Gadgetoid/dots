@@ -363,7 +363,12 @@ export const DEFAULT_SETTINGS = {
   // less of, and neither carries any information the game needs. A hint still points, since
   // that does carry something; it rings rather than wobbles. See the hints setting for
   // whether it points at all.
-  motion: "full",
+  //
+  // "auto" is the default and takes it from the browser, which is the one accessibility
+  // preference here that can be asked for - unlike speech, see speech.js. It stays "auto"
+  // until the row is pressed, and then it holds what was pressed: the setting is what the
+  // player says, and until they have said anything the system is who to ask.
+  motion: "auto",
   // Whether a settled board points out a move when nothing has happened for a while.
   hints: "on",
   // Whether each dot colour also carries a shape of its own, for anyone who cannot rely on
@@ -398,3 +403,20 @@ export const OUTCOMES = {
 // How much of the game's motion a reduced-motion session keeps. The fall is slowed
 // rather than stopped: a dot that arrives without travelling cannot be followed.
 export const REDUCED_MOTION_RATE = 0.62
+
+// Whether the browser says this player has asked the system for less movement, which is
+// what the "auto" motion setting follows.
+//
+// A MediaQueryList reads live, so asking it every frame follows a preference changed while
+// the game is open without a listener - the same way the theme and the size are polled. It
+// is made on the first ask and kept, since everything drawn asks per dot. Where there is no
+// matchMedia to ask - under node, or a browser that will not answer - the honest answer is
+// that nothing has been asked for.
+let stillness = null
+
+export function prefersReducedMotion() {
+  if (!stillness && typeof matchMedia === "function") {
+    stillness = matchMedia("(prefers-reduced-motion: reduce)")
+  }
+  return Boolean(stillness && stillness.matches)
+}

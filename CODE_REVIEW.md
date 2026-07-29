@@ -117,7 +117,8 @@ A light pass for obvious wins, not an audit. Already in place, so do not report 
 missing: spoken menus, with a DOM toggle placed above the canvas in tab order because a
 canvas cannot be read out; `role="application"` and an `aria-label` on the canvas, and
 `lang="en"` on the page; a per-colour shape setting for anyone who cannot rely on colour;
-a reduced-motion setting; brightness scaling the whole composite; a light theme; hints;
+a reduced-motion setting, taken from `prefers-reduced-motion` until the row is pressed;
+brightness scaling the whole composite; a light theme; hints;
 every control rebindable per device from a page that names what is bound; and a cursor
 tone whose pitch carries how many dots are reachable.
 
@@ -128,10 +129,11 @@ Worth a look, roughly by how cheap the fix would be:
   greyscale screenshot answers it in one look.
 - **Contrast.** Check the faint text entries at their real drawn sizes against the
   background they actually sit on, not against the theme's base.
-- **Flashing.** Not yet measured. Take the glow pulses and the banner fade off the source
-  in Hz and say which are over the 3Hz line usually cited.
-- **`prefers-reduced-motion`** is read by the strategy guide (`guide/main.js`) and not by
-  the game, which has the setting but never takes it from the OS.
+- **Flashing.** Nothing periodic is over the 3Hz line usually cited: the cursor breath is
+  0.54Hz and the banner fades once. A chain unzipping is, at 22Hz - `POP_STAGGER` 45ms
+  against a `POP_FLASH_LIFE` of 160ms, so nine flashes over 400ms for a nine dot chain.
+  Local rather than full-field, and a reduced-motion session throws none of it, which is
+  where that is left.
 - **Timing.** Rush is a fixed 90 seconds with no slow-down.
 
 ## Output

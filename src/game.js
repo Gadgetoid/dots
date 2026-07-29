@@ -24,6 +24,7 @@ import {
   boardLayout,
   cellCentre,
   freshBindings,
+  prefersReducedMotion,
   MENU_NOTES,
   MENU_STEP,
   LEVEL_COLUMNS,
@@ -224,7 +225,14 @@ export class Game {
   // a person is most likely to need less of, and neither carries anything the game needs to
   // say. A hint is the one movement that does carry something, so it is not turned off:
   // it rings instead of wobbling.
+  //
+  // The browser is asked while nothing has been chosen here, which is what the "auto"
+  // setting is. Everything drawn and everything stepped comes off this one getter, so the
+  // system preference reaches all of it without anything else knowing where it came from.
   get reducedMotion() {
+    if (this.settings.motion === "auto") {
+      return prefersReducedMotion()
+    }
     return this.settings.motion === "reduced"
   }
 

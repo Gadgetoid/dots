@@ -666,6 +666,37 @@ test("a reduced-motion session throws no particles", () => {
   assert.equal(floater.y, wasAt)
 })
 
+test("the motion setting takes the system's answer until it is told otherwise", () => {
+  // There is no matchMedia under node, so this is the browser being stood in for. The
+  // query is asked for once and kept, so the same object is what a preference changes on.
+  const system = { matches: false }
+  const real = globalThis.matchMedia
+  globalThis.matchMedia = () => system
+  try {
+    const game = new Game()
+    assert.equal(game.settings.motion, "auto", "nothing has been chosen yet")
+    assert.equal(game.reducedMotion, false, "and the system has not asked for anything")
+
+    system.matches = true
+    assert.equal(game.reducedMotion, true, "a preference set while the game is open lands")
+
+    // Pressing the row is the player saying it themselves, and that outlives the system
+    // changing its mind either way.
+    const settings = new Game()
+    settings.settings.motion = "auto"
+    settings.page = "settings"
+    // menuRows is rebuilt on every call, so a row is found by its id and not held on to.
+    const at = settings.menuRows().findIndex((entry) => entry.id === "motion")
+    assert.equal(settings.menuRows()[at].selected, 1, "the row shows what the game is doing")
+    settings.menuTap(at, 0) // Full
+    assert.equal(settings.settings.motion, "full")
+    assert.equal(settings.reducedMotion, false, "chosen, so the system is no longer asked")
+  } finally {
+    system.matches = false
+    globalThis.matchMedia = real
+  }
+})
+
 test("the cursor drags the chain, and stepping back retracts it", () => {
   const game = new Game()
   game.start("classic")

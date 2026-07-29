@@ -11,16 +11,48 @@
 //   npm install --no-save puppeteer-core
 //   node tools/screenshot.mjs
 //
-// Output lands in screenshots/.
+// Output lands in screenshots/, quantised with pngquant where it is installed.
 
 import puppeteer from "puppeteer-core"
 import http from "node:http"
 import fs from "node:fs"
 import path from "node:path"
+import { execFileSync } from "node:child_process"
 import { fileURLToPath } from "node:url"
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const OUT = path.join(ROOT, "screenshots")
+
+// A browser writes 8-bit truecolour, which for these is about twice the size it needs to be:
+// a shot of this game is a few dot colours over a dark field, so a palette holds it. Around
+// 40% of the original, with the error living in the brightest part of a glow where nothing can
+// be seen of it.
+//
+// Skipped where pngquant is not installed, since it is not something the game depends on: the
+// shots are simply bigger, and the next run on a machine that has it will shrink them.
+let quantises = true
+function quantise(file) {
+  if (!quantises) {
+    return ""
+  }
+  const before = fs.statSync(file).size
+  try {
+    // In place, and only if it comes out smaller, which is what --skip-if-larger is for.
+    execFileSync("pngquant", ["--force", "--skip-if-larger", "--output", file, "256", "--", file], {
+      stdio: "ignore",
+    })
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      quantises = false
+      console.log("pngquant not found, so the shots are left as the browser wrote them")
+      return ""
+    }
+    // Anything else is this one file refusing to get smaller, which is not worth a fuss.
+    return ""
+  }
+  const after = fs.statSync(file).size
+  return `, ${Math.round(after / 1024)}kB from ${Math.round(before / 1024)}kB`
+}
 
 // Where to find a browser. CHROME overrides it.
 const CHROME_CANDIDATES = [
@@ -533,11 +565,12 @@ try {
       shot.frames,
       shot.clipAspect || 0,
     )
+    const written = path.join(OUT, shot.file)
     await page.screenshot({
-      path: path.join(OUT, shot.file),
+      path: written,
       ...(posed.clip ? { clip: posed.clip } : {}),
     })
-    console.log(`wrote screenshots/${shot.file}`)
+    console.log(`wrote screenshots/${shot.file}${quantise(written)}`)
     await page.close()
     await context.close()
   }

@@ -15,21 +15,22 @@
 //   node tools/find-levels.mjs --out found --min 12.5 --seconds 120
 //   node tools/find-levels.mjs --out found --shape mesa --from 40000
 //   node tools/find-levels.mjs --out found --mindots 10 --maxdots 16 --min 7 --max 9
-
+//   node tools/find-levels.mjs --out gentle --gentle
 //
 // | flag        | what it does                                                         |
 // | ----------- | -------------------------------------------------------------------- |
 // | --out DIR   | a directory; one file per find, written the moment it is found        |
 // | --min N     | keep boards measuring at least this hard (default 11.5)               |
 // | --max N     | and at most this hard, which bounds the climb too (default 0, no ceiling)|
+// | --gentle    | hunt the forgiving end instead: see below for what it sets            |
 // | --seconds N | how long one board may be judged for (default 45)                     |
 // | --tries N   | stop after this many starting points (default 0, meaning never)       |
 // | --workers N | how many at once (default half the cores)                             |
 // | --shape S   | only this silhouette, or "all" for a broad run over all of them       |
 // | --from N    | start every shape here, overriding what state.json remembers          |
 // | --show N    | print starting point N and stop, to see or reproduce one              |
-// | --maxdots N | skip silhouettes with more dots than this (default 26)                |
-// | --mindots N | skip silhouettes with fewer dots than this (default 18)               |
+// | --maxdots N | skip silhouettes with more dots than this (default 26, gentle 18)     |
+// | --mindots N | skip silhouettes with fewer dots than this (default 18, gentle 10)    |
 // | --duty N    | work only N percent of the time, to run cooler (default 100)          |
 // | --minutes N | stop after this long (default 0, meaning never)                       |
 // | --per-shape N | keep at most this many finds of one silhouette (default 4)          |
@@ -105,9 +106,23 @@
 // 24 kept thirteen boards in two minutes, every one of them inside it and from thirteen different
 // silhouettes.
 //
-// What no range can currently reach is bands 1 and 2: see `wanted`, which asks for exactly one
-// order paying par, four chains and greed missing par. Every shipped level below 9.06 fails at
-// least one of those, and failing them is what makes those levels gentle.
+// Band 2 is not a matter of range, though, which is what --gentle is for. No number given to --min
+// and --max reaches it, because the test for a keep asks for exactly one order paying par and four
+// chains, and every shipped level below 9.06 fails one or the other. So --gentle drops those two and
+// sets the range and the sizes to suit: 3.5 to 6 over the ten to eighteen dot silhouettes. It kept
+// eight boards in two minutes, 5.36 to 5.95, two to six orders paying par and at most three of
+// twenty-five openings losing it silently. Warm ups, in other words.
+//
+// It is a starting point and not a mode: every default it sets can be named over. --gentle --max 8.5
+// hunts band 3 by the same relaxed test.
+//
+// What it cannot reach is anything under about 5, and the reason is worth writing down because no
+// amount of running will get past it. A keep still needs greed to miss par, which is 1.5 of the score
+// on its own, and three chains is 1.35, and even a twelve dot board walks a few hundred positions for
+// another 1.6 or so. That is 4.5 before a single trap is counted: 29,628 climbs asking for 2 to 4.5
+// kept nothing at all. The three shipped levels below it - 2.03, 3.19 and 4.58 - are all boards where
+// greed *does* pay par, which is what makes them that gentle and why the level test excuses only the
+// first three from that rule. Levels that easy are hand-drawn, not found.
 //
 // DIR fills as it goes, a file per find named for how hard it measured so `ls` shows the best
 // last, plus a summary.txt rewritten on every find. Both are safe to read while it runs. Nothing
@@ -235,10 +250,21 @@ function arg(name, fallback) {
   return at >= 0 && process.argv[at + 1] ? process.argv[at + 1] : fallback
 }
 
+const flag = (name) => process.argv.includes(`--${name}`)
+
+// Hunting the gentle end is a different search, not the same one with the numbers turned down, so
+// --gentle sets the range, the sizes and the test together. Anything named alongside it still wins,
+// which is what makes it a starting point rather than a mode.
+//
+// The range is band 2, which the ladder has exactly one level in, and the sizes are the small
+// silhouettes. What the test drops is in `wanted`.
+const GENTLE = flag("gentle")
+
 const OPTIONS = {
   out: arg("out", null),
-  min: Number(arg("min", 11.5)),
-  max: Number(arg("max", 0)),
+  gentle: GENTLE,
+  min: Number(arg("min", GENTLE ? 3.5 : 11.5)),
+  max: Number(arg("max", GENTLE ? 6 : 0)),
   seconds: Number(arg("seconds", 45)),
   tries: Number(arg("tries", 0)),
   workers: Number(arg("workers", Math.max(1, Math.floor(os.cpus().length / 2)))),
@@ -247,8 +273,8 @@ const OPTIONS = {
   perShape: Number(arg("per-shape", 4)),
   shape: arg("shape", null),
   from: Number(arg("from", 0)),
-  maxDots: Number(arg("maxdots", 26)),
-  minDots: Number(arg("mindots", 18)),
+  maxDots: Number(arg("maxdots", GENTLE ? 18 : 26)),
+  minDots: Number(arg("mindots", GENTLE ? 10 : 18)),
   steps: Number(arg("steps", 20)),
   apart: Number(arg("apart", 4)),
 }
@@ -480,7 +506,22 @@ const SHIPPED = new Set(Object.keys(loadCache().boards))
 
 // What a candidate has to be to be worth keeping. Difficulty is the gate; the rest is what the
 // shipped levels at the hard end all have, and what makes one worth playing.
-function wanted(found, min) {
+//
+// Two of those are what the hard end means, not what a level means, and under --gentle they go.
+// Every shipped level below 9.06 fails at least one of them, and failing them is exactly what makes
+// those levels gentle:
+//
+//   exactly one order pays par   Warm up and Stacks have six, Pyramid four, Battlements a hundred
+//                                and twenty. A level with one best order is a level with something
+//                                to find; a level with several is one a player cannot get wrong.
+//   four chains or more          the first two levels are three, which is the whole of a warm up.
+//
+// What does not go is greed missing par, and that is deliberate. A level where taking the longest
+// chain every time pays par has nothing to work out at all, and the level test says so from the
+// fourth level on. It also does the work of a clause that is not written here: greed scoring under
+// par means some clearing order pays less than par, so the floor is under it and there is a score to
+// aim at.
+function wanted(found, min, gentle) {
   return (
     found.clearable === true &&
     found.exact &&
@@ -489,14 +530,14 @@ function wanted(found, min) {
     // run fills up with boards whose difficulty was never measured.
     found.statsExact &&
     found.difficulty >= min &&
-    found.parPaths === 1 &&
-    found.moves >= 4 &&
+    (gentle || found.parPaths === 1) &&
+    found.moves >= (gentle ? 3 : 4) &&
     (!found.greedy.clears || found.greedy.score < found.par)
   )
 }
 
 // ---- one worker's share ----------------------------------------------------
-function hunt({ min, max, seconds, maxDots, steps, out, duty, until }) {
+function hunt({ min, max, gentle, seconds, maxDots, steps, out, duty, until }) {
   // Whether to stop, checked between boards: a climb is up to `steps` boards and a board can take
   // `seconds`, so a check per climb could be minutes away from noticing. The file is only looked at
   // once a second, since asking the filesystem between boards that take a tenth of one is silly.
@@ -560,7 +601,7 @@ function hunt({ min, max, seconds, maxDots, steps, out, duty, until }) {
     if (max > 0 && found.difficulty > max) {
       return null
     }
-    if (wanted(found, min)) {
+    if (wanted(found, min, gentle)) {
       parentPort.postMessage({
         kind: "found",
         candidate: {
@@ -728,7 +769,8 @@ function main() {
   }
   console.log(
     `${shapeNames.length} of ${Object.keys(SHAPES).length} silhouettes, ` +
-      `${OPTIONS.minDots} to ${OPTIONS.maxDots} dots, measuring ${band}`,
+      `${OPTIONS.minDots} to ${OPTIONS.maxDots} dots, measuring ${band}` +
+      `${OPTIONS.gentle ? ", and forgiving: several orders may pay par, three chains will do" : ""}`,
   )
   const out = path.resolve(OPTIONS.out)
   fs.mkdirSync(out, { recursive: true })
@@ -869,6 +911,7 @@ function main() {
       workerData: {
         min: OPTIONS.min,
         max: OPTIONS.max,
+        gentle: OPTIONS.gentle,
         seconds: OPTIONS.seconds,
         maxDots: OPTIONS.maxDots,
         steps: OPTIONS.steps,

@@ -73,6 +73,14 @@ export const CONFIG = {
   // other; and being longer than REPEAT_RATE it means a held direction plays tones the
   // whole way down a page and speaks only the item it comes to rest on.
   SPEECH_DELAY: 0.13,
+  // And how long it waits when a line has only just been spoken.
+  //
+  // Cycling through options is presses a fifth of a second apart, which is slower than
+  // SPEECH_DELAY: each line would start and be cut off a word in by the next, so the whole
+  // flurry is heard as chopped-up syllables. Waiting longer once the voice is already going
+  // means a flurry passes in silence and the item it ends on is read out whole, while a
+  // single move after a pause is still answered promptly.
+  SPEECH_SETTLE: 0.4,
 
   // ---- the chain --------------------------------------------------------
   // The chain is one distance field: a disc at each dot and a rod between them,
@@ -337,9 +345,11 @@ export const DEFAULT_SETTINGS = {
   // who would rather not hold a button down while aiming with the other hand - or at all.
   // A pointer drags either way; a drag is a hold by nature.
   link: "hold",
-  // "reduced" turns off the particles and the wobble, slows the fall, and makes the menus
-  // solid rather than glass. Motion and transparency are the two things a person is most
-  // likely to need less of, and neither carries any information the game needs.
+  // "reduced" turns off the particles, slows the fall, and makes the menus solid rather
+  // than glass. Motion and transparency are the two things a person is most likely to need
+  // less of, and neither carries any information the game needs. A hint still points, since
+  // that does carry something; it rings rather than wobbles. See the hints setting for
+  // whether it points at all.
   motion: "full",
   // Whether a settled board points out a move when nothing has happened for a while.
   hints: "on",

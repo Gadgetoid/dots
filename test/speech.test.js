@@ -87,6 +87,53 @@ test("a line waits, then replaces the one waiting", () => {
   })
 })
 
+test("the wait grows while the cursor is still moving", () => {
+  withSynth((synth) => {
+    // Time held still, so what is being measured is the rule and not the machine.
+    let clock = 10_000
+    const realNow = Speech.now
+    Speech.now = () => clock
+    try {
+      Speech.setEnabled(true)
+      Speech.askedAt = 0
+
+      // A move on its own, after quiet: answered promptly.
+      Speech.say("Theme, Dark")
+      assert.equal(Speech.waiting, CONFIG.SPEECH_DELAY)
+      Speech.flush()
+      assert.equal(synth.spoken.length, 1)
+
+      // Cycling a row of options: presses further apart than the short wait, which is what
+      // used to let each line start and be cut off a word in. However long it goes on for,
+      // and it is measured from the last press so it does not decide halfway through that
+      // the flurry is over.
+      const gap = CONFIG.SPEECH_DELAY * 1000 + 20
+      assert.ok(gap < CONFIG.SPEECH_SETTLE * 1000, "these are quicker than the long wait")
+      const options = ["Night", "Dim", "Full", "Night", "Dim", "Full", "Night", "Dim", "Full"]
+      for (const option of options) {
+        clock += gap
+        Speech.say(`Light, ${option}`)
+        assert.equal(Speech.waiting, CONFIG.SPEECH_SETTLE, `${option} waits for the flurry`)
+      }
+      assert.equal(synth.spoken.length, 1, "and none of them is read out on the way past")
+
+      // The flurry ends and the option landed on is read, once and whole.
+      Speech.flush()
+      assert.deepEqual(
+        synth.spoken.map((entry) => entry.text),
+        ["Theme, Dark", "Light, Full"],
+      )
+
+      // Once nothing has moved for a while, the next move is prompt again.
+      clock += CONFIG.SPEECH_SETTLE * 1000 + 1
+      Speech.say("Sound, On")
+      assert.equal(Speech.waiting, CONFIG.SPEECH_DELAY)
+    } finally {
+      Speech.now = realNow
+    }
+  })
+})
+
 test("the wait clears the item's own tone and outlasts a held direction", () => {
   // The two numbers this delay sits between: it has to be longer than the menu blip so the
   // two are not talking at once, and longer than the repeat interval so a held key ticks

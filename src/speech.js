@@ -21,6 +21,10 @@ export const Speech = {
   // What is waiting to be said, and the timer that will say it. See say().
   pending: null,
   timer: null,
+  // When something last asked to be said, and how long the line waiting was given, both so
+  // the wait can grow while the cursor is still moving. See say().
+  askedAt: 0,
+  waiting: 0,
 
   // Whether this browser can speak. Present in every current browser; absent under Node,
   // which is what the tests exercise, and voiceless on a machine with no speech installed.
@@ -35,13 +39,28 @@ export const Speech = {
   // either talking over the blip or being cut off by the next item. Replacing the pending
   // line rather than queueing it is the whole trick - a page walked from top to bottom
   // ticks all the way down and then says where it stopped.
+  //
+  // The wait is longer while the cursor is still moving. Without that, presses spaced further
+  // apart than the short wait each get a word or two out before the next cancels them, and
+  // cycling through a row of options is heard as chopped-up syllables instead of as the
+  // option landed on. Measured from the last thing asked for and not from the last thing
+  // said, so a flurry of any length is still a flurry.
   say(text) {
     if (!this.enabled || !this.available || !text) {
       return
     }
+    const moving = this.now() - this.askedAt < CONFIG.SPEECH_SETTLE * 1000
+    const wait = moving ? CONFIG.SPEECH_SETTLE : CONFIG.SPEECH_DELAY
+    this.askedAt = this.now()
     this.pending = text
+    this.waiting = wait
     clearTimeout(this.timer)
-    this.timer = setTimeout(() => this.flush(), CONFIG.SPEECH_DELAY * 1000)
+    this.timer = setTimeout(() => this.flush(), wait * 1000)
+  },
+
+  // The clock the wait is measured on. Its own method so a test can hold time still.
+  now() {
+    return Date.now()
   },
 
   // Say it now, whatever is being said currently. For the one announcement that must not
@@ -60,6 +79,7 @@ export const Speech = {
     const text = this.pending
     this.pending = null
     this.timer = null
+    this.waiting = 0
     if (!text) {
       return
     }
@@ -84,6 +104,7 @@ export const Speech = {
     this.pending = null
     clearTimeout(this.timer)
     this.timer = null
+    this.waiting = 0
     if (!this.available) {
       return
     }

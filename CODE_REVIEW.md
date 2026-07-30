@@ -75,8 +75,12 @@ than reasoning from the source. `test/game.test.js` has the helpers (`advanceUnt
 - **Cosmetic randomness must stay unseeded.** Particles and audio detune go through
   `randRange` on `Math.random`; only the board's `random` is seeded. A spark landing in
   the same place twice is not what anyone means by the same board.
-- **The levels suite takes 15s or several minutes depending on the date.** A daily
-  rotating sample re-proves part of the ladder from scratch. It is not a hang.
+- **The levels suite reads what it knows out of `data/verified-boards.json`**, keyed on each
+  board and on a fingerprint of the rules that judged it, so editing a layout or changing what
+  a chain pays walks that level here and now. `DOTS_REWALK_LEVELS=1` walks a couple regardless,
+  chosen by the day, which takes anything from seconds to several minutes and is worth it after
+  a change to the search that no fingerprint could notice. `tools/verify-levels.mjs` is the
+  thorough way.
 - **Level names are user-facing and get renamed.** Links slug them, so two names that
   slug alike would silently make one unreachable; there is a test for it.
 - **A banner is drawn before the menu panel**, so one raised while a page is open is

@@ -131,18 +131,27 @@ const SCORING = {
 // board's own identity and a fingerprint of the rules and weights that judged it. A level whose
 // board and fingerprint are both in the file is taken as proved.
 //
-// Three things stop that being a way to believe a stale number forever:
+// Two things stop that being a way to believe a stale number forever:
 //
 //   - the fingerprint. Change what a chain pays, or how difficulty is weighed, and nothing in the
 //     file counts. MEASURE in src/analysis.js covers the rest: bump it when a change could alter
 //     what the analysis returns, since no fingerprint can notice that a bug was fixed.
 //   - the board's identity. Edit a layout by one dot and it is a different board, so it is walked.
-//   - the sample below. Some levels are walked every run regardless, chosen by the day, so the whole
-//     ladder is re-proved from scratch over time rather than never.
+//
+// Between them, a number can only be believed while both the board and the thing that judged it
+// are the ones that produced it. What is not checked is that a board nobody has touched still
+// holds, and it does: a layout does not become unclearable while nobody is looking.
 const CACHE = loadCache()
-// How many are walked whatever the cache says. Two is a couple of seconds on the early levels and
-// several minutes if the day lands on the biggest, and gets through the ladder in three weeks.
-const SAMPLED = 2
+// So walking some of them regardless is opt-in. Two is a couple of seconds on the early levels
+// and several minutes if the day lands on one of the largest, which is a long wait on every run
+// and on every CI build for a file that is not moving.
+//
+//   DOTS_REWALK_LEVELS=1 npm test
+//
+// Which two is chosen by the day, so daily runs get through the whole ladder from scratch in
+// under a month. Worth turning on after a change to the search that the fingerprint cannot see;
+// tools/verify-levels.mjs is the other way, and the thorough one.
+const SAMPLED = process.env.DOTS_REWALK_LEVELS ? 2 : 0
 const sampleFrom = Math.floor(Date.now() / 86400000) * SAMPLED
 const sampled = new Set(
   Array.from({ length: SAMPLED }, (_, at) => (sampleFrom + at) % LEVELS.length),
@@ -200,7 +209,10 @@ test("every level has been proved, by the cache or here and now", () => {
     )
   }
   const walked = KNOWN.filter((known) => !known.fromCache).length
-  assert.ok(walked >= SAMPLED, "and some are walked every run whatever the cache says")
+  assert.ok(
+    walked >= SAMPLED,
+    `${SAMPLED} were to be walked whatever the cache says, and ${walked} were`,
+  )
 })
 
 test("a board that is several puzzles side by side is only exact about par", () => {

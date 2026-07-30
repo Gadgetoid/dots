@@ -19,6 +19,7 @@
 // The GLSL for every pass lives in shaders.js.
 
 import { Renderer } from "./renderer.js"
+import { FONTS } from "./fonts.js"
 import { VIEW_W, VIEW_H, CONFIG } from "./config.js"
 import { clamp } from "./math.js"
 import {
@@ -105,37 +106,57 @@ function program(gl, vs, fs) {
   return prog
 }
 
-// ---- monospace font atlas -------------------------------------------------
+// ---- font atlas -----------------------------------------------------------
+// Every printable ASCII character, rasterised once into a grid of fixed cells, twice over
+// for the two weights. A cell is as wide as the widest character the face has, and each
+// character is drawn at the same offset inside its own cell - so a cell holds the glyph's
+// ink wherever its own bearings put it, and the quad that samples the cell reproduces that.
+//
+// What is not fixed is how far the pen moves afterwards. A proportional face advances by a
+// different amount per character, so the advances are measured here and kept: a face where
+// an `i` is a third the width of a `W` cannot be laid out by counting characters. See
+// measureText and text.
 const ATLAS_FONT = 44
 const FIRST_CODE = 32
 const LAST_CODE = 126
-const FONT_STACK = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace'
-function buildAtlas() {
+const GLYPH_COUNT = LAST_CODE - FIRST_CODE + 1
+const ATLAS_COLS = 16
+// Room inside a cell for the ink to sit where the face puts it, on both sides.
+const CELL_PAD = 6
+
+function buildAtlas(stack) {
   const measure = document.createElement("canvas").getContext("2d")
-  measure.font = `${ATLAS_FONT}px ${FONT_STACK}`
-  const advance = Math.ceil(measure.measureText("M").width)
-  const cellW = advance + 6
+  const weights = [`${ATLAS_FONT}px ${stack}`, `bold ${ATLAS_FONT}px ${stack}`]
+  // One advance per character per weight, and the widest of the lot decides the cell.
+  const advances = weights.map((font) => {
+    measure.font = font
+    const row = new Float32Array(GLYPH_COUNT)
+    for (let i = 0; i < GLYPH_COUNT; i++) {
+      row[i] = measure.measureText(String.fromCharCode(FIRST_CODE + i)).width
+    }
+    return row
+  })
+  const widest = Math.max(...advances.flatMap((row) => [...row]))
+  const cellW = Math.ceil(widest) + CELL_PAD
   const cellH = ATLAS_FONT + 18
   const baseline = ATLAS_FONT + 4
-  const count = LAST_CODE - FIRST_CODE + 1
-  const cols = 16
-  const rowsPerWeight = Math.ceil(count / cols)
+  const rowsPerWeight = Math.ceil(GLYPH_COUNT / ATLAS_COLS)
   const canvas = document.createElement("canvas")
-  canvas.width = cols * cellW
+  canvas.width = ATLAS_COLS * cellW
   canvas.height = rowsPerWeight * 2 * cellH // regular then bold
   const ctx = canvas.getContext("2d")
   ctx.textBaseline = "alphabetic"
   ctx.textAlign = "left"
   ctx.fillStyle = "#fff"
   for (let weight = 0; weight < 2; weight++) {
-    ctx.font = `${weight ? "bold " : ""}${ATLAS_FONT}px ${FONT_STACK}`
-    for (let i = 0; i < count; i++) {
-      const col = i % cols
-      const row = Math.floor(i / cols) + weight * rowsPerWeight
+    ctx.font = weights[weight]
+    for (let i = 0; i < GLYPH_COUNT; i++) {
+      const col = i % ATLAS_COLS
+      const row = Math.floor(i / ATLAS_COLS) + weight * rowsPerWeight
       ctx.fillText(String.fromCharCode(FIRST_CODE + i), col * cellW + 3, row * cellH + baseline)
     }
   }
-  return { canvas, cellW, cellH, advance, baseline, cols, rowsPerWeight }
+  return { canvas, cellW, cellH, baseline, advances, cols: ATLAS_COLS, rowsPerWeight, stack }
 }
 
 // Vertex layout per pipeline: floats per vertex, the [location, size] attribute
@@ -247,6 +268,8 @@ export class WebGLRenderer extends Renderer {
     super()
     this.canvas = canvas
     this.gl = gl
+    // The face the atlas is rasterised from, until the view says otherwise. See setFont.
+    this.fontStack = FONTS[0].stack
     this.time = 0
     this.brightness = 1
     this.glowIntensity = CONFIG.BLOOM_INTENSITY
@@ -363,13 +386,27 @@ export class WebGLRenderer extends Renderer {
     return { tex, fbo, w, h }
   }
 
+  // Draw text in this font stack from here on. A rebuild is a canvas rasterise and one
+  // texture upload, so it is cheap enough to do the moment a face is chosen - but it is
+  // asked for every frame, so the same stack twice has to cost nothing.
+  setFont(stack) {
+    if (!stack || stack === this.fontStack) {
+      return
+    }
+    this.fontStack = stack
+    if (!this.contextLost) {
+      this.#initAtlas()
+    }
+  }
+
   #initAtlas() {
     const gl = this.gl
-    // Called again when a font settles, so the atlas this replaces goes with it.
+    // Called again when a face is chosen or a font settles, so the atlas this replaces goes
+    // with it.
     if (this.atlasTex) {
       gl.deleteTexture(this.atlasTex)
     }
-    const atlas = buildAtlas()
+    const atlas = buildAtlas(this.fontStack)
     this.atlas = atlas
     const ctx = atlas.canvas.getContext("2d")
     const image = ctx.getImageData(0, 0, atlas.canvas.width, atlas.canvas.height)
@@ -940,8 +977,28 @@ export class WebGLRenderer extends Renderer {
     })
   }
 
-  measureText(str, size = 12) {
-    return str.length * this.atlas.advance * (size / ATLAS_FONT)
+  // How far the pen moves across one character, in atlas units. Anything outside the atlas
+  // takes a space's width, so a string the face cannot draw still occupies room rather than
+  // collapsing whatever is laid out after it.
+  #advanceOf(atlas, code, weight) {
+    const row = atlas.advances[weight]
+    if (code < FIRST_CODE || code > LAST_CODE) {
+      return row[0]
+    }
+    return row[code - FIRST_CODE]
+  }
+
+  // The width of a run, which is a sum and not a multiplication: the faces this can be asked
+  // to draw in are not all monospaced. `bold` because a bold advance is not its regular one,
+  // and a caller laying something out after a bold run has to be told the truth about it.
+  measureText(str, size = 12, bold = false) {
+    const atlas = this.atlas
+    const weight = bold ? 1 : 0
+    let total = 0
+    for (let index = 0; index < str.length; index++) {
+      total += this.#advanceOf(atlas, str.charCodeAt(index), weight)
+    }
+    return total * (size / ATLAS_FONT)
   }
 
   text(str, x, y, opts = {}) {
@@ -949,8 +1006,7 @@ export class WebGLRenderer extends Renderer {
     const colour = this.#colour(opts)
     const atlas = this.atlas
     const scale = size / ATLAS_FONT
-    const advance = atlas.advance * scale
-    const total = str.length * advance
+    const total = this.measureText(str, size, opts.bold)
     const left = opts.align === "right" ? x - total : opts.align === "center" ? x - total / 2 : x
     // The alphabetic baseline sits at y; "middle" nudges the run down so a line
     // centres on y instead.
@@ -960,19 +1016,26 @@ export class WebGLRenderer extends Renderer {
     const cellH = atlas.cellH * scale
     const du = atlas.cellW / atlas.canvas.width
     const dv = atlas.cellH / atlas.canvas.height
-    const weightRow = opts.bold ? atlas.rowsPerWeight : 0
+    const weight = opts.bold ? 1 : 0
+    const weightRow = weight ? atlas.rowsPerWeight : 0
     this.#emit("text", colour, opts.glow || 0, (layer, col) => {
       this.#reserve(layer, str.length * 6 * 8)
       const data = layer.data
+      // A pen, not a column: each character moves it by its own advance.
+      let pen = left
       for (let index = 0; index < str.length; index++) {
         const code = str.charCodeAt(index)
+        const step = this.#advanceOf(atlas, code, weight) * scale
         if (code <= 32 || code > LAST_CODE) {
+          // Nothing to draw, and the pen still moves: a space is a space.
+          pen += step
           continue
         }
         const glyph = code - FIRST_CODE
         const u0 = (glyph % atlas.cols) * du
         const v0 = (Math.floor(glyph / atlas.cols) + weightRow) * dv
-        const x0 = left + index * advance
+        const x0 = pen
+        pen += step
         const corner = (dx, dy) => {
           let i = layer.count
           data[i++] = x0 + dx * cellW

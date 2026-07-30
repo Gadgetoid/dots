@@ -85,6 +85,9 @@ class Recorder {
   measureText(str, size) {
     return str.length * size * 0.6
   }
+  setFont(stack) {
+    this.fontStack = stack
+  }
   setContentRect() {}
 }
 
@@ -383,6 +386,63 @@ test("the clock draws at every point of its run", () => {
   for (const left of [90, 45, 12, 1, 0.2, 0]) {
     game.timeLeft = left
     assertSane(drawn(game), `clock at ${left}`)
+  }
+})
+
+test("every hint fits the panel it is drawn in", () => {
+  const game = new Game()
+  game.start("classic")
+  // The widest hints are the settings, one per value, and the seed picker's.
+  for (const page of ["settings", "seed", "modes", "over"]) {
+    game.page = page
+    const rows = game.menuRows()
+    rows.forEach((row, index) => {
+      if (row.kind === "heading" || row.kind === "hint") {
+        return
+      }
+      game.menuIndex = index
+      const cells = row.kind === "options" ? row.options.length : Math.max(row.options.length, 1)
+      for (let option = 0; option < cells; option++) {
+        game.menuOption = option
+        const calls = drawn(game)
+        // Where the panel is, taken from what was drawn in it rather than from a metric the
+        // view keeps to itself: every cell of every row sits inside it. Only what is drawn
+        // after beginOverlay counts - before it is the board, and the well is wider than the
+        // menu that goes over it.
+        let overlay = false
+        let left = Infinity
+        let right = -Infinity
+        for (const call of calls) {
+          if (call.kind === "beginOverlay") {
+            overlay = true
+            continue
+          }
+          if (!overlay || call.kind !== "panel") {
+            continue
+          }
+          const [x, , w] = call.args
+          if (w >= VIEW_W) {
+            continue // the full-window frost
+          }
+          left = Math.min(left, x)
+          right = Math.max(right, x + w)
+        }
+        if (!Number.isFinite(left)) {
+          continue
+        }
+        for (const call of calls) {
+          if (call.kind !== "text" || call.opts.align !== "center") {
+            continue
+          }
+          const width = call.opts.str.length * call.opts.size * 0.6
+          const [x] = call.args
+          assert.ok(
+            x - width / 2 >= left - 1 && x + width / 2 <= right + 1,
+            `${page} row ${index} cell ${option}: "${call.opts.str}" runs ${Math.round(x - width / 2)}..${Math.round(x + width / 2)} in a panel of ${Math.round(left)}..${Math.round(right)}`,
+          )
+        }
+      }
+    })
   }
 })
 

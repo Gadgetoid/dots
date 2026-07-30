@@ -22,10 +22,10 @@
 // 16.9 against 12.1 for the light one, where 8 is the least a pair can differ by and still
 // be told apart without a second channel to go on.
 //
-// `bright` is derived rather than chosen: the same hue and chroma, lifted 0.07 in OKLCH
-// lightness. Only a little, because a linked dot is already carrying the glow layer and a
-// pale bright on top of that puts the whole chain to white - the hue has to survive its
-// own bloom.
+// `bright` is derived rather than chosen: the same hue and chroma, moved 0.07 in OKLCH
+// lightness away from the ground it is drawn on - up in the dark theme, down in the light
+// one. Only that far, because a linked dot is already carrying the glow layer and a pale
+// bright on top of that puts the whole chain to white: the hue has to survive its own bloom.
 
 // How many dot colours a board deals from. The themes must each list this many.
 export const DOT_COLOURS = 5
@@ -75,7 +75,7 @@ const DARK = {
     bright: "#f2f5ff",
     normal: "#c3cbe2",
     dim: "#8b93ab",
-    faint: "#5d6479",
+    faint: "#79809a",
   },
   cursor: "#8b93ab",
   cursorActive: "#f2f5ff",
@@ -122,8 +122,8 @@ const LIGHT = {
   text: {
     bright: "#1e1a14",
     normal: "#4b443a",
-    dim: "#7a7266",
-    faint: "#aca492",
+    dim: "#665e52",
+    faint: "#847c6a",
   },
   cursor: "#8f8677",
   cursorActive: "#4b443a",

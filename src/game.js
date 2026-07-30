@@ -33,6 +33,7 @@ import {
   OUTCOMES,
 } from "./config.js"
 import { THEMES, THEME_IDS, DOT_SHAPES } from "./palette.js"
+import { FONTS, fontById, fontReady, ensureFont } from "./fonts.js"
 import { resolveTuning } from "./scales.js"
 import { clamp, lerp, mulberry32 } from "./math.js"
 import { parseLink, levelFromToken } from "./link.js"
@@ -256,6 +257,14 @@ export class Game {
     return OUTCOMES[this.outcome] || "Game over"
   }
 
+  // The face to draw text in. A face that has been chosen but has not arrived yet falls back
+  // to the standard one, so a frame is never drawn in whatever the browser picks for a family
+  // it does not have.
+  get font() {
+    const wanted = fontById(this.settings.font)
+    return fontReady(wanted.id) ? wanted : FONTS[0]
+  }
+
   // The shape a dot of this colour carries, or null while shapes are off. A second signal
   // for anyone who cannot rely on the colours; see DOT_SHAPES.
   shapeFor(colour) {
@@ -273,6 +282,10 @@ export class Game {
   applySettings() {
     Sound.enabled = this.settings.sound
     Speech.setEnabled(this.settings.speech === "on")
+    // A remembered face has to be asked for again: nothing is bundled into the page, so a
+    // returning player's choice is a fetch like any other. The `font` getter draws in the
+    // standard one until it lands.
+    ensureFont(this.settings.font)
   }
 
   // ---- persistence --------------------------------------------------------
@@ -1540,6 +1553,10 @@ export class Game {
       columns: columns || options.length,
       primary,
       hint,
+      // The row that leads out of a page is the page's furniture and not its contents, which
+      // is how the view knows to draw it smaller and set apart. Derived here rather than
+      // passed, so a page that grows a way out cannot forget to say so.
+      furniture: options.some((option) => option && option.action === "back"),
       options,
     }
   }
@@ -1591,9 +1608,20 @@ export class Game {
         label: "Shapes",
         selected: this.settings.shapes === "on" ? 0 : 1,
         options: [
-          { id: "on", label: "On", hint: "Each colour carries a shape of its own as well" },
+          { id: "on", label: "On", hint: "Each colour carries a shape of its own" },
           { id: "off", label: "Off", hint: "Colour alone tells the dots apart" },
         ],
+      },
+      {
+        id: "font",
+        kind: "options",
+        // "Letters" rather than "Font", because what the setting changes is what a letter
+        // looks like and the row is read beside Shapes, which is the same job for the dots.
+        label: "Letters",
+        selected: Math.max(FONTS.indexOf(this.font), 0),
+        // The cell holds the short name and the hint line holds the whole of it, which is
+        // what lets a face be named properly without a name that will not fit a cell.
+        options: FONTS.map((font) => ({ id: font.id, label: font.name, hint: font.hint })),
       },
       {
         id: "hints",
@@ -2243,6 +2271,17 @@ export class Game {
         this.#storeSettings()
         this.#playCursor()
         break
+      case "font": {
+        const wanted = FONTS[clamp(option, 0, FONTS.length - 1)]
+        this.settings.font = wanted.id
+        this.#storeSettings()
+        this.#playCursor()
+        // Fetched on being chosen, and taken up whenever it lands: the `font` getter holds
+        // the standard face until then, so the wait is a menu that has not changed yet
+        // rather than a menu with nothing in it.
+        ensureFont(wanted.id)
+        break
+      }
       case "hints":
         this.settings.hints = option === 1 ? "off" : "on"
         this.hint = null

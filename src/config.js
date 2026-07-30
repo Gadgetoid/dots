@@ -374,6 +374,9 @@ export const DEFAULT_SETTINGS = {
   // Whether each dot colour also carries a shape of its own, for anyone who cannot rely on
   // the colours. See DOT_SHAPES in palette.js for which shape goes where and why.
   shapes: "off",
+  // Which face the game draws its text in, as an id from fonts.js. The standard one is the
+  // system's own monospace and costs nothing; anything else is fetched when it is chosen.
+  font: "standard",
   // Whether the menus read themselves out. Off unless asked for, because there is no way
   // to ask the browser: see speech.js.
   speech: "off",

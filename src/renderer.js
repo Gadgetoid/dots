@@ -70,10 +70,14 @@ export class Renderer {
   text(_str, _x, _y, _opts) {
     throw new Error("not implemented")
   }
-  // How wide a run of text will be, so a caller can lay out around it.
-  measureText(_str, _size) {
+  // How wide a run of text will be, so a caller can lay out around it. `bold` matters: a
+  // face need not be monospaced, and a bold advance is not its regular one.
+  measureText(_str, _size, _bold) {
     return 0
   }
+  // Draw text in this font stack from here on. Called by the view every frame with what the
+  // settings ask for, so the same stack twice has to cost nothing.
+  setFont(_stack) {}
   // Confine what follows to a rectangle in view space, until clipOff. What the
   // scrolling level picker draws inside.
   clip(_x, _y, _w, _h) {}

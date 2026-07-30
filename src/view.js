@@ -24,13 +24,27 @@ const PANEL_PAD = 26
 const BUTTON_H = 88
 const BUTTON_GAP = 8
 const OPTION_H = 58
-const PREVIEW_H = 72
+const PREVIEW_H = 60
 const HEADING_H = 30
+// The air under a row, which is not part of what can be pressed. Kept apart from the row
+// heights above so tightening a page's spacing never quietly shrinks a tap target: the
+// settings page is nine rows deep and the field is 800 tall.
+const ROW_GAP = 6
+// The row that leads out of a page is its furniture rather than its contents - Back, and
+// whatever sits beside Back - so it is drawn smaller than the buttons a page is for, and set
+// apart from them. Same rule menuNote uses to give Back a note of its own.
+const FURNITURE_H = 64
+const FURNITURE_GAP = 16
 // The score's own size, which the multiplier beside it is placed from.
 const SCORE_SIZE = 44
 // Tall enough to hold its line near the top and leave a gap under it, so a hint groups with
 // the row it describes and not with the button below.
 const HINT_H = 46
+// What a hint is set at, and how far it may be brought down to fit the panel. The floor is
+// where a line stops being worth reading at arm's length; a hint that would need less than
+// this is a hint to shorten.
+const HINT_SIZE = 18
+const HINT_SIZE_MIN = 14
 // The gutter a settings row's name sits in, to the left of its values.
 const LABEL_W = 116
 
@@ -140,6 +154,10 @@ export class GameView {
   render(game) {
     const renderer = this.renderer
     const theme = game.theme
+    // Which face to draw in, handed over the same way the theme is: read every frame, acted
+    // on when it changes. A face that has just arrived lands here on the next frame without
+    // anything having to be told about it.
+    renderer.setFont(game.font.stack)
     renderer.brightness = game.brightness.value
     renderer.glowIntensity = CONFIG.BLOOM_INTENSITY * theme.bloom
     // A dark field takes a vignette well and a white one only looks dirty.
@@ -402,7 +420,8 @@ export class GameView {
       if (player.multiplier > 1) {
         renderer.text(
           `x${player.multiplier}`,
-          28 + renderer.measureText(score, SCORE_SIZE) + 12,
+          // The score is drawn bold, and a bold advance is not its regular one.
+          28 + renderer.measureText(score, SCORE_SIZE, true) + 12,
           60,
           {
             color: theme.accent,
@@ -672,13 +691,22 @@ export class GameView {
       return SEED_H
     }
     if (row.kind === "buttons") {
+      const metrics = this.#buttonMetrics(row)
       const lines = Math.ceil(row.options.length / (row.columns || row.options.length))
-      return lines * (BUTTON_H + BUTTON_GAP) + 6
+      return metrics.top + lines * (metrics.height + BUTTON_GAP) + 6
     }
     if (row.kind === "options") {
-      return (row.options.some((option) => option.preview) ? PREVIEW_H : OPTION_H) + 10
+      return (row.options.some((option) => option.preview) ? PREVIEW_H : OPTION_H) + ROW_GAP
     }
     return 32
+  }
+
+  // How tall a block of buttons is drawn, and how far down its row it starts. A page's own
+  // buttons are big; the one that leaves the page is not, and stands off from them.
+  #buttonMetrics(row) {
+    return row.furniture
+      ? { height: FURNITURE_H, top: FURNITURE_GAP }
+      : { height: BUTTON_H, top: 0 }
   }
 
   // A block of buttons. `primary` fills every cell, for the one thing a page is for;
@@ -689,15 +717,16 @@ export class GameView {
     const renderer = this.renderer
     const columns = row.columns || row.options.length
     const cellW = (width - 52 - BUTTON_GAP * (columns - 1)) / columns
+    const metrics = this.#buttonMetrics(row)
     row.options.forEach((option, optionIndex) => {
       if (!option) {
         return
       }
       const box = {
         x: x + 26 + (optionIndex % columns) * (cellW + BUTTON_GAP),
-        y: rowY + Math.floor(optionIndex / columns) * (BUTTON_H + BUTTON_GAP),
+        y: rowY + metrics.top + Math.floor(optionIndex / columns) * (metrics.height + BUTTON_GAP),
         w: cellW,
-        h: BUTTON_H,
+        h: metrics.height,
       }
       const under = index === game.menuIndex && optionIndex === game.menuOption
       const filled = row.primary || under
@@ -735,7 +764,9 @@ export class GameView {
   // deal, what a rebinding row is waiting for. Never how to work a menu.
   #drawHint(game, theme, rows, x, rowY, width, rowHeight) {
     let text
-    let colour = theme.text.faint
+    // A hint is a whole sentence explaining the thing under the cursor, so it is set in the
+    // ink body text is set in rather than the one small labels get.
+    let colour = theme.text.dim
     if (game.rebinding) {
       text = "Press a key or button, or escape to cancel"
       colour = theme.accent
@@ -754,9 +785,14 @@ export class GameView {
     if (!text) {
       return
     }
+    // Brought down to fit rather than run off the panel, since a hint is a whole sentence and
+    // how long one is depends on the face it is drawn in as well as on what it says.
+    const room = width - PANEL_PAD * 2
+    const wide = this.renderer.measureText(text, HINT_SIZE)
+    const size = wide > room ? Math.max(HINT_SIZE * (room / wide), HINT_SIZE_MIN) : HINT_SIZE
     this.renderer.text(text, x + width / 2, rowY + rowHeight / 2, {
       color: colour,
-      size: 18,
+      size,
       align: "center",
       baseline: "middle",
     })
@@ -800,7 +836,7 @@ export class GameView {
     const gutter = row.label ? LABEL_W : 0
     const available = width - 52 - gutter
     const boxW = (available - BUTTON_GAP * (count - 1)) / count
-    const boxH = rowHeight - 10
+    const boxH = rowHeight - ROW_GAP
     if (row.label) {
       renderer.text(row.label, x + 26, rowY + boxH / 2, {
         color: onRow ? theme.text.bright : theme.text.normal,

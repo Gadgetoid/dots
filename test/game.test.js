@@ -12,6 +12,7 @@ import { seedFromCode, dailySeed } from "../src/seed.js"
 import { MENU_NOTES, MENU_STEP } from "../src/config.js"
 import { Sound } from "../src/audio.js"
 import { DOT_SHAPES, DOT_COLOURS } from "../src/palette.js"
+import { FONT_IDS } from "../src/fonts.js"
 
 const FRAME = 1 / 60
 
@@ -690,11 +691,45 @@ test("the motion setting takes the system's answer until it is told otherwise", 
     assert.equal(settings.menuRows()[at].selected, 1, "the row shows what the game is doing")
     settings.menuTap(at, 0) // Full
     assert.equal(settings.settings.motion, "full")
-    assert.equal(settings.reducedMotion, false, "chosen, so the system is no longer asked")
+    assert.equal(settings.reducedMotion, false, "chosen, so the system is not asked")
   } finally {
     system.matches = false
     globalThis.matchMedia = real
   }
+})
+
+test("the face is a setting, and a face that has not arrived is not drawn in", () => {
+  const game = new Game()
+  assert.equal(game.settings.font, "standard", "the system's own monospace until asked")
+  assert.equal(game.font.id, "standard")
+  assert.ok(game.font.stack.includes("monospace"))
+
+  game.page = "settings"
+  const at = game.menuRows().findIndex((row) => row.id === "font")
+  assert.ok(at >= 0, "the settings page offers it")
+  const row = game.menuRows()[at]
+  assert.deepEqual(
+    row.options.map((option) => option.id),
+    FONT_IDS,
+    "every face in fonts.js, in that order",
+  )
+  assert.equal(row.selected, 0)
+
+  game.menuTap(at, 1)
+  assert.equal(game.settings.font, "atkinson", "chosen, and remembered")
+  // There is no FontFace under node, so the file can never arrive - which is the case that
+  // matters: the game draws in the standard face rather than in whatever a browser would
+  // pick for a family it does not have.
+  assert.equal(game.font.id, "standard", "and not drawn in until it is there")
+  assert.equal(game.menuRows()[at].selected, 0, "so the row still shows what is being drawn")
+})
+
+test("an unknown face falls back rather than throwing", () => {
+  const game = new Game()
+  game.settings.font = "no-such-face"
+  assert.equal(game.font.id, "standard")
+  game.page = "settings"
+  assert.equal(game.menuRows().find((row) => row.id === "font").selected, 0)
 })
 
 test("the cursor drags the chain, and stepping back retracts it", () => {

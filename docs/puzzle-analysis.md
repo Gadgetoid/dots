@@ -288,7 +288,7 @@ forgiving even though 56-92% of their moves strand the board. Traps that do not 
 come out of the collapse several moves deep, and that is why the later levels were searched for
 rather than authored by eye.
 
-The shipped forty-three run from 2.03 to 14.01 and the level test asserts the order, that only the
+The shipped fifty-two run from 2.03 to 14.25 and the level test asserts the order, that only the
 first two are forced, and that the back half has one best order which greed does not find.
 
 **The size term is a property of the search, not of the board**, which is worth being explicit

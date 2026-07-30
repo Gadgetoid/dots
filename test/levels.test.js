@@ -257,7 +257,7 @@ test("every level's floor is the least a clearing order scores", () => {
 })
 
 // The last stretch is arranged rather than sorted; see the head of src/modes/levels.js.
-const FINALE = 11
+const FINALE = 14
 
 test("the ladder climbs as far as the finale, and the finale is above all of it", () => {
   const difficulty = KNOWN.map((known) => known.difficulty)
@@ -284,7 +284,7 @@ test("the ladder climbs as far as the finale, and the finale is above all of it"
 })
 
 test("the finale swings rather than climbing, and ends on the hardest board", () => {
-  // Sorted, the last eleven run 11.97 to 14.01 without a pause, which is a wall rather than an
+  // Sorted, the last fourteen run 11.97 to 14.25 without a pause, which is a wall rather than an
   // ending. So the hardest are spread through them: what this insists on is that the run is not
   // monotone - there are dips - and that the last level is the hardest in the game, since an
   // ending should be the peak and not the trough after one.

@@ -23,26 +23,27 @@
 // finds them takes minutes on the largest levels. test/levels.test.js checks both, proves each
 // level can be emptied, and checks the order below.
 //
-// The order is by measured difficulty as far as the last eleven, rising from 2.0 to 11.8: see
+// The order is by measured difficulty as far as the last fourteen, rising from 2.0 to 11.8: see
 // src/analysis.js for what that measure is made of, and tools/find-levels.mjs for how all but the
 // first seven levels were found. The first three fall to taking the longest chain every time; the
 // next nine have several clearing orders paying very differently; from the thirteenth exactly one
 // order pays par and the obvious play misses it or strands the board.
 //
-// The last eleven are arranged rather than sorted. Sorted, they run 11.97 to 14.01 without a pause,
-// which is a wall to climb rather than an ending to play: so the hardest are spread through them and
-// the rest fall between, giving a swing between hard and harder that finishes on the hardest board
-// in the game. They are all above everything before them, so the difficulty still only goes one way
-// overall.
+// The last fourteen are arranged rather than sorted. Sorted, they run 11.97 to 14.25 without a
+// pause, which is a wall to climb rather than an ending to play: so the hardest are spread through
+// them and the rest fall between, giving a swing between hard and harder that finishes on the
+// hardest board in the game. They are all above everything before them, so the difficulty still only
+// goes one way overall.
 //
 // No two levels next to each other have the same silhouette, at the end or anywhere else. Five
 // boards are drawn to one shape and several others to two or three, and consecutively any of those
-// read as the same puzzle again.
+// read as the same puzzle again. Palisade and Redoubt are the same shape and both in the finale,
+// twelve apart, which is as far as fourteen levels will hold them.
 //
 // Both of those are checked in test/levels.test.js, since neither survives being left to a sort.
 //
-// Four boards fill a column to the top of the field, so a chain can run the height of it and a pop
-// near the floor drops a great deal onto whatever is left.
+// Five boards fill a column to the top of the field, so a chain can run the height of it and a pop
+// near the floor drops a great deal onto whatever is left. Redoubt, the last level, is one of them.
 //
 // The largest boards are thirty-two dots and take a few minutes each to value, which is why what has
 // been proved about a level is written down in data/verified-boards.json rather than worked out again
@@ -263,6 +264,90 @@ export const LEVELS = [
       "331.22",
       "331122",
       "223311",
+    ],
+  },
+  {
+    name: "Ridge",
+    par: 286,
+    floor: 67,
+    layout: [
+      "......",
+      "......",
+      "......",
+      "......",
+      "..11..",
+      ".12113",
+      "111233",
+    ],
+  },
+  {
+    name: "Seam",
+    par: 5891,
+    floor: 126,
+    layout: [
+      "......",
+      "......",
+      "......",
+      "311111",
+      "333122",
+      "333121",
+      "333321",
+    ],
+  },
+  {
+    name: "Barrow",
+    par: 1961,
+    floor: 126,
+    layout: [
+      "......",
+      "......",
+      "..42..",
+      ".4422.",
+      "442233",
+      "115533",
+      "155233",
+    ],
+  },
+  {
+    name: "Lintel",
+    par: 411,
+    floor: 94,
+    layout: [
+      "......",
+      "......",
+      "......",
+      "2....1",
+      "2....1",
+      "255311",
+      "553331",
+    ],
+  },
+  {
+    name: "Flight",
+    par: 115,
+    floor: 59,
+    layout: [
+      "......",
+      "......",
+      "......",
+      "......",
+      ".....2",
+      "..3111",
+      "111312",
+    ],
+  },
+  {
+    name: "Plinth",
+    par: 660,
+    floor: 94,
+    layout: [
+      "......",
+      "......",
+      "......",
+      "......",
+      ".2221.",
+      "223331",
+      "331111",
     ],
   },
   {
@@ -532,17 +617,45 @@ export const LEVELS = [
     ],
   },
   {
-    name: "Wicket",
-    par: 783,
-    floor: 156,
+    name: "Palisade",
+    par: 2959,
+    floor: 150,
+    layout: [
+      "1.3.1.",
+      "1.3.1.",
+      "1.3.1.",
+      "1.3.1.",
+      "221145",
+      "223444",
+      "222445",
+    ],
+  },
+  {
+    name: "Citadel",
+    par: 5299,
+    floor: 188,
+    layout: [
+      "......",
+      "33..11",
+      "43..11",
+      "443111",
+      "332211",
+      "432225",
+      "445555",
+    ],
+  },
+  {
+    name: "Sally port",
+    par: 2555,
+    floor: 126,
     layout: [
       "......",
       "......",
-      "3.21.1",
-      "3.11.1",
-      "3.41.1",
-      "334455",
-      "322555",
+      "1.11.3",
+      "1.13.3",
+      "1.33.3",
+      "122333",
+      "222223",
     ],
   },
   {
@@ -588,34 +701,6 @@ export const LEVELS = [
     ],
   },
   {
-    name: "Sally port",
-    par: 2555,
-    floor: 126,
-    layout: [
-      "......",
-      "......",
-      "1.11.3",
-      "1.13.3",
-      "1.33.3",
-      "122333",
-      "222223",
-    ],
-  },
-  {
-    name: "Citadel",
-    par: 5299,
-    floor: 188,
-    layout: [
-      "......",
-      "33..11",
-      "43..11",
-      "443111",
-      "332211",
-      "432225",
-      "445555",
-    ],
-  },
-  {
     name: "Chasm",
     par: 6340,
     floor: 131,
@@ -644,17 +729,45 @@ export const LEVELS = [
     ],
   },
   {
-    name: "Palisade",
-    par: 2959,
-    floor: 150,
+    name: "Ziggurat",
+    par: 3439,
+    floor: 142,
     layout: [
-      "1.3.1.",
-      "1.3.1.",
-      "1.3.1.",
-      "1.3.1.",
-      "221145",
-      "223444",
-      "222445",
+      "......",
+      "..11..",
+      ".3111.",
+      ".3322.",
+      "233223",
+      "221122",
+      "222332",
+    ],
+  },
+  {
+    name: "The well",
+    par: 3811,
+    floor: 142,
+    layout: [
+      "......",
+      "33..11",
+      "33..22",
+      "23..21",
+      "22..23",
+      "211133",
+      "111333",
+    ],
+  },
+  {
+    name: "Wicket",
+    par: 783,
+    floor: 156,
+    layout: [
+      "......",
+      "......",
+      "3.21.1",
+      "3.11.1",
+      "3.41.1",
+      "334455",
+      "322555",
     ],
   },
   {
@@ -669,6 +782,20 @@ export const LEVELS = [
       "411143",
       "422233",
       "423333",
+    ],
+  },
+  {
+    name: "Redoubt",
+    par: 1731,
+    floor: 150,
+    layout: [
+      "3.2.4.",
+      "3.4.4.",
+      "3.4.4.",
+      "3.4.2.",
+      "114222",
+      "311312",
+      "111131",
     ],
   },
 ]

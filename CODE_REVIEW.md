@@ -1,7 +1,9 @@
 # Code Review Instructions
 
-Review this game codebase (DOTS - a colour-matching puzzle game, ~12.3k lines of
-vanilla ES modules plus ~3.9k of tests, no build step for the game itself) for:
+Review this game codebase (DOTS - a colour-matching puzzle game, ~13.8k lines of
+vanilla ES modules plus ~4.5k of tests, and no build step to develop it: `index.html`
+loads `src/main.js` and the tests import the modules, while what is deployed is bundled
+and minified by `tools/build.mjs`) for:
 
 1. **Correctness** - the linking and collapse rules, the solver, the state machine
 2. **Determinism** - what a seed governs and what it must not

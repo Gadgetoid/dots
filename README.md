@@ -300,6 +300,12 @@ the directory takes the whole module graph with it and one line of `index.html` 
 The page itself cannot be versioned, since its URL is the URL people have, and GitHub
 Pages serves HTML with a ten minute cache - that is the longest a player can be behind.
 
+Each of the five entry points is bundled and minified on the way, which is only worth saying
+because of how much of it is comment: 44% of what `src` holds, and all of it was going to every
+player. One cold load on a slow connection went from 1.6 seconds and 130kB to 0.6 and 41kB.
+There are no source maps and there is no bundling to develop the game - `index.html` in the
+repo loads `src/main.js`, the tests import the modules, and the deployed copy is the small one.
+
 ```
 npm run build      # _site/, with relative URLs, for a look
 ```

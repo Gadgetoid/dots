@@ -4,7 +4,7 @@
 import test from "node:test"
 import assert from "node:assert/strict"
 
-import { DirectionRepeater, KeyboardInput } from "../src/input.js"
+import { DirectionRepeater, KeyboardInput, PointerInput } from "../src/input.js"
 import { readPad, padInUse, GamepadInput } from "../src/gamepad.js"
 import { Game } from "../src/game.js"
 import { GAMEPAD, REPEAT_DELAY, REPEAT_RATE, freshBindings } from "../src/config.js"
@@ -22,6 +22,31 @@ const key = (code, repeat = false, character = "") => ({
 const settle = (game, seconds = 4) => {
   for (let i = 0; i < seconds * 60; i++) {
     game.advance(1 / 60)
+  }
+}
+
+// A view, as the pointer layer uses one: view space is the field itself, so a cell can be
+// pointed at by its own centre. Nothing here draws.
+function fakeView(game) {
+  return {
+    toViewSpace: (x, y) => ({ x, y }),
+    menuRowAt: () => null,
+    pauseButtonAt: () => false,
+    scrollLevels: () => {},
+    get layout() {
+      return game.layout
+    },
+  }
+}
+
+// Where a cell's centre is in view space, so a touch can be aimed at a dot.
+function touchAt(game, dot, pointerId = 1) {
+  const layout = game.layout
+  return {
+    pointerId,
+    pointerType: "touch",
+    clientX: layout.x + (dot.col + 0.5) * layout.cell,
+    clientY: layout.y + (dot.row + 0.5) * layout.cell,
   }
 }
 
@@ -168,6 +193,64 @@ test("binding a key takes it off whatever else held it", () => {
   assert.deepEqual(game.bindings.keys.link, ["ArrowUp"])
   assert.equal(game.bindings.keys.up.includes("ArrowUp"), false, "UP lost the key it used to share")
   assert.ok(game.bindings.keys.up.includes("KeyW"), "but kept its other one")
+})
+
+test("a second finger does not take the gesture off the first", () => {
+  const game = new Game()
+  game.start("classic")
+  settle(game)
+  const pointer = new PointerInput(game, fakeView(game))
+  const [from, to] = game.board.matchingPairs(1)[0]
+  const elsewhere = game.board.dots.find(
+    (dot) => dot !== from && dot !== to && dot.colour !== from.colour,
+  )
+
+  pointer.onDown(touchAt(game, from, 1))
+  pointer.onMove(touchAt(game, to, 1))
+  assert.equal(game.player.chain.length, 2, "the first finger has two dots")
+
+  // A pinch beginning, or a thumb landing on the far side of the screen.
+  pointer.onDown(touchAt(game, elsewhere, 2))
+  assert.deepEqual(
+    game.player.chain.map((dot) => [dot.col, dot.row]),
+    [
+      [from.col, from.row],
+      [to.col, to.row],
+    ],
+    "which is ignored, chain and all",
+  )
+  pointer.onMove(touchAt(game, elsewhere, 2))
+  assert.equal(game.player.chain.length, 2, "and its moves reach nothing")
+
+  // The first finger still owns the gesture and can still spend it.
+  const before = game.board.count
+  pointer.onUp(touchAt(game, to, 1))
+  assert.ok(game.player.score > 0, "the first finger's chain popped")
+  assert.ok(game.board.count < before)
+})
+
+test("a gesture the browser takes away lets the chain go instead of spending it", () => {
+  const game = new Game()
+  game.start("classic")
+  settle(game)
+  const pointer = new PointerInput(game, fakeView(game))
+  const [from, to] = game.board.matchingPairs(1)[0]
+  const before = game.board.count
+
+  pointer.onDown(touchAt(game, from))
+  pointer.onMove(touchAt(game, to))
+  assert.equal(game.player.chain.length, 2)
+
+  // pointercancel: a system gesture, a pinch, a notification. Not a finger lifting.
+  pointer.onCancel(touchAt(game, to))
+  assert.equal(game.player.chain.length, 0, "the chain is let go of")
+  assert.equal(game.player.score, 0, "and not spent")
+  assert.equal(game.board.count, before, "so the board is untouched")
+  assert.equal(game.player.dragging, false)
+
+  // And the next touch starts cleanly.
+  pointer.onDown(touchAt(game, from))
+  assert.equal(game.player.chain.length, 1)
 })
 
 test("a control stripped of its last key reads as unbound", () => {

@@ -222,6 +222,12 @@ export class PointerInput {
   }
 
   onDown(event) {
+    // One pointer at a time. A second finger - the beginning of a pinch, a thumb resting on
+    // the other side of the screen, a palm - must not take the gesture off the first: it
+    // would drop whatever is in hand and start a new chain wherever it landed.
+    if (this.activePointer !== null && event.pointerId !== this.activePointer) {
+      return
+    }
     this.game.inputMode = event.pointerType === "touch" ? "touch" : "pointer"
     this.activePointer = event.pointerId
     this.dragFrom = this.game.page === "levels" ? event.clientY : null
@@ -246,7 +252,13 @@ export class PointerInput {
   onMove(event) {
     // A drag over the level picker scrolls it. The ladder is taller than its window and a
     // touch player has no other way down it: the cursor can only reach what is on screen.
-    if (this.game.page === "levels" && this.dragFrom !== null) {
+    // Only the pointer that started the drag, or a second finger would jerk the list to
+    // wherever it happens to be.
+    if (
+      this.game.page === "levels" &&
+      this.dragFrom !== null &&
+      event.pointerId === this.activePointer
+    ) {
       this.view.scrollLevels(this.dragFrom - event.clientY)
       this.dragFrom = event.clientY
       return
@@ -307,6 +319,10 @@ export class PointerInput {
     this.game.pointerUp(this.playerIndex)
   }
 
+  // The browser has taken the gesture away: a pinch starting, a swipe in from the edge, a
+  // notification. That is not a finger being lifted, so the chain is let go of rather than
+  // spent - nobody asked for it to be spent, and a chain popped by a system gesture is a
+  // move the player did not make.
   onCancel(event) {
     if (event.pointerId !== this.activePointer) {
       return
@@ -314,6 +330,7 @@ export class PointerInput {
     this.activePointer = null
     this.pressedRow = null
     this.pressedPause = false
-    this.game.pointerUp(this.playerIndex)
+    this.dragFrom = null
+    this.game.cancelChain(this.playerIndex)
   }
 }

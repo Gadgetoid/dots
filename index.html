@@ -43,9 +43,27 @@
       * {
         box-sizing: border-box;
       }
+      /* The whole page refuses the browser's own touch gestures, not only the canvas: a
+         finger that lands in the letterbox either side of the field would otherwise pinch
+         the page or drag it about. On iOS the meta viewport is not what decides that -
+         user-scalable is ignored there and touch-action is what is honoured - and the
+         document rubber-bands even with nowhere to go, which is what position: fixed on the
+         body is for. Nothing here scrolls, so none of this takes anything away.
+
+         Selection and the long-press callout are refused here rather than on the canvas
+         because both inherit, and neither has anything to act on anywhere in this page. The
+         callout is the one that bites: holding a dot for a moment otherwise raises the copy
+         and look-up sheet over the board, and -webkit- is the only spelling of it there is. */
       html,
       body {
         height: 100%;
+        touch-action: none;
+        overscroll-behavior: none;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
+        /* No grey flash where a finger lands: the game answers a touch itself. */
+        -webkit-tap-highlight-color: transparent;
       }
       /* The page is the game and nothing else: no buttons, no help line, no chrome.
          Everything the player can work is drawn inside the field, where it can be
@@ -53,6 +71,8 @@
          page can only be reached by a pointer. The theme sets these colours from
          script; these are the dark theme's, so nothing flashes before the first frame. */
       body {
+        position: fixed;
+        inset: 0;
         margin: 0;
         background: #0a0c12;
         color: #8b93ab;
@@ -60,7 +80,6 @@
         display: grid;
         place-items: center;
         overflow: hidden;
-        overscroll-behavior: none;
       }
       /* The field is 600x800; the stage holds that shape and the view letterboxes
          within it, so an odd window is still correct. */
@@ -75,9 +94,11 @@
         display: block;
         width: 100%;
         height: 100%;
-        /* A drag across the board must not scroll the page or select anything. */
-        touch-action: none;
-        user-select: none;
+        /* A canvas is an image as far as a drag is concerned, and on iPad a slow one lifts
+           it out of the page. This does not inherit, so it is set where it applies; the
+           draggable attribute says the same thing again, because Safari honours that where
+           it ignores this. Everything else a long press does is refused on the page. */
+        -webkit-user-drag: none;
       }
       /* The spoken-menus toggle: the first thing in the tab order and out of sight until
          it is focused, which is the skip-link pattern. It has to live in the page rather
@@ -143,7 +164,15 @@
       <!-- role="application" is what stops a screen reader taking the arrow keys for its
            own browse cursor: the field is played with them, and the canvas has nothing in
            it to browse. -->
-      <canvas id="game" tabindex="0" role="application" aria-label="Dots game field"></canvas>
+      <!-- draggable="false" as well as the CSS: Safari honours the attribute where it
+           ignores -webkit-user-drag on a canvas. -->
+      <canvas
+        id="game"
+        tabindex="0"
+        role="application"
+        aria-label="Dots game field"
+        draggable="false"
+      ></canvas>
     </div>
     <script type="module" src="src/main.js"></script>
   </body>

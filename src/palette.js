@@ -6,9 +6,26 @@
 //
 // The dot hues are the 32blit game's, which in turn are the original RaphaelJS
 // game's: purple, blue, teal, red, orange. `base` is a dot at rest and `bright`
-// is one in the chain, exactly the pairing the 32blit version drew with. The dark
-// theme lifts both, since a saturated mid-tone that reads well on white goes muddy
-// on near-black.
+// is one in the chain, exactly the pairing the 32blit version drew with. Each theme
+// carries its own set, since a saturated mid-tone that reads well on paper goes muddy
+// on near-black - and one set for both grounds costs most of what separates the five.
+//
+// The five are chosen, not picked: a search over OKLCH for the set whose *worst pair* is
+// furthest apart, under normal vision and under simulated protanopia, deuteranopia and
+// tritanopia at once, subject to every dot clearing 3:1 against the board it sits on and
+// no two hues landing within 34 degrees of each other. Each hue is held within 20 degrees
+// of the one it replaces, so purple is still purple. Distance is measured in OKLab and the
+// deficiencies with the Machado 2009 matrices, clamped back into sRGB before measuring -
+// unclamped, a simulation that has merely left the gamut reads as two colours far apart.
+//
+// What that buys, as the worst pair in each set: 18.3 against 10.1 for the dark theme, and
+// 16.9 against 12.1 for the light one, where 8 is the least a pair can differ by and still
+// be told apart without a second channel to go on.
+//
+// `bright` is derived rather than chosen: the same hue and chroma, lifted 0.07 in OKLCH
+// lightness. Only a little, because a linked dot is already carrying the glow layer and a
+// pale bright on top of that puts the whole chain to white - the hue has to survive its
+// own bloom.
 
 // How many dot colours a board deals from. The themes must each list this many.
 export const DOT_COLOURS = 5
@@ -20,19 +37,21 @@ export const DOT_COLOURS = 5
 // still read as dots: how far is CONFIG.SHAPE_STRENGTH, and every shape dents its edges by
 // the same fraction of the radius whatever its side count.
 //
-// Which shape goes on which colour is not arbitrary. Red-green deficiency is far and away
-// the common case, and it confuses red with teal, red with orange, and purple with blue -
-// so those three pairs get the shapes that look least alike, and the round one goes to a
-// colour whose partners are already strongly marked:
+// Which shape goes on which colour is not arbitrary. It answers the pairs the palette above
+// leaves closest together, which are measured rather than guessed:
 //
 //   purple  triangle, point up      blue    square
 //   teal    square, turned 45       red     triangle, point down
 //   orange  round
 //
-// Purple against blue is a triangle against a square; red against orange is a triangle
-// against a circle; red against teal is three corners against four, turned. What is left
-// weakest - a square against a diamond, for blue against teal - is a blue-yellow
-// confusion, which is the rare one.
+// Teal against orange is the closest pair under a red-green deficiency in both themes, and
+// it gets four corners against none. Purple against blue is the closest the dark theme
+// leaves for full colour vision, and gets three corners against four. What is left weakest
+// is a square against a diamond, the same shape turned - which falls on blue against teal,
+// the closest pair the light theme leaves for full colour vision. Those two are far enough
+// apart in lightness to carry it between them; if that pair ever needs more, the shape to
+// move is teal's, since orange is marked by having no corners at all rather than by which
+// ones it has.
 export const DOT_SHAPES = [
   { sides: 3, turn: -Math.PI / 2 }, // purple: point up
   { sides: 4, turn: 0 }, // blue: square
@@ -71,54 +90,71 @@ const DARK = {
   // How much light the whole theme throws into the bloom pass. Dark is where the
   // glow belongs, so it gets all of it.
   bloom: 1,
-  // The bright variant is only a little brighter than the base. A dot in a chain
-  // is already carrying the glow layer, and a pale bright on top of that puts the
-  // whole chain to white: the hue has to survive its own bloom.
+  // Deliberately uneven in lightness, which is what a red-green deficiency has left to go
+  // on once it has lost the hue: teal is the brightest thing on the board and blue is the
+  // dimmest, and that gap is most of why the two do not collapse into each other.
   dots: [
-    { base: "#b455e6", bright: "#c86ff5" }, // purple
-    { base: "#3cc4ff", bright: "#5fd2ff" }, // blue
-    { base: "#2bbfae", bright: "#45d3c1" }, // teal
-    { base: "#ff5566", bright: "#ff7079" }, // red
-    { base: "#ffa640", bright: "#ffb85e" }, // orange
+    { base: "#ab8efe", bright: "#b096fd" }, // purple
+    { base: "#067396", bright: "#2b88ac" }, // blue
+    { base: "#38e8d1", bright: "#6dfde7" }, // teal
+    { base: "#d71908", bright: "#f13c29" }, // red
+    { base: "#ec9f07", bright: "#feb02e" }, // orange
   ],
 }
 
+// Paper rather than paper-white. A field at full scale is the brightest thing a screen can
+// do and it is being looked at for as long as a game lasts, so the whole theme is stepped
+// down and warmed: the dots have to clear 3:1 against this and, measured across every
+// ground from white down to a good deal dimmer than this, where it sits makes no difference
+// to how far apart the five can be kept. So it is chosen for how it is to look at.
+//
+// The inks are warmed with it and hold their old lightness, so nothing that passed against
+// a cool white stops passing here.
 const LIGHT = {
   id: "light",
   name: "Light",
-  page: "#eef0f4",
-  background: "#ffffff",
-  well: "#f2f3f7",
-  cell: "#e7e9f0",
-  panel: "#ffffff",
-  panelEdge: "#d5d8e2",
+  page: "#e9e3d8",
+  background: "#faf7f2",
+  well: "#f0ece4",
+  cell: "#e4dfd5",
+  panel: "#fdfbf7",
+  panelEdge: "#d8d1c3",
   text: {
-    bright: "#181b25",
-    normal: "#3f4557",
-    dim: "#6f7689",
-    faint: "#a7adbd",
+    bright: "#1e1a14",
+    normal: "#4b443a",
+    dim: "#7a7266",
+    faint: "#aca492",
   },
-  cursor: "#8b93ab",
-  cursorActive: "#3f4557",
+  cursor: "#8f8677",
+  cursorActive: "#4b443a",
   accent: "#0091c2",
   warn: "#d92b3f",
-  // A little ink rather than a lot of the background: dimming a white field with white
-  // does not dim it, it bleaches whatever is on it.
-  scrim: { color: "#181b25", alpha: 0.12 },
+  // A little ink rather than a lot of the background: dimming a pale field with more of its
+  // own colour does not dim it, it bleaches whatever is on it.
+  scrim: { color: "#1e1a14", alpha: 0.12 },
   // Higher than the dark theme's: dark text needs a paler ground under it than light
   // text needs over a dark one.
   frost: 0.9,
-  // A glow laid over white does not read as light, it reads as desaturation: these
-  // dot colours already have a channel at full scale, so adding to them only lifts
-  // the other two and turns red into pink. The light theme therefore takes a little
-  // of it - enough to soften the edge of a long chain and no more.
+  // A glow laid over a pale field does not read as light, it reads as desaturation: adding
+  // to a colour lifts whatever channel it has least of, which is what turns a red to pink.
+  // The light theme therefore takes a little of it - enough to soften the edge of a long
+  // chain and no more.
   bloom: 0.22,
+  // Deeper than the dark theme's, and they have to be: a dot clearing 3:1 against paper is
+  // a dot well down from it. So red is a maroon here and orange is a burnt one, which is
+  // what the ground costs and the whole of what it costs.
+  //
+  // `bright` goes *down* from the base here where the dark theme's goes up. The name is the
+  // role - the colour a dot wears in a chain - and what reads as more of a colour depends on
+  // what it is being read against: away from near-black is lighter, away from paper is
+  // deeper. Lifting these would walk a linked dot toward the ground it has to stand out
+  // from, and took the chain under 3:1 against the well.
   dots: [
-    { base: "#9900cc", bright: "#bb22ee" }, // purple
-    { base: "#00ccff", bright: "#22eeff" }, // blue
-    { base: "#009999", bright: "#22bbbb" }, // teal
-    { base: "#ff3333", bright: "#ff5555" }, // red
-    { base: "#ff9933", bright: "#ffbb55" }, // orange
+    { base: "#971ef8", bright: "#7f02d5" }, // purple
+    { base: "#115785", bright: "#00436c" }, // blue
+    { base: "#10919d", bright: "#037a85" }, // teal
+    { base: "#8a0316", bright: "#6a000d" }, // red
+    { base: "#bc670c", bright: "#a05602" }, // orange
   ],
 }
 

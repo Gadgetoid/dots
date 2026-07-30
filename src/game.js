@@ -692,9 +692,16 @@ export class Game {
   get boardName() {
     const level = this.currentLevel
     if (level) {
+      // Counted off the set being played and not off `mode.levels`, which is only ever the
+      // first set: see levelsFor. And named with it, the way the picker's own heading is,
+      // since one ladder's third board and another's are both "3" and a paused game is
+      // exactly where that has to be unambiguous.
+      //
       // Not "Puzzle 1 of 52": the mode's own name is the line above this one wherever this is
       // used, and read out it came to "Puzzle. Puzzle 1 of 52."
-      return `${this.level + 1} of ${this.mode.levels.length}, ${level.name}`
+      const set = this.levelSet
+      const which = `${this.level + 1} of ${this.levels.length}, ${level.name}`
+      return set ? `${set.name}: ${which}` : which
     }
     if (this.mode.seeded) {
       return `Code ${this.seedText}`

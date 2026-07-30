@@ -18,6 +18,7 @@ import { GameView } from "../src/view.js"
 import { VIEW_W, VIEW_H } from "../src/config.js"
 import { GAME_MODES } from "../src/modes/index.js"
 import { LEVELS } from "../src/modes/levels.js"
+import { PUZZLE_SETS } from "../src/modes/puzzle.js"
 
 // A renderer that writes down what it was told to draw. Every method the contract has,
 // so a call the view makes that this does not have is a failure rather than a crash.
@@ -435,8 +436,8 @@ test("the pause page says which board and what it has paid", () => {
   puzzle.start("puzzle")
   puzzle.togglePause()
   const spoken = puzzle.pageSpeech()
-  assert.match(spoken, /^Puzzle\. 1 of \d+/, "the mode, then which of how many, and not twice")
-  assert.match(spoken, new RegExp(puzzle.currentLevel.name), "and its name")
+  assert.match(spoken, /^Puzzle\. (?!Puzzle)/, "the mode's name once, not twice")
+  assert.match(spoken, new RegExp(puzzle.currentLevel.name), "then the board's own name")
   assert.match(spoken, /Scored 0 of \d+/, "and what it has paid against its par")
   // The page shows the same words it says.
   const shown = drawn(puzzle)
@@ -444,6 +445,29 @@ test("the pause page says which board and what it has paid", () => {
     .map((call) => call.opts.str)
   assert.ok(shown.includes(puzzle.boardName), "the board is named on the page")
   assert.ok(shown.includes(puzzle.scoreLine), "and so is the score")
+
+  // Counted and named off the set being played, not off the first one: `mode.levels` is only
+  // ever the first set.
+  //
+  // The count cannot be shown wrong here while both ladders are the same length - the two
+  // expressions agree by coincidence - so what this pins is that the second set really is a
+  // different ladder being played, and that the total is derived from it. The day the two
+  // differ in length, the expectation below starts biting on its own.
+  for (const [at, set] of PUZZLE_SETS.entries()) {
+    const game = new Game()
+    game.settings.levelSet = at
+    game.start("puzzle")
+    assert.equal(game.levels, set.levels, `${set.name} is the ladder being played`)
+    game.togglePause()
+    assert.equal(
+      game.boardName,
+      `${set.name}: 1 of ${game.levels.length}, ${set.levels[0].name}`,
+      `${set.name} counts and names itself`,
+    )
+    assert.match(game.pageSpeech(), new RegExp(`Puzzle\\. ${set.name}: 1 of`), "and says so")
+  }
+  // Which is only worth anything because the sets are genuinely different ladders.
+  assert.notEqual(PUZZLE_SETS[1].levels, PUZZLE_SETS[0].levels)
 
   const seeded = new Game()
   seeded.start("seeded")

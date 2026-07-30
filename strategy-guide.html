@@ -398,6 +398,12 @@
       .solutions {
         margin: 8px 0 0;
       }
+      /* A set's name starts a new ladder partway down a list of rows, and every row carries a
+         rule under it, so without air above it the second set's name sits on the rule beneath
+         the first set's last level. The first one needs none: the list's own margin is there. */
+      .solutions h3:not(:first-child) {
+        margin-top: 34px;
+      }
       .solution-body {
         display: grid;
         grid-template-columns: 240px 1fr;

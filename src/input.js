@@ -259,7 +259,7 @@ export class PointerInput {
       this.dragFrom !== null &&
       event.pointerId === this.activePointer
     ) {
-      this.view.scrollLevels(this.dragFrom - event.clientY)
+      this.view.dragLevels(this.dragFrom - event.clientY)
       this.dragFrom = event.clientY
       return
     }
@@ -291,6 +291,9 @@ export class PointerInput {
     }
     this.activePointer = null
     const scrolled = this.dragFrom !== null && Math.abs(this.dragFrom - event.clientY) > 6
+    if (this.dragFrom !== null) {
+      this.view.releaseLevels()
+    }
     this.dragFrom = null
     if (scrolled) {
       // A drag that moved the picker is not a press on whatever it started over.
@@ -330,6 +333,9 @@ export class PointerInput {
     this.activePointer = null
     this.pressedRow = null
     this.pressedPause = false
+    if (this.dragFrom !== null) {
+      this.view.releaseLevels()
+    }
     this.dragFrom = null
     this.game.cancelChain(this.playerIndex)
   }

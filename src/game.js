@@ -610,6 +610,34 @@ export class Game {
     return !this.mode.levels || this.level >= this.mode.levels.length - 1
   }
 
+  // ---- what is being played, in words ------------------------------------
+  // Which board this is, for a mode where a board has a name: which puzzle of how many, or
+  // which code. Null for a mode that deals its own, where there is nothing to name.
+  get boardName() {
+    const level = this.currentLevel
+    if (level) {
+      // Not "Puzzle 1 of 52": the mode's own name is the line above this one wherever this is
+      // used, and read out it came to "Puzzle. Puzzle 1 of 52."
+      return `${this.level + 1} of ${this.mode.levels.length}, ${level.name}`
+    }
+    if (this.mode.seeded) {
+      return `Code ${this.seedText}`
+    }
+    return null
+  }
+
+  // What has been scored, against whatever this board is worth comparing with: a level's par,
+  // or the record for the mode or the code. Both the pause page and its announcement come off
+  // this, so a player who cannot see the score can pause and be told it.
+  get scoreLine() {
+    if (this.currentLevel && this.levelPar > 0) {
+      return `Scored ${this.levelScore} of ${this.levelPar}`
+    }
+    const best = this.bestScore
+    const scored = `Scored ${this.player.score}`
+    return best > 0 ? `${scored}, best ${best}` : scored
+  }
+
   // A board for the title screen to sit over, so the game shows itself instead of offering a
   // menu on an empty field. It is dealt and left alone: nothing is
   // playing it, and starting a mode deals a fresh one.
@@ -1981,7 +2009,9 @@ export class Game {
       return `${this.outcomeText}. ${this.player.score}${record ? ", best yet" : ""}`
     }
     if (this.page === "pause") {
-      return this.mode.name
+      // The same words the page shows, which is the point of pausing for anyone who cannot
+      // read the score off the board: what is being played, and what it has paid so far.
+      return [this.mode.name, this.boardName, this.scoreLine].filter(Boolean).join(". ")
     }
     // Why this page is the page being looked at, said before what is on it: a player who did
     // not ask for it needs to hear that first.

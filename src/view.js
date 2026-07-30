@@ -22,7 +22,9 @@ const HUD_BOTTOM = VIEW_H - 74
 // what keeps a heading off the top edge of its panel.
 const PANEL_PAD = 26
 const BUTTON_H = 88
-const BUTTON_GAP = 8
+// The same gap across a block of buttons as down it. A row of buttons is one row, so the
+// space between two of them should not depend on which way round they sit.
+const BUTTON_GAP = 12
 const OPTION_H = 58
 const PREVIEW_H = 60
 const HEADING_H = 30
@@ -61,6 +63,11 @@ const MENU_W = 520
 // see the shape of what is ahead without the cells becoming too small to tell apart.
 const LEVEL_GAP = 8
 const LEVEL_LINES = 4
+// How a flicked list slows: the rate its speed decays at per second, and the speed below
+// which it has stopped. Half a second's coast, which is long enough to cross the ladder in
+// two flicks and short enough not to have to be caught.
+const SCROLL_DRAG = 6
+const SCROLL_STOP = 20
 
 // The seed picker's strip of dots. Tall enough for a dot with the ring that marks the cursor
 // around it and the digit it stands for under it, since the digit is what gets written down.
@@ -84,6 +91,14 @@ export class GameView {
     // Which cell the scroll was last pulled to, so the pull happens as the cursor moves and not
     // on every frame. Null while the picker's grid is not the row under the cursor.
     this.levelCursor = null
+    // What a dragging finger has asked for since the last frame, whether one is down, and how
+    // fast the list is travelling once it is not. See dragLevels.
+    this.levelPush = 0
+    this.levelHeld = false
+    this.levelVelocity = 0
+    // The clock the carry is stepped on, taken from the game's own so the view needs no
+    // second one. Null until the first frame.
+    this.lastTime = null
   }
 
   // Which menu row a point in view space is over, and which of its options if it is a
@@ -98,10 +113,30 @@ export class GameView {
     return null
   }
 
-  // Scroll the level picker, from a wheel or a dragging finger. Clamped when it is drawn,
-  // which is the only place the extent is known.
+  // Scroll the level picker. `by` is in CSS pixels either way, since that is what a wheel
+  // and a finger both report, and the list is in view units: on a phone the field is scaled
+  // to about two thirds, so an unconverted delta moves the list a third less far than the
+  // finger that asked for it, which is most of what makes dragging one feel like work.
+  // Clamped when it is drawn, which is the only place the extent is known.
+  #inViewUnits(by) {
+    return by / (this.rect.scale || 1)
+  }
+
+  // A wheel is a series of nudges and wants none of the carry a finger does.
   scrollLevels(by) {
-    this.levelScroll += by
+    this.levelScroll += this.#inViewUnits(by)
+  }
+
+  // A finger, which does. The push is banked rather than applied, so how fast the list is
+  // going can be worked out once a frame against that frame's own dt; see #stepLevelScroll.
+  dragLevels(by) {
+    this.levelPush += this.#inViewUnits(by)
+    this.levelHeld = true
+  }
+
+  // And the finger comes off, leaving the list travelling at whatever it was doing.
+  releaseLevels() {
+    this.levelHeld = false
   }
 
   // Is this point on the pause button? Only while it is drawn, which is while a board
@@ -711,7 +746,7 @@ export class GameView {
     if (row.kind === "buttons") {
       const metrics = this.#buttonMetrics(row)
       const lines = Math.ceil(row.options.length / (row.columns || row.options.length))
-      return metrics.top + lines * (metrics.height + BUTTON_GAP) + 6
+      return metrics.top + lines * (metrics.height + BUTTON_GAP)
     }
     if (row.kind === "options") {
       return (row.options.some((option) => option.preview) ? PREVIEW_H : OPTION_H) + ROW_GAP
@@ -906,6 +941,8 @@ export class GameView {
     const lines = Math.ceil(row.options.length / columns)
     const overflow = Math.max(0, lines * step - LEVEL_GAP - rowHeight)
 
+    this.#stepLevelScroll(game)
+
     // Follow the cursor: whichever line it is on has to be on screen, so moving onto a line that
     // is not scrolls the grid to it. As the cursor moves, and not on every frame: a wheel or a
     // dragging finger scrolls further than the cursor can go, since the cursor stops at the last
@@ -916,8 +953,15 @@ export class GameView {
       this.levelCursor = game.menuOption
       const line = Math.floor(game.menuOption / columns)
       this.levelScroll = clamp(this.levelScroll, line * step + cell - rowHeight, line * step)
+      this.levelVelocity = 0
     }
-    this.levelScroll = clamp(this.levelScroll, 0, overflow)
+    const held = clamp(this.levelScroll, 0, overflow)
+    if (held !== this.levelScroll) {
+      // The end of the list, so whatever it was carrying stops there rather than pushing on
+      // against the edge for the rest of the second.
+      this.levelScroll = held
+      this.levelVelocity = 0
+    }
 
     renderer.clip(x, rowY, width, rowHeight)
     row.options.forEach((option, optionIndex) => {
@@ -955,6 +999,37 @@ export class GameView {
         alpha: 0.5,
         radius: 2,
       })
+    }
+  }
+
+  // A dragged list keeps going when the finger comes off, and slows down rather than
+  // stopping dead: a ladder fifty-two long is thirteen lines, and taking it four at a time
+  // by hand is the difference between flicking through it and hauling it.
+  //
+  // Stepped from the game's own clock, so the view needs no second one. A frame's worth of
+  // finger movement is what says how fast the list is going, which is why the push is banked
+  // by dragLevels rather than applied where it arrives.
+  #stepLevelScroll(game) {
+    const dt = this.lastTime === null ? 0 : Math.max(0, Math.min(game.time - this.lastTime, 0.05))
+    this.lastTime = game.time
+    if (this.levelPush !== 0) {
+      this.levelScroll += this.levelPush
+      this.levelVelocity = dt > 0 ? this.levelPush / dt : 0
+      this.levelPush = 0
+      return
+    }
+    if (this.levelHeld) {
+      // Down and still: the list is being held, not thrown.
+      this.levelVelocity = 0
+      return
+    }
+    if (this.levelVelocity === 0 || dt === 0) {
+      return
+    }
+    this.levelScroll += this.levelVelocity * dt
+    this.levelVelocity *= Math.exp(-SCROLL_DRAG * dt)
+    if (Math.abs(this.levelVelocity) < SCROLL_STOP) {
+      this.levelVelocity = 0
     }
   }
 
@@ -1225,13 +1300,23 @@ export class GameView {
         return [{ text: PAGE_TITLES.settings, colour: theme.text.bright, size: 30, bold: true }]
       case "controls":
         return [{ text: PAGE_TITLES.controls, colour: theme.text.bright, size: 30, bold: true }]
-      default:
+      default: {
         // The pause menu is where the mode says what it is: read once, on the one page that
-        // is asked for rather than always there, and out of the way of the board.
-        return [
-          { text: game.mode.name, colour: theme.text.bright, size: 30, bold: true },
-          { text: game.mode.blurb, colour: theme.text.dim, size: 19 },
-        ]
+        // is asked for rather than always there, and out of the way of the board. And where a
+        // board has a name it says which one, since the strip under the board is the only
+        // other place that does and a paused game is the moment to check.
+        //
+        // The score with it, which is the one figure a player might pause to look up. Same
+        // words as pageSpeech, so it is also the one they can pause to be told.
+        const lines = [{ text: game.mode.name, colour: theme.text.bright, size: 30, bold: true }]
+        lines.push({
+          text: game.boardName || game.mode.blurb,
+          colour: theme.text.dim,
+          size: 19,
+        })
+        lines.push({ text: game.scoreLine, colour: theme.accent, size: 22, bold: true })
+        return lines
+      }
     }
   }
 }

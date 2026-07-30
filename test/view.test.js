@@ -389,6 +389,82 @@ test("the clock draws at every point of its run", () => {
   }
 })
 
+test("a flicked puzzle list carries on, and a held one stays put", () => {
+  const game = new Game()
+  game.start("puzzle")
+  game.page = "levels"
+  const view = new GameView(new Recorder())
+  view.content = { x: 0, y: 0, width: VIEW_W, height: VIEW_H }
+  const frame = () => {
+    game.advance(1 / 60)
+    view.render(game)
+  }
+  // One frame to set the clock and let the cursor pull the grid to where it opens.
+  frame()
+  const opened = view.levelScroll
+
+  // A finger drags, and the frame it lands in is what says how fast.
+  view.dragLevels(90)
+  frame()
+  const dragged = view.levelScroll
+  assert.ok(dragged > opened, "the list follows the finger")
+
+  // Still down, not moving: being held, not thrown.
+  frame()
+  assert.equal(view.levelScroll, dragged, "a held list stays where it is put")
+
+  // And off it comes.
+  view.dragLevels(90)
+  frame()
+  const thrown = view.levelScroll
+  view.releaseLevels()
+  frame()
+  assert.ok(view.levelScroll > thrown, "the list carries on once the finger is off it")
+
+  // Which slows, rather than running for ever.
+  for (let i = 0; i < 120; i++) {
+    frame()
+  }
+  const settled = view.levelScroll
+  frame()
+  assert.equal(view.levelScroll, settled, "and comes to rest")
+})
+
+test("the pause page says which board and what it has paid", () => {
+  const puzzle = new Game()
+  puzzle.start("puzzle")
+  puzzle.togglePause()
+  const spoken = puzzle.pageSpeech()
+  assert.match(spoken, /^Puzzle\. 1 of \d+/, "the mode, then which of how many, and not twice")
+  assert.match(spoken, new RegExp(puzzle.currentLevel.name), "and its name")
+  assert.match(spoken, /Scored 0 of \d+/, "and what it has paid against its par")
+  // The page shows the same words it says.
+  const shown = drawn(puzzle)
+    .filter((call) => call.kind === "text")
+    .map((call) => call.opts.str)
+  assert.ok(shown.includes(puzzle.boardName), "the board is named on the page")
+  assert.ok(shown.includes(puzzle.scoreLine), "and so is the score")
+
+  const seeded = new Game()
+  seeded.start("seeded")
+  seeded.togglePause()
+  assert.match(seeded.pageSpeech(), /Code \d{6}/, "a seeded board is named by its code")
+
+  // A mode that deals its own board has nothing to name, and still says the score.
+  const classic = new Game()
+  classic.start("classic")
+  classic.togglePause()
+  assert.equal(classic.boardName, null)
+  assert.match(classic.pageSpeech(), /Scored 0/)
+  assert.ok(
+    drawn(classic)
+      .filter((call) => call.kind === "text")
+      .map((call) => call.opts.str)
+      .includes(classic.mode.blurb),
+    "so it says what the mode is instead",
+  )
+})
+
 test("the banner a first game opens with fits the field", () => {
   const game = new Game()
   // The welcome, in the game's own words: launch with nothing remembered raises it.

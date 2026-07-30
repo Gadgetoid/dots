@@ -45,12 +45,16 @@ const HINT_H = 46
 // this is a hint to shorten.
 const HINT_SIZE = 18
 const HINT_SIZE_MIN = 14
+// How far a banner keeps off the edges of the field it is written across.
+const BANNER_MARGIN = 22
 // The gutter a settings row's name sits in, to the left of its values.
 const LABEL_W = 116
 
-// How wide a menu is. Everything in one is laid out from this, including how tall a scrolling
-// row has to be.
-const MENU_W = 460
+// How wide a menu is. Everything in one is laid out from this, including how tall a
+// scrolling row has to be. Wide, because the field is only 600 across and every cell in a
+// menu is a tap target scaled down to whatever a phone is: what is left either side is
+// enough to read the panel as something laid over the board.
+const MENU_W = 520
 
 // The level picker: a square cell per puzzle, and how many lines of them are on screen at
 // once. Four lines of four is sixteen visible at a time, which is enough that a player can
@@ -64,7 +68,7 @@ const SEED_H = 108
 
 // The pause button, in the strip under the board. A touch player has no escape key,
 // so this is the only way into the menu for them, and it is where a thumb already is.
-const PAUSE_BUTTON = { w: 46, h: 34, x: VIEW_W - 28 - 46, y: HUD_BOTTOM - 4 }
+const PAUSE_BUTTON = { w: 66, h: 50, x: VIEW_W - 24 - 66, y: HUD_BOTTOM - 12 }
 
 export class GameView {
   constructor(renderer) {
@@ -525,9 +529,9 @@ export class GameView {
   #drawPauseButton(theme) {
     const box = PAUSE_BUTTON
     this.renderer.panel(box.x, box.y, box.w, box.h, { fill: theme.cell })
-    const barW = 4
-    const barH = 14
-    const gap = 5
+    const barW = Math.round(box.w * 0.09)
+    const barH = Math.round(box.h * 0.44)
+    const gap = Math.round(box.w * 0.11)
     const top = box.y + (box.h - barH) / 2
     const left = box.x + box.w / 2 - gap / 2 - barW
     for (const x of [left, left + barW + gap]) {
@@ -568,6 +572,18 @@ export class GameView {
     })
   }
 
+  // What size a centred line can be drawn at and still fit the room it has. How wide a run
+  // is depends on what it says and on the face it is said in, so anything centred and
+  // written rather than laid out asks this instead of trusting its own size: a heading, a
+  // hint, and the banner over the board.
+  #fitted(text, size, room, floor = size * 0.6) {
+    const wide = this.renderer.measureText(text, size)
+    if (wide <= room) {
+      return size
+    }
+    return Math.max(size * (room / wide), floor)
+  }
+
   // A level cleared, over the board that is already dropping in behind it: it rises
   // and fades, so it never has to be dismissed.
   #drawBanner(game, theme) {
@@ -576,9 +592,11 @@ export class GameView {
     // Hold, then go: a line that starts fading immediately reads as a glitch.
     const alpha = clamp((1 - t) * 2.2, 0, 1) * clamp(t * 8, 0, 1)
     const y = game.layout.y + game.layout.height / 2 - t * 26
+    // The banner is the width of the field and not of a panel, since there is none behind it.
+    const room = VIEW_W - BANNER_MARGIN * 2
     this.renderer.text(banner.text, VIEW_W / 2, y, {
       color: theme.text.bright,
-      size: 36,
+      size: this.#fitted(banner.text, 36, room),
       align: "center",
       baseline: "middle",
       bold: true,
@@ -588,7 +606,7 @@ export class GameView {
     if (banner.sub) {
       this.renderer.text(banner.sub, VIEW_W / 2, y + 34, {
         color: theme.accent,
-        size: 22,
+        size: this.#fitted(banner.sub, 22, room),
         align: "center",
         baseline: "middle",
         alpha,
@@ -637,7 +655,7 @@ export class GameView {
     for (const line of heading) {
       renderer.text(line.text, VIEW_W / 2, textY + line.size / 2, {
         color: line.colour,
-        size: line.size,
+        size: this.#fitted(line.text, line.size, width - PANEL_PAD * 2),
         align: "center",
         baseline: "middle",
         bold: line.bold,
@@ -735,7 +753,7 @@ export class GameView {
         fill: filled ? theme.accent : theme.cell,
         // Steadier than the frost behind it: the glass is on purpose, but a label wants a
         // ground that is not moving under it.
-        alpha: filled ? 1 : 0.92,
+        alpha: filled ? 1 : 0.97,
       })
       if (under) {
         renderer.panel(box.x, box.y, box.w, box.h, {
@@ -745,7 +763,7 @@ export class GameView {
       }
       renderer.text(option.label, box.x + box.w / 2, box.y + box.h / 2, {
         color: filled ? theme.panel : theme.text.normal,
-        size: row.primary ? 25 : 19,
+        size: row.primary ? 29 : 22,
         align: "center",
         baseline: "middle",
         bold: filled,
@@ -785,11 +803,7 @@ export class GameView {
     if (!text) {
       return
     }
-    // Brought down to fit rather than run off the panel, since a hint is a whole sentence and
-    // how long one is depends on the face it is drawn in as well as on what it says.
-    const room = width - PANEL_PAD * 2
-    const wide = this.renderer.measureText(text, HINT_SIZE)
-    const size = wide > room ? Math.max(HINT_SIZE * (room / wide), HINT_SIZE_MIN) : HINT_SIZE
+    const size = this.#fitted(text, HINT_SIZE, width - PANEL_PAD * 2, HINT_SIZE_MIN)
     this.renderer.text(text, x + width / 2, rowY + rowHeight / 2, {
       color: colour,
       size,
@@ -811,14 +825,14 @@ export class GameView {
     const middle = box.y + box.h / 2
     renderer.text(row.label, x + 26, middle, {
       color: selected ? theme.text.bright : theme.text.normal,
-      size: 20,
+      size: 21,
       baseline: "middle",
       bold: selected,
     })
     if (row.value != null) {
       renderer.text(row.value, x + width - 26, middle, {
         color: selected ? theme.accent : theme.text.dim,
-        size: 19,
+        size: 20,
         align: "right",
         baseline: "middle",
         bold: selected,
@@ -840,7 +854,7 @@ export class GameView {
     if (row.label) {
       renderer.text(row.label, x + 26, rowY + boxH / 2, {
         color: onRow ? theme.text.bright : theme.text.normal,
-        size: 21,
+        size: 22,
         align: "left",
         baseline: "middle",
       })
@@ -856,7 +870,7 @@ export class GameView {
       this.menuHits.push({ index, option: optionIndex, ...box })
       renderer.panel(box.x, box.y, box.w, box.h, {
         fill: chosen ? theme.accent : theme.cell,
-        alpha: chosen ? 1 : 0.9,
+        alpha: chosen ? 1 : 0.96,
       })
       if (onRow && chosen) {
         renderer.panel(box.x, box.y, box.w, box.h, {
@@ -869,7 +883,7 @@ export class GameView {
       } else {
         renderer.text(option.label, box.x + box.w / 2, box.y + box.h / 2, {
           color: chosen ? theme.panel : theme.text.normal,
-          size: 19,
+          size: 21,
           align: "center",
           baseline: "middle",
           bold: chosen,
@@ -949,16 +963,18 @@ export class GameView {
     const locked = option.locked
     renderer.panel(box.x, box.y, box.w, box.h, {
       fill: under ? theme.accent : theme.cell,
-      alpha: locked ? 0.5 : under ? 1 : 0.92,
+      // A locked cell is still a cell of the ladder, so it is dimmed rather than ghosted:
+      // the board on it is what says what is coming.
+      alpha: locked ? 0.68 : under ? 1 : 0.97,
     })
     if (under) {
       renderer.panel(box.x, box.y, box.w, box.h, { stroke: theme.text.bright, width: 2 })
     }
 
     const label = String(option.label)
-    renderer.text(label, box.x + 9, box.y + 20, {
+    renderer.text(label, box.x + 11, box.y + 22, {
       color: under ? theme.panel : locked ? theme.text.faint : theme.text.dim,
-      size: 17,
+      size: 19,
       bold: true,
     })
 

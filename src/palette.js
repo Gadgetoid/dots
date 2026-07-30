@@ -84,9 +84,11 @@ const DARK = {
   // What is laid over the board while a menu is up: enough to push it back, not enough
   // to hide it. The panel itself is frosted, so the board reads through both.
   scrim: { color: "#0a0c12", alpha: 0.45 },
-  // How much of the panel's own colour is laid over the blurred board behind it. None
-  // would be a window, all of it a wall.
-  frost: 0.86,
+  // How much of the panel's own colour is laid over the blurred board behind it. None would
+  // be a window, all of it a wall. Near the wall end: the board is bloom over a dark field,
+  // and what reads through a thinner glass is not the board but a handful of bright blobs
+  // wandering under whatever is being read.
+  frost: 0.93,
   // How much light the whole theme throws into the bloom pass. Dark is where the
   // glow belongs, so it gets all of it.
   bloom: 1,
@@ -134,7 +136,7 @@ const LIGHT = {
   scrim: { color: "#1e1a14", alpha: 0.12 },
   // Higher than the dark theme's: dark text needs a paler ground under it than light
   // text needs over a dark one.
-  frost: 0.9,
+  frost: 0.96,
   // A glow laid over a pale field does not read as light, it reads as desaturation: adding
   // to a colour lifts whatever channel it has least of, which is what turns a red to pink.
   // The light theme therefore takes a little of it - enough to soften the edge of a long

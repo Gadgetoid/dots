@@ -389,6 +389,24 @@ test("the clock draws at every point of its run", () => {
   }
 })
 
+test("the banner a first game opens with fits the field", () => {
+  const game = new Game()
+  // The welcome, in the game's own words: launch with nothing remembered raises it.
+  game.launch("")
+  assert.ok(game.banner, "a first-time player is told how to play")
+  for (const call of drawn(game)) {
+    if (call.kind !== "text" || call.opts.align !== "center") {
+      continue
+    }
+    const width = call.opts.str.length * call.opts.size * 0.6
+    const [x] = call.args
+    assert.ok(
+      x - width / 2 >= 0 && x + width / 2 <= VIEW_W,
+      `"${call.opts.str}" runs ${Math.round(x - width / 2)}..${Math.round(x + width / 2)} across a field of ${VIEW_W}`,
+    )
+  }
+})
+
 test("every hint fits the panel it is drawn in", () => {
   const game = new Game()
   game.start("classic")

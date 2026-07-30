@@ -288,8 +288,14 @@ forgiving even though 56-92% of their moves strand the board. Traps that do not 
 come out of the collapse several moves deep, and that is why the later levels were searched for
 rather than authored by eye.
 
-The shipped fifty-two run from 2.03 to 14.25 and the level test asserts the order, that only the
-first two are forced, and that the back half has one best order which greed does not find.
+The shipped levels are two sets of fifty-two, the first running 2.03 to 14.25 and the second 2.03 to
+13.84, and the level test asks the same of each: the order, that only the first two are forced, and
+that the back half has one best order which greed does not find. It also asks that no board is in
+both sets, folding out mirrors and colour renamings, since either would be the same puzzle twice.
+
+The second set exists because the first cannot be extended downwards. A keep in the search needs
+greed to miss par, which is 1.5 of the difficulty score on its own, so nothing a run keeps measures
+under about 5: the gentle end of a ladder has to be drawn and measured rather than climbed.
 
 **The size term is a property of the search, not of the board**, which is worth being explicit
 about because it has two consequences. A candidate cannot be scored without being walked in full;

@@ -251,7 +251,7 @@ export class Game {
   // What a finished board is told it did, which the game-over page prints and, with
   // speech on, says.
   get outcomeText() {
-    if (this.outcome === "won" && this.mode.levels) {
+    if (this.outcome === "won" && this.levels) {
       return OUTCOMES.levels
     }
     return OUTCOMES[this.outcome] || "Game over"
@@ -351,10 +351,11 @@ export class Game {
   // ---- lifecycle ----------------------------------------------------------
   // Which authored level is being played, or null in a mode that deals its own.
   get currentLevel() {
-    if (!this.mode.levels || this.mode.levels.length === 0) {
+    const levels = this.levels
+    if (!levels || levels.length === 0) {
       return null
     }
-    return this.mode.levels[clamp(this.level, 0, this.mode.levels.length - 1)]
+    return levels[clamp(this.level, 0, levels.length - 1)]
   }
 
   // ---- seeds --------------------------------------------------------------
@@ -468,15 +469,44 @@ export class Game {
     this.#openMode(mode)
   }
 
+  // Where a link's level token points, over every set the mode has: the level's index and which
+  // set holds it, or null for a token no set knows. Level names are unique across the sets, so a
+  // link needs no set of its own and one written before the second set existed still opens the
+  // board it names. A number is looked for in the set being played first, since a number means a
+  // position on the ladder in front of you.
+  #levelFromLink(mode, token) {
+    const sets = this.levelSetsFor(mode.id)
+    if (!sets) {
+      const level = levelFromToken(mode.levels || [], token)
+      return level === null ? null : { level, set: null }
+    }
+    const first = clamp(this.settings.levelSet, 0, sets.length - 1)
+    const order = [first, ...sets.map((_, at) => at).filter((at) => at !== first)]
+    for (const at of order) {
+      const level = levelFromToken(sets[at].levels, token)
+      if (level !== null) {
+        return { level, set: at }
+      }
+    }
+    return null
+  }
+
   // Act on a link. Returns whether it was honoured; a link this refuses falls back on what
   // the player was doing, having said why where the reason is worth saying.
   #openLink(wanted) {
     const mode = modeById(wanted.mode)
     if (mode.levels && wanted.puzzle !== null) {
-      const level = levelFromToken(mode.levels, wanted.puzzle)
-      if (level === null) {
+      const found = this.#levelFromLink(mode, wanted.puzzle)
+      if (found === null) {
         return false
       }
+      // The set that holds the level becomes the set being played, so a link names a board rather
+      // than a position and opens it whichever ladder the player was last on.
+      if (found.set !== null) {
+        this.settings.levelSet = found.set
+        this.#storeSettings()
+      }
+      const level = found.level
       if (!this.levelUnlocked(level, mode.id)) {
         // Refused, and said so: the picker draws padlocks and opens on the furthest level
         // reached, so all this has to add is which level was asked for.
@@ -484,7 +514,7 @@ export class Game {
         this.layout = boardLayout(mode.cols, mode.rows)
         this.#dealBoard()
         this.#openPage("levels")
-        this.notice = `${mode.levels[level].name} is locked, clear the one before it`
+        this.notice = `${this.levelsFor(mode.id)[level].name} is locked, clear the one before it`
         return true
       }
       this.start(mode.id, { level })
@@ -524,11 +554,55 @@ export class Game {
   }
 
   // ---- authored levels ----------------------------------------------------
+  // A mode may hold more than one set of levels, and the puzzle mode holds two: which one is being
+  // played is a thing the player chooses, so it lives here rather than on the mode, and it is
+  // remembered with the settings. One index across the game, since only one mode has sets; a second
+  // such mode would want one each.
+  levelSetsFor(modeId = this.mode.id) {
+    return modeById(modeId).sets || null
+  }
+
+  levelSetFor(modeId = this.mode.id) {
+    const sets = this.levelSetsFor(modeId)
+    return sets ? sets[clamp(this.settings.levelSet, 0, sets.length - 1)] : null
+  }
+
+  get levelSet() {
+    return this.levelSetFor()
+  }
+
+  // The set the picker's button offers, or null in a mode with only one. Two sets, so it is the
+  // other one; more would make this the next one round.
+  get otherLevelSet() {
+    const sets = this.levelSetsFor()
+    if (!sets || sets.length < 2) {
+      return null
+    }
+    return sets[(clamp(this.settings.levelSet, 0, sets.length - 1) + 1) % sets.length]
+  }
+
+  // The levels in play: the current set's, or the mode's own where it has no sets. Everything that
+  // asks what the levels are asks this, since `mode.levels` cannot know which set is up.
+  levelsFor(modeId = this.mode.id) {
+    return this.levelSetFor(modeId)?.levels ?? modeById(modeId).levels ?? null
+  }
+
+  get levels() {
+    return this.levelsFor()
+  }
+
+  // Where a set's progress is kept. The first set of a mode carries the bare mode id, because that
+  // is the key every player who has ever cleared a level already has one under; a set added later
+  // carries its own, so the two ladders remember separately.
+  progressKey(modeId = this.mode.id) {
+    return this.levelSetFor(modeId)?.progress ?? modeId
+  }
+
   // The best score on each level of a mode with them, as { [index]: score }. A level with a
   // record has been cleared, which is what opens the one after it, and how that score
   // compares with the level's par is what says whether it was cleared for a star.
   levelBest(modeId = this.mode.id) {
-    return this.progress[modeId] || {}
+    return this.progress[this.progressKey(modeId)] || {}
   }
 
   // Whether this level may be played. The first always; after that, only once the one
@@ -548,7 +622,7 @@ export class Game {
   // The furthest level reached, which is where a mode of them carries on from. The picker
   // opens its cursor here too; see #firstOption.
   furthestLevel(modeId = this.mode.id) {
-    const levels = modeById(modeId).levels || []
+    const levels = this.levelsFor(modeId) || []
     let furthest = 0
     for (let index = 1; index < levels.length; index++) {
       if (this.levelUnlocked(index, modeId)) {
@@ -576,8 +650,8 @@ export class Game {
   // order scores is also the most, there is nothing to aim at and no star to miss: the picker
   // marks the others so a player knows which ones have something in them.
   levelContested(index, modeId = this.mode.id) {
-    const mode = modeById(modeId)
-    const level = mode.levels && mode.levels[index]
+    const levels = this.levelsFor(modeId)
+    const level = levels && levels[index]
     return Boolean(level && level.par && level.floor !== undefined && level.floor < level.par)
   }
 
@@ -585,11 +659,12 @@ export class Game {
   // cleared it for a star, which is what the banner says.
   #recordLevel(index, scored) {
     const modeId = this.mode.id
-    const kept = { ...(this.progress[modeId] || {}) }
+    const key = this.progressKey(modeId)
+    const kept = { ...(this.progress[key] || {}) }
     if (!(kept[index] >= scored)) {
       kept[index] = scored
     }
-    this.progress = { ...this.progress, [modeId]: kept }
+    this.progress = { ...this.progress, [key]: kept }
     saveProgress({ ...this.progress })
     return this.levelStarred(index, modeId)
   }
@@ -607,7 +682,8 @@ export class Game {
   }
 
   get lastLevel() {
-    return !this.mode.levels || this.level >= this.mode.levels.length - 1
+    const levels = this.levels
+    return !levels || this.level >= levels.length - 1
   }
 
   // ---- what is being played, in words ------------------------------------
@@ -708,10 +784,9 @@ export class Game {
     // the first otherwise. Gated here as well as in the picker, so nothing can be dropped
     // into a level by asking for it.
     const wanted = Number(options.level) || 0
+    const levels = this.levels
     this.level =
-      this.mode.levels && this.levelUnlocked(wanted, this.mode.id)
-        ? clamp(wanted, 0, this.mode.levels.length - 1)
-        : 0
+      levels && this.levelUnlocked(wanted, this.mode.id) ? clamp(wanted, 0, levels.length - 1) : 0
     this.levelStartScore = 0
     this.banner = null
     this.notice = null
@@ -1432,7 +1507,7 @@ export class Game {
           // same place. Not filled like the one there, though: on the title it is the
           // thing to press, and here it is the thing to press instead of resuming.
           this.#buttons([{ action: "modes", label: "New game" }]),
-          ...(this.mode.levels && this.mode.levels.length > 1
+          ...(this.levels && this.levels.length > 1
             ? [this.#buttons([{ action: "levels", label: "Puzzles" }])]
             : []),
           this.#buttons([
@@ -1508,7 +1583,7 @@ export class Game {
             // it, pressing it, what it sounds like - is a block of buttons.
             layout: "levels",
             columns: LEVEL_COLUMNS,
-            options: (this.mode.levels || []).map((level, index) => {
+            options: (this.levels || []).map((level, index) => {
               const unlocked = this.levelUnlocked(index)
               const best = this.levelBest()[index]
               return {
@@ -1530,7 +1605,18 @@ export class Game {
             }),
           },
           { id: "hint", kind: "hint" },
-          this.#buttons([{ action: "back", label: "Back" }, null]),
+          // The other set, where the picker had an empty slot. A player stuck on one ladder can
+          // go and play the other rather than being stuck on the game.
+          this.#buttons([
+            { action: "back", label: "Back" },
+            this.otherLevelSet
+              ? {
+                  action: "levelSet",
+                  label: this.otherLevelSet.name,
+                  hint: `Swap to the ${this.otherLevelSet.name} puzzles, ${this.otherLevelSet.levels.length} of them`,
+                }
+              : null,
+          ]),
         ]
       case "seed":
         return [
@@ -2167,7 +2253,7 @@ export class Game {
       const mode = modeById(action.slice(5))
       // A mode of authored levels is a list of boards, not one game: which one to play is
       // the next thing to ask, so it opens its picker instead of starting.
-      if (mode.levels && mode.levels.length > 1) {
+      if (mode.levels && this.levelsFor(mode.id).length > 1) {
         this.mode = mode
         this.settings.mode = mode.id
         this.#storeSettings()
@@ -2211,6 +2297,22 @@ export class Game {
         Sound.menuConfirm()
         this.#openPage("levels")
         break
+      case "levelSet": {
+        const sets = this.levelSetsFor()
+        if (!sets || sets.length < 2) {
+          break
+        }
+        Sound.menuConfirm()
+        this.settings.levelSet =
+          (clamp(this.settings.levelSet, 0, sets.length - 1) + 1) % sets.length
+        this.#storeSettings()
+        // Open the new set where that set was left, not where the old one was, and say which set
+        // this is: the grid redraws to different boards and nothing else would tell a player why.
+        this.#openPage("levels")
+        this.menuOption = this.furthestLevel()
+        Speech.say(`${this.levelSet.name}, ${this.levels.length} puzzles`)
+        break
+      }
       case "seed":
         Sound.menuConfirm()
         this.#openPage("seed")

@@ -7,8 +7,8 @@
 
 import { CONFIG } from "../config.js"
 import { GAME_MODES } from "../modes/index.js"
-import { PUZZLE } from "../modes/puzzle.js"
-import { LEVELS, PUZZLE_COLS, PUZZLE_ROWS } from "../modes/levels.js"
+import { PUZZLE, PUZZLE_SETS } from "../modes/puzzle.js"
+import { PUZZLE_COLS, PUZZLE_ROWS } from "../modes/levels.js"
 import { analyse } from "../analysis.js"
 import { movesFrom, parse, unpack, coloursIn, EMPTY } from "../solver.js"
 import { buildTuning, resolveTuning } from "../scales.js"
@@ -472,7 +472,7 @@ function trap(title, svg, note) {
 // How often the obvious play is wrong, over the shipped ladder, from what has already been proved
 // about each board.
 function collapse(proved) {
-  const known = LEVELS.map((level) => provenFor(proved, level)).filter(Boolean)
+  const known = EVERY.map((level) => provenFor(proved, level)).filter(Boolean)
   if (known.length === 0) {
     fill(
       "greed-stats",
@@ -507,7 +507,7 @@ function collapse(proved) {
 // follows the levels rather than naming one.
 function greedIllustration(proved) {
   let worst = null
-  for (const [index, level] of LEVELS.entries()) {
+  for (const [index, level] of FIRST.entries()) {
     const board = provenFor(proved, level)
     if (!board?.route || board.greedy !== "strands") {
       continue
@@ -568,7 +568,7 @@ function beside(svg, note) {
 // What the par orders actually do with the multiplier: how many of them spend a chain too short to
 // bank, and what that buys.
 function setups(proved) {
-  const routes = LEVELS.map((level) => provenFor(proved, level)?.route).filter(Boolean)
+  const routes = EVERY.map((level) => provenFor(proved, level)?.route).filter(Boolean)
   if (routes.length === 0) {
     return
   }
@@ -638,8 +638,17 @@ function modes() {
 }
 
 // ---- the ladder -----------------------------------------------------------
+// The set a reader has most likely been playing, for the figures that pick an example out of the
+// ladder, and every level of every set for the counts.
+const FIRST = PUZZLE_SETS[0].levels
+const EVERY = PUZZLE_SETS.flatMap((set) => set.levels)
+
 function ladder(proved) {
-  const rows = LEVELS.map((level, index) => {
+  fill("ladder-table", ...PUZZLE_SETS.map((set) => ladderTable(proved, set)))
+}
+
+function ladderTable(proved, set) {
+  const rows = set.levels.map((level, index) => {
     const board = provenFor(proved, level)
     const { dots, colours } = shapeOf(level)
     const star = board ? (board.par === board.floor ? "-" : "yes") : "?"
@@ -655,8 +664,9 @@ function ladder(proved) {
       board ? (board.greedy === "strands" ? "strands" : number(board.greedy)) : "?",
     ]
   })
-  fill(
-    "ladder-table",
+  const block = html("div", "ladder-set")
+  block.append(
+    html("h3", null, `${set.name}, ${set.levels.length} levels`),
     table(
       [
         { label: "#", numeric: true },
@@ -672,6 +682,7 @@ function ladder(proved) {
       rows,
     ),
   )
+  return block
 }
 
 // A difficulty band as something to skim down a column: the game's picker draws the same number
@@ -686,27 +697,30 @@ function solutions(proved) {
   const solver = createSolver()
   const list = html("div", "solutions")
 
-  for (const [index, level] of LEVELS.entries()) {
-    const spoiler = html("details", "solution")
-    const summary = html("summary")
-    summary.append(
-      html("b", null, `${index + 1}. ${level.name}`),
-      html("span", null, `par ${number(level.par)}`),
-    )
-    const body = html("div", "solution-body")
-    spoiler.append(summary, body)
-    list.append(spoiler)
+  for (const set of PUZZLE_SETS) {
+    list.append(html("h3", null, `${set.name}, ${set.levels.length} levels`))
+    for (const [index, level] of set.levels.entries()) {
+      const spoiler = html("details", "solution")
+      const summary = html("summary")
+      summary.append(
+        html("b", null, `${index + 1}. ${level.name}`),
+        html("span", null, `par ${number(level.par)}`),
+      )
+      const body = html("div", "solution-body")
+      spoiler.append(summary, body)
+      list.append(spoiler)
 
-    let built = false
-    spoiler.addEventListener("toggle", async () => {
-      if (!spoiler.open || built) {
-        return
-      }
-      built = true
-      body.append(html("p", "working", "working out an order that scores par..."))
-      const route = await routeFor(proved, level, index, solver)
-      body.replaceChildren(...(route ? solved(level, route) : [failed()]))
-    })
+      let built = false
+      spoiler.addEventListener("toggle", async () => {
+        if (!spoiler.open || built) {
+          return
+        }
+        built = true
+        body.append(html("p", "working", "working out an order that scores par..."))
+        const route = await routeFor(proved, level, `${set.id}:${index}`, solver)
+        body.replaceChildren(...(route ? solved(level, route) : [failed()]))
+      })
+    }
   }
 
   fill("solution-list", list)
@@ -714,7 +728,7 @@ function solutions(proved) {
 
 // The route to show: what has been proved about this board if the file covers it, and otherwise
 // whatever a worker can work out here and now.
-async function routeFor(proved, level, index, solver) {
+async function routeFor(proved, level, key, solver) {
   const board = provenFor(proved, level)
   if (board?.route) {
     const played = replay(level, board.route)
@@ -722,7 +736,7 @@ async function routeFor(proved, level, index, solver) {
       return { ...played, par: played.score === level.par, from: "proved" }
     }
   }
-  const found = await solver.solve(index)
+  const found = await solver.solve(key, level.layout)
   if (!found?.route) {
     return null
   }
@@ -826,7 +840,7 @@ async function main() {
     }
   })
 
-  fill("level-count", document.createTextNode(String(LEVELS.length)))
+  fill("level-count", document.createTextNode(String(EVERY.length)))
   document.documentElement.style.setProperty("--accent", THEME.accent)
 
   paletteKey()

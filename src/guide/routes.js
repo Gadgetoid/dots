@@ -16,7 +16,7 @@
 //     says the measure has changed since the file was written.
 
 import { CONFIG } from "../config.js"
-import { LEVELS, PUZZLE_COLS, PUZZLE_ROWS } from "../modes/levels.js"
+import { PUZZLE_COLS, PUZZLE_ROWS } from "../modes/levels.js"
 import { PUZZLE } from "../modes/puzzle.js"
 import { measureFingerprint } from "../analysis.js"
 import { parse, unpack, without, boardId, isEmpty, coloursIn } from "../solver.js"
@@ -159,8 +159,8 @@ export function createSolver() {
       return
     }
     busy = true
-    const index = queue.shift()
-    worker.postMessage({ index, layout: LEVELS[index].layout })
+    const { key, layout } = queue.shift()
+    worker.postMessage({ index: key, layout })
   }
 
   worker.onmessage = (event) => {
@@ -177,8 +177,8 @@ export function createSolver() {
     // The route for this level, and whether it is one that scores par or merely one that clears
     // the board. A level too big to value in the time given still gets a solution, labelled as
     // not the best one.
-    solve(index) {
-      const already = waiting.get(index)
+    solve(key, layout) {
+      const already = waiting.get(key)
       if (already) {
         return already.promise
       }
@@ -186,8 +186,8 @@ export function createSolver() {
       const promise = new Promise((settle) => {
         resolve = settle
       })
-      waiting.set(index, { resolve, promise })
-      queue.push(index)
+      waiting.set(key, { resolve, promise })
+      queue.push({ key, layout })
       next()
       return promise
     },

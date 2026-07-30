@@ -8,8 +8,24 @@
 // with the score it started on.
 //
 // The layouts and the promise that each one can actually be emptied are in levels.js.
+//
+// There are two sets of them, and a player stuck on one can go and play the other: the button at the
+// foot of the picker swaps between them. They are two ladders rather than one long one, each opening
+// on a warm up and ending on the hardest board it has, and no board appears in both.
+//
+// `finale` is how many of a set's levels are arranged rather than sorted; see the head of levels.js
+// for what that means and test/levels.test.js for what it is held to. It differs per set because it
+// is a property of how that set's ending was built, not of the mode.
 
 import { LEVELS, PUZZLE_COLS, PUZZLE_ROWS } from "./levels.js"
+import { LEVELS_TWO } from "./levels-two.js"
+
+// The first set keeps the bare mode id as its progress key, because that is the key every player who
+// has ever cleared a level already has one under. A set added later carries its own.
+export const PUZZLE_SETS = [
+  { id: "one", name: "Ramparts", levels: LEVELS, finale: 14, progress: "puzzle" },
+  { id: "two", name: "Caverns", levels: LEVELS_TWO, finale: 12, progress: "puzzle:two" },
+]
 
 export const PUZZLE = {
   id: "puzzle",
@@ -26,5 +42,9 @@ export const PUZZLE = {
   // scale: five near-even steps that no piano can play. A designed board deserves the
   // most deliberate sound in the game.
   tuning: { root: "F3", scale: "slendro" },
+  sets: PUZZLE_SETS,
+  // The set a game opens on. Which set is being played lives on the Game, since it is a thing a
+  // player chooses; this is only what `mode.levels` means to everything that has not been told
+  // about sets.
   levels: LEVELS,
 }

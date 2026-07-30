@@ -353,6 +353,9 @@ export const DEFAULT_SETTINGS = {
   // The code last played in the seeded mode, so its picker opens on it again. Null until a
   // code has been played, and then the picker opens on today's board; see seed.js.
   seed: null,
+  // Which set of authored levels the puzzle mode is on, as an index into its sets. Remembered,
+  // so a player who swapped to the second ladder comes back to it.
+  levelSet: 0,
   // How a button builds a chain. "hold" is the 32blit way and the default: hold it down,
   // move to gather dots, let go to pop. "toggle" splits that into two presses, for anyone
   // who would rather not hold a button down while aiming with the other hand - or at all.

@@ -10,7 +10,7 @@ import test from "node:test"
 import assert from "node:assert/strict"
 
 import { LEVELS, PUZZLE_COLS, PUZZLE_ROWS } from "../src/modes/levels.js"
-import { PUZZLE } from "../src/modes/puzzle.js"
+import { PUZZLE, PUZZLE_SETS } from "../src/modes/puzzle.js"
 import { solve, parse, unpack, columnGroups, EMPTY, describe as shapeOf } from "../src/solver.js"
 import { analyse, parRoute } from "../src/analysis.js"
 import { loadCache, provenBoard } from "../tools/verify-levels.mjs"
@@ -75,44 +75,52 @@ function playSolution(game, level) {
 }
 
 test("every level is the shape the board expects", () => {
-  for (const [index, level] of LEVELS.entries()) {
-    assert.equal(level.layout.length, PUZZLE_ROWS, `level ${index + 1} has the right rows`)
-    for (const row of level.layout) {
-      assert.equal(row.length, PUZZLE_COLS, `level ${index + 1} row "${row}" is the right width`)
-      assert.match(row, /^[.0-9]+$/, `level ${index + 1} row "${row}" only holds cells`)
+  for (const { name: set, levels } of SETS) {
+    for (const [index, level] of levels.entries()) {
+      const where = `${set} level ${index + 1}`
+      void where
+      assert.equal(level.layout.length, PUZZLE_ROWS, `level ${index + 1} has the right rows`)
+      for (const row of level.layout) {
+        assert.equal(row.length, PUZZLE_COLS, `level ${index + 1} row "${row}" is the right width`)
+        assert.match(row, /^[.0-9]+$/, `level ${index + 1} row "${row}" only holds cells`)
+      }
+      assert.ok(level.name && level.name.length > 0, `level ${index + 1} is named`)
     }
-    assert.ok(level.name && level.name.length > 0, `level ${index + 1} is named`)
   }
   assert.equal(PUZZLE.cols, PUZZLE_COLS)
   assert.equal(PUZZLE.rows, PUZZLE_ROWS)
 })
 
 test("no level uses a colour the mode does not deal", () => {
-  for (const [index, level] of LEVELS.entries()) {
-    for (const row of level.layout) {
-      for (const char of row) {
-        if (char === "." || char === "0") {
-          continue
+  for (const { levels } of SETS) {
+    for (const [index, level] of levels.entries()) {
+      for (const row of level.layout) {
+        for (const char of row) {
+          if (char === "." || char === "0") {
+            continue
+          }
+          const colour = Number(char) - 1
+          assert.ok(
+            colour < PUZZLE.colours,
+            `level ${index + 1} uses colour ${char}, which is beyond the mode's ${PUZZLE.colours}`,
+          )
         }
-        const colour = Number(char) - 1
-        assert.ok(
-          colour < PUZZLE.colours,
-          `level ${index + 1} uses colour ${char}, which is beyond the mode's ${PUZZLE.colours}`,
-        )
       }
     }
   }
 })
 
 test("every level can be cleared", () => {
-  for (const [index, level] of LEVELS.entries()) {
-    const result = solve(level.layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain)
-    assert.ok(
-      result.solved,
-      `level ${index + 1} "${level.name}" - ${shapeOf(level, PUZZLE_COLS, PUZZLE_ROWS)} - ` +
-        `no clearing sequence found in ${result.states} positions`,
-    )
-    assert.ok(result.moves >= 3, `level ${index + 1} takes more than a couple of chains`)
+  for (const { levels } of SETS) {
+    for (const [index, level] of levels.entries()) {
+      const result = solve(level.layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain)
+      assert.ok(
+        result.solved,
+        `level ${index + 1} "${level.name}" - ${shapeOf(level, PUZZLE_COLS, PUZZLE_ROWS)} - ` +
+          `no clearing sequence found in ${result.states} positions`,
+      )
+      assert.ok(result.moves >= 3, `level ${index + 1} takes more than a couple of chains`)
+    }
   }
 })
 
@@ -153,62 +161,72 @@ const CACHE = loadCache()
 // tools/verify-levels.mjs is the other way, and the thorough one.
 const SAMPLED = process.env.DOTS_REWALK_LEVELS ? 2 : 0
 const sampleFrom = Math.floor(Date.now() / 86400000) * SAMPLED
-const sampled = new Set(
-  Array.from({ length: SAMPLED }, (_, at) => (sampleFrom + at) % LEVELS.length),
-)
 
-const KNOWN = LEVELS.map((level, index) => {
-  const proved = sampled.has(index) ? null : provenBoard(CACHE, level.layout)
-  // One shape whichever way the answer arrived, so nothing below has to care which. The cache holds
-  // what was proved; the two derived from it - whether the score is forced, and what greed did - are
-  // rebuilt rather than stored, since a stored copy of something derivable is a second thing to keep
-  // in step.
-  const shape = (known, extra) => ({
-    ...known,
-    forced: known.floor === known.par,
-    greedy: {
-      clears: known.greedy !== "strands",
-      score: known.greedy === "strands" ? 0 : known.greedy,
-    },
-    ...extra,
-  })
-  if (proved) {
-    return shape(proved, { fromCache: true })
-  }
-  // A walked level has no route written down, so the replay test finds one for it. The budget is
-  // named rather than left to the default, which the largest boards are over: the two of thirty-two
-  // dots reach nine million positions, and a walk that runs out of budget can say nothing exact.
-  const found = analyse(level.layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain, SCORING, {
-    seconds: 300,
-    budget: 20000000,
-  })
-  return shape(
-    {
-      par: found.par,
-      floor: found.floor,
-      difficulty: found.difficulty,
-      band: found.band,
-      parPaths: found.parPaths,
-      moves: found.moves,
-      firstMoves: found.firstMoves,
-      firstSilent: found.firstSilent,
-      greedy: found.greedy.clears ? found.greedy.score : "strands",
-    },
-    { exhausted: found.exhausted, statsExact: found.statsExact, fromCache: false },
+// Everything below is asked of every set of levels the mode holds, not just the one a game opens on:
+// a second ladder is a second thing that can be drawn wrong. The mechanics further down stay with
+// the first set, since what they are testing is the mode and not the boards.
+const knownFor = (levels) => {
+  const sampled = new Set(
+    Array.from({ length: SAMPLED }, (_, at) => (sampleFrom + at) % levels.length),
   )
-})
+  return levels.map((level, index) => {
+    const proved = sampled.has(index) ? null : provenBoard(CACHE, level.layout)
+    // One shape whichever way the answer arrived, so nothing below has to care which. The cache holds
+    // what was proved; the two derived from it - whether the score is forced, and what greed did - are
+    // rebuilt rather than stored, since a stored copy of something derivable is a second thing to keep
+    // in step.
+    const shape = (known, extra) => ({
+      ...known,
+      forced: known.floor === known.par,
+      greedy: {
+        clears: known.greedy !== "strands",
+        score: known.greedy === "strands" ? 0 : known.greedy,
+      },
+      ...extra,
+    })
+    if (proved) {
+      return shape(proved, { fromCache: true })
+    }
+    // A walked level has no route written down, so the replay test finds one for it. The budget is
+    // named rather than left to the default, which the largest boards are over: the two of thirty-two
+    // dots reach nine million positions, and a walk that runs out of budget can say nothing exact.
+    const found = analyse(level.layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain, SCORING, {
+      seconds: 300,
+      budget: 20000000,
+    })
+    return shape(
+      {
+        par: found.par,
+        floor: found.floor,
+        difficulty: found.difficulty,
+        band: found.band,
+        parPaths: found.parPaths,
+        moves: found.moves,
+        firstMoves: found.firstMoves,
+        firstSilent: found.firstSilent,
+        greedy: found.greedy.clears ? found.greedy.score : "strands",
+      },
+      { exhausted: found.exhausted, statsExact: found.statsExact, fromCache: false },
+    )
+  })
+}
+
+// Each set with what is known about it, so a test can say which ladder it is talking about.
+const SETS = PUZZLE_SETS.map((set) => ({ ...set, known: knownFor(set.levels) }))
 
 test("every level has been proved, by the cache or here and now", () => {
   // A level nobody has verified is a level whose par is a guess. The tool writes them down; this is
   // what makes forgetting to run it a failure rather than a slow leak.
-  for (const [index, level] of LEVELS.entries()) {
-    assert.ok(
-      KNOWN[index].fromCache || !KNOWN[index].exhausted,
-      `level ${index + 1} "${level.name}" is neither in data/verified-boards.json under the ` +
-        `current fingerprint nor walkable here: run node tools/verify-levels.mjs`,
-    )
+  for (const { levels, known } of SETS) {
+    for (const [index, level] of levels.entries()) {
+      assert.ok(
+        known[index].fromCache || !known[index].exhausted,
+        `level ${index + 1} "${level.name}" is neither in data/verified-boards.json under the ` +
+          `current fingerprint nor walkable here: run node tools/verify-levels.mjs`,
+      )
+    }
   }
-  const walked = KNOWN.filter((known) => !known.fromCache).length
+  const walked = SETS.flatMap((set) => set.known).filter((known) => !known.fromCache).length
   assert.ok(
     walked >= SAMPLED,
     `${SAMPLED} were to be walked whatever the cache says, and ${walked} were`,
@@ -240,79 +258,88 @@ test("a board that is several puzzles side by side is only exact about par", () 
 })
 
 test("every level's par is the most it can actually score", () => {
-  for (const [index, level] of LEVELS.entries()) {
-    const found = KNOWN[index]
-    if (!found.fromCache) {
-      assert.equal(found.exhausted, false, `level ${index + 1} was searched to the end`)
-      assert.equal(found.statsExact, true, `level ${index + 1} was counted, not estimated`)
+  for (const { levels, known } of SETS) {
+    for (const [index, level] of levels.entries()) {
+      const found = known[index]
+      if (!found.fromCache) {
+        assert.equal(found.exhausted, false, `level ${index + 1} was searched to the end`)
+        assert.equal(found.statsExact, true, `level ${index + 1} was counted, not estimated`)
+      }
+      assert.equal(
+        level.par,
+        found.par,
+        `level ${index + 1} "${level.name}" is written down as ${level.par} and can score ` +
+          `${found.par} (searched ${found.positions} positions)`,
+      )
     }
-    assert.equal(
-      level.par,
-      found.par,
-      `level ${index + 1} "${level.name}" is written down as ${level.par} and can score ` +
-        `${found.par} (searched ${found.positions} positions)`,
-    )
   }
 })
 
 test("every level's floor is the least a clearing order scores", () => {
+  for (const { levels: LEVELS, known: KNOWN } of SETS)
   // What says whether a level has anything to aim at: where the floor is the par, every order
   // that clears pays the same, and the picker offers no star for it.
-  for (const [index, level] of LEVELS.entries()) {
-    assert.equal(
-      level.floor,
-      KNOWN[index].floor,
-      `level ${index + 1} "${level.name}" is written down with a floor of ${level.floor} and ` +
-        `the least a clearing order pays is ${KNOWN[index].floor}`,
-    )
+  {
+    for (const [index, level] of LEVELS.entries()) {
+      assert.equal(
+        level.floor,
+        KNOWN[index].floor,
+        `level ${index + 1} "${level.name}" is written down with a floor of ${level.floor} and ` +
+          `the least a clearing order pays is ${KNOWN[index].floor}`,
+      )
+    }
   }
 })
 
-// The last stretch is arranged rather than sorted; see the head of src/modes/levels.js.
-const FINALE = 14
+// The last stretch of a set is arranged rather than sorted; see the head of src/modes/levels.js.
+// How many is a property of the set, since it is a property of how that set's ending was built.
 
 test("the ladder climbs as far as the finale, and the finale is above all of it", () => {
-  const difficulty = KNOWN.map((known) => known.difficulty)
-  const climb = difficulty.length - FINALE
-  for (let index = 1; index < climb; index++) {
-    assert.ok(
-      difficulty[index] >= difficulty[index - 1],
-      `level ${index + 1} "${LEVELS[index].name}" measures ${difficulty[index].toFixed(1)}, ` +
-        `easier than the level before it at ${difficulty[index - 1].toFixed(1)}`,
-    )
+  for (const { name: set, levels: LEVELS, known: KNOWN, finale: FINALE } of SETS) {
+    const difficulty = KNOWN.map((known) => known.difficulty)
+    const climb = difficulty.length - FINALE
+    for (let index = 1; index < climb; index++) {
+      assert.ok(
+        difficulty[index] >= difficulty[index - 1],
+        `level ${index + 1} "${LEVELS[index].name}" measures ${difficulty[index].toFixed(1)}, ` +
+          `easier than the level before it at ${difficulty[index - 1].toFixed(1)}`,
+      )
+    }
+    // The finale may swing about, but not back into the ladder: every one of it is harder than
+    // everything before it, so the game only gets harder however the last seven are arranged.
+    const highest = Math.max(...difficulty.slice(0, climb))
+    for (let index = climb; index < difficulty.length; index++) {
+      assert.ok(
+        difficulty[index] > highest,
+        `level ${index + 1} "${LEVELS[index].name}" measures ${difficulty[index].toFixed(1)}, ` +
+          `which is not above the ${highest.toFixed(1)} the ladder reaches`,
+      )
+    }
+    assert.ok(KNOWN[0].band === 1, `${set} opens on the gentlest band`)
+    assert.ok(KNOWN.at(-1).band === 5, `and ${set} ends on the hardest`)
   }
-  // The finale may swing about, but not back into the ladder: every one of it is harder than
-  // everything before it, so the game only gets harder however the last seven are arranged.
-  const highest = Math.max(...difficulty.slice(0, climb))
-  for (let index = climb; index < difficulty.length; index++) {
-    assert.ok(
-      difficulty[index] > highest,
-      `level ${index + 1} "${LEVELS[index].name}" measures ${difficulty[index].toFixed(1)}, ` +
-        `which is not above the ${highest.toFixed(1)} the ladder reaches`,
-    )
-  }
-  assert.ok(KNOWN[0].band === 1, "it opens on the gentlest band")
-  assert.ok(KNOWN.at(-1).band === 5, "and ends on the hardest")
 })
 
 test("the finale swings rather than climbing, and ends on the hardest board", () => {
-  // Sorted, the last fourteen run 11.97 to 14.25 without a pause, which is a wall rather than an
-  // ending. So the hardest are spread through them: what this insists on is that the run is not
-  // monotone - there are dips - and that the last level is the hardest in the game, since an
-  // ending should be the peak and not the trough after one.
-  const finale = KNOWN.slice(-FINALE).map((known) => known.difficulty)
-  const dips = finale.filter((value, at) => at > 0 && value < finale[at - 1]).length
-  assert.ok(
-    dips >= 2,
-    `the last ${FINALE} run ${finale.map((d) => d.toFixed(1)).join(", ")}, which has only ` +
-      `${dips} step down in it: sorted, they are a wall to climb`,
-  )
-  const hardest = Math.max(...KNOWN.map((known) => known.difficulty))
-  assert.equal(
-    KNOWN.at(-1).difficulty,
-    hardest,
-    `the game ends on "${LEVELS.at(-1).name}" and the hardest board is ${hardest.toFixed(1)}`,
-  )
+  for (const { levels: LEVELS, known: KNOWN, finale: FINALE } of SETS) {
+    // Sorted, the last fourteen run 11.97 to 14.25 without a pause, which is a wall rather than an
+    // ending. So the hardest are spread through them: what this insists on is that the run is not
+    // monotone - there are dips - and that the last level is the hardest in the game, since an
+    // ending should be the peak and not the trough after one.
+    const finale = KNOWN.slice(-FINALE).map((known) => known.difficulty)
+    const dips = finale.filter((value, at) => at > 0 && value < finale[at - 1]).length
+    assert.ok(
+      dips >= 2,
+      `the last ${FINALE} run ${finale.map((d) => d.toFixed(1)).join(", ")}, which has only ` +
+        `${dips} step down in it: sorted, they are a wall to climb`,
+    )
+    const hardest = Math.max(...KNOWN.map((known) => known.difficulty))
+    assert.equal(
+      KNOWN.at(-1).difficulty,
+      hardest,
+      `the set ends on "${LEVELS.at(-1).name}" and its hardest board is ${hardest.toFixed(1)}`,
+    )
+  }
 })
 
 test("no two levels next to each other are the same shape", () => {
@@ -329,14 +356,16 @@ test("no two levels next to each other are the same shape", () => {
         ).length,
     ).join(",")
   }
-  const shapes = LEVELS.map(shapeOfLevel)
-  for (let index = 1; index < shapes.length; index++) {
-    assert.notEqual(
-      shapes[index],
-      shapes[index - 1],
-      `levels ${index} "${LEVELS[index - 1].name}" and ${index + 1} "${LEVELS[index].name}" ` +
-        `are both ${shapes[index]}`,
-    )
+  for (const { levels: LEVELS } of SETS) {
+    const shapes = LEVELS.map(shapeOfLevel)
+    for (let index = 1; index < shapes.length; index++) {
+      assert.notEqual(
+        shapes[index],
+        shapes[index - 1],
+        `levels ${index} "${LEVELS[index - 1].name}" and ${index + 1} "${LEVELS[index].name}" ` +
+          `are both ${shapes[index]}`,
+      )
+    }
   }
 })
 
@@ -344,33 +373,37 @@ test("the opening levels are warm ups and the rest are not", () => {
   // A warm up is a level where nothing can go wrong: no order strands the board, and every
   // order that clears pays the same. Two of those is a welcome; three would be a waste of the
   // player's time.
-  const forced = KNOWN.map((known) => known.forced)
-  assert.deepEqual(forced.slice(0, 2), [true, true], "the first two ask nothing")
-  assert.equal(
-    forced.slice(2).some(Boolean),
-    false,
-    "and every level after them pays differently depending on how it is played",
-  )
+  for (const { name: set, known: KNOWN } of SETS) {
+    const forced = KNOWN.map((known) => known.forced)
+    assert.deepEqual(forced.slice(0, 2), [true, true], `${set} opens on two that ask nothing`)
+    assert.equal(
+      forced.slice(2).some(Boolean),
+      false,
+      `and every ${set} level after them pays differently depending on how it is played`,
+    )
+  }
 })
 
 test("the hard half has one best order, and the obvious play does not find it", () => {
   // What the later levels are for: a single order pays par, so there is something to find, and
   // taking the longest chain every time is not it.
-  const half = KNOWN.slice(LEVELS.length / 2)
-  assert.ok(
-    half.filter((found) => found.parPaths === 1).length >= 6,
-    "at least six of the back half have exactly one best order",
-  )
-  assert.ok(
-    half.filter((found) => !found.greedy.clears).length >= 6,
-    "and at least six of them strand the board if played greedily",
-  )
-  for (const [index, found] of KNOWN.entries()) {
-    if (index >= 3) {
-      assert.ok(
-        found.greedy.score < found.par,
-        `level ${index + 1} "${LEVELS[index].name}" pays par to greed, so there is nothing to work out`,
-      )
+  for (const { name: set, levels: LEVELS, known: KNOWN } of SETS) {
+    const half = KNOWN.slice(LEVELS.length / 2)
+    assert.ok(
+      half.filter((found) => found.parPaths === 1).length >= 6,
+      `at least six of ${set}'s back half have exactly one best order`,
+    )
+    assert.ok(
+      half.filter((found) => !found.greedy.clears).length >= 6,
+      `and at least six of them strand the board if played greedily`,
+    )
+    for (const [index, found] of KNOWN.entries()) {
+      if (index >= 3) {
+        assert.ok(
+          found.greedy.score < found.par,
+          `level ${index + 1} "${LEVELS[index].name}" pays par to greed, so there is nothing to work out`,
+        )
+      }
     }
   }
 })
@@ -380,7 +413,7 @@ test("par is a target, not a formality: greed does not reach it", () => {
   // at least one level it leaves score on the table - otherwise showing a target would
   // be telling the player nothing they could not get by not thinking.
   let missedOne = false
-  for (const level of LEVELS) {
+  for (const level of SETS.flatMap((set) => set.levels)) {
     const greedy = solve(level.layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain)
     if (!greedy.solved) {
       continue
@@ -400,12 +433,14 @@ test("par is a target, not a formality: greed does not reach it", () => {
 })
 
 test("the levels get bigger as they go", () => {
-  const counts = LEVELS.map((level) => level.layout.join("").replace(/[.0]/g, "").length)
-  assert.ok(counts[0] <= 8, "the first one is a handful of dots")
-  assert.ok(counts.at(-1) >= 20, "the last one is a full board")
-  // Not strictly monotonic - a level can be smaller and harder - but the trend has
-  // to be upward, or the ramp is not a ramp.
-  assert.ok(counts.at(-1) > counts[0] * 2)
+  for (const { name: set, levels } of SETS) {
+    const counts = levels.map((level) => level.layout.join("").replace(/[.0]/g, "").length)
+    assert.ok(counts[0] <= 8, `${set} opens on a handful of dots`)
+    assert.ok(counts.at(-1) >= 20, `${set} ends on a full board`)
+    // Not strictly monotonic - a level can be smaller and harder - but the trend has
+    // to be upward, or the ramp is not a ramp.
+    assert.ok(counts.at(-1) > counts[0] * 2)
+  }
 })
 
 test("a level is loaded as drawn, and falls", () => {
@@ -636,6 +671,140 @@ test("a star is for par, and only where par is worth reaching", () => {
   assert.equal(exact.levelStarred(2), true)
 })
 
+test("no board is in more than one set, and no name either", () => {
+  // Two ladders are only two ladders if they are made of different boards. Mirrors and recolourings
+  // count as the same board: a mirrored board plays identically, and swapping two colours over is
+  // the same puzzle wearing different paint.
+  const fallen = (layout) =>
+    Array.from({ length: PUZZLE_ROWS }, (_, row) =>
+      Array.from({ length: PUZZLE_COLS }, (_, col) => {
+        const grid = unpack(parse(layout, PUZZLE_COLS, PUZZLE_ROWS), PUZZLE_COLS, PUZZLE_ROWS)
+        const cell = grid[col + row * PUZZLE_COLS]
+        return cell === EMPTY ? "." : String(cell)
+      }).join(""),
+    )
+  const renamed = (rows) => {
+    const seen = new Map()
+    return rows
+      .map((row) =>
+        [...row]
+          .map((cell) =>
+            cell === "."
+              ? "."
+              : (seen.has(cell) ? seen : seen.set(cell, String(seen.size))).get(cell),
+          )
+          .join(""),
+      )
+      .join("|")
+  }
+  const identity = (layout) => {
+    const rows = fallen(layout)
+    const mirrored = rows.map((row) => [...row].reverse().join(""))
+    const [a, b] = [renamed(rows), renamed(mirrored)].sort()
+    return a < b ? a : b
+  }
+
+  const boards = new Map()
+  const names = new Map()
+  for (const set of SETS) {
+    for (const level of set.levels) {
+      const board = identity(level.layout)
+      const already = boards.get(board)
+      assert.equal(
+        already,
+        undefined,
+        `${set.name}'s "${level.name}" is the same board as ${already}, mirrors and colours aside`,
+      )
+      boards.set(board, `${set.name}'s "${level.name}"`)
+      const clash = names.get(level.name)
+      // Names have to be unique across the sets as well, because a ?puzzle= link names a level and
+      // has no set of its own: two levels of one name would make such a link ambiguous.
+      assert.equal(clash, undefined, `"${level.name}" is the name of a level in ${clash} too`)
+      names.set(level.name, set.name)
+    }
+  }
+})
+
+test("the picker offers the other set, and swapping does not disturb it", () => {
+  const game = new Game()
+  game.start("puzzle")
+  game.page = "levels"
+  const foot = () => {
+    const rows = game.menuRows()
+    return rows[rows.length - 1].options
+  }
+  assert.equal(game.levelSet.name, PUZZLE_SETS[0].name, "it opens on the first set")
+  assert.equal(foot()[1].label, PUZZLE_SETS[1].name, "and the picker's spare slot offers the other")
+
+  game.menuIndex = game.menuRows().length - 1
+  game.menuOption = 1
+  game.menuConfirm()
+  assert.equal(game.levelSet.name, PUZZLE_SETS[1].name, "pressing it swaps")
+  assert.equal(game.levels[0].name, PUZZLE_SETS[1].levels[0].name, "and the grid is the other set")
+  assert.equal(foot()[1].label, PUZZLE_SETS[0].name, "and the button now offers the way back")
+
+  game.menuIndex = game.menuRows().length - 1
+  game.menuOption = 1
+  game.menuConfirm()
+  assert.equal(game.levelSet.name, PUZZLE_SETS[0].name, "and again swaps back")
+})
+
+test("the two sets remember how far they got apart from each other", () => {
+  // The first set keeps the bare mode id, because that is the key every player who has ever cleared
+  // a level already has one under. Losing that would be losing everyone's progress.
+  const game = new Game()
+  game.start("puzzle")
+  assert.equal(game.progressKey(), "puzzle", "the first set keeps the key it always had")
+  game.progress = { puzzle: { 0: 24, 1: 81 } }
+  assert.equal(game.levelUnlocked(2), true, "two cleared in the first set opens the third")
+
+  game.settings.levelSet = 1
+  assert.notEqual(game.progressKey(), "puzzle", "the second set keeps its own")
+  assert.equal(game.levelUnlocked(1), false, "and knows nothing of the first set's progress")
+  assert.equal(game.furthestLevel(), 0, "so it opens at its own beginning")
+
+  game.progress = { ...game.progress, [game.progressKey()]: { 0: 24 } }
+  assert.equal(game.levelUnlocked(1), true, "clearing one there opens the next there")
+  game.settings.levelSet = 0
+  assert.equal(game.levelUnlocked(2), true, "and the first set is where it was left")
+})
+
+test("a link names a level in either set, and opens the set that holds it", () => {
+  // A ?puzzle= link carries a name and no set, so it has to be looked for in both: a link written
+  // before there was a second set still opens the board it names, and one naming a board in the
+  // other set takes the player there rather than being refused.
+  const cleared = (levels) => Object.fromEntries(levels.map((_, at) => [at, 1]))
+  const both = {
+    puzzle: cleared(PUZZLE_SETS[0].levels),
+    "puzzle:two": cleared(PUZZLE_SETS[1].levels),
+  }
+  const open = (search, from) => {
+    const game = new Game()
+    game.progress = both
+    game.settings.levelSet = from
+    game.settings.mode = "puzzle"
+    game.remembered = true
+    game.launch(search)
+    return game
+  }
+  const second = PUZZLE_SETS[1].levels[0].name
+  const away = open(`?puzzle=${second.toLowerCase()}`, 0)
+  assert.equal(away.levelSet.name, PUZZLE_SETS[1].name, "a name from the second set swaps to it")
+  assert.equal(away.currentLevel.name, second, "and opens that board")
+
+  const back = open(`?puzzle=${PUZZLE_SETS[0].levels[0].name.toLowerCase().replace(/ /g, "-")}`, 1)
+  assert.equal(back.levelSet.name, PUZZLE_SETS[0].name, "and a name from the first swaps back")
+
+  // A number is a position, so it means the ladder in front of you.
+  const numbered = open("?puzzle=1", 1)
+  assert.equal(
+    numbered.levelSet.name,
+    PUZZLE_SETS[1].name,
+    "a number stays on the set being played",
+  )
+  assert.equal(numbered.currentLevel.name, second)
+})
+
 test("a level that has not been reached cannot be started", () => {
   const game = new Game()
   game.start("puzzle", { level: 9 })
@@ -691,33 +860,41 @@ test("par is reachable: an order that scores it can be played through the game",
   //
   // Finding the order is the slow half, so a proved level plays the order the tool wrote down, and
   // only a level being walked here has one found for it.
-  for (const [index, level] of LEVELS.entries()) {
-    const known = KNOWN[index]
-    let route = known.route && known.route.map((chain) => chain.map(([col, row]) => ({ col, row })))
-    if (!route) {
-      const found = parRoute(level.layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain, SCORING)
-      assert.ok(found, `level ${index + 1} "${level.name}" could be walked`)
-      assert.equal(
-        found.score,
-        level.par,
-        `level ${index + 1} "${level.name}": the walk reaches ${found.score}, par says ${level.par}`,
-      )
-      route = found.route
-    }
+  for (const { levels: LEVELS, known: KNOWN, progress } of SETS) {
+    for (const [index, level] of LEVELS.entries()) {
+      const known = KNOWN[index]
+      let route =
+        known.route && known.route.map((chain) => chain.map(([col, row]) => ({ col, row })))
+      if (!route) {
+        const found = parRoute(level.layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain, SCORING)
+        assert.ok(found, `level ${index + 1} "${level.name}" could be walked`)
+        assert.equal(
+          found.score,
+          level.par,
+          `level ${index + 1} "${level.name}": the walk reaches ${found.score}, par says ${level.par}`,
+        )
+        route = found.route
+      }
 
-    const game = new Game()
-    game.progress = { puzzle: Object.fromEntries(LEVELS.slice(0, index).map((_, at) => [at, 1])) }
-    game.start("puzzle", { level: index })
-    settle(game)
-    const before = game.player.score
-    for (const cells of route) {
-      playChain(game, cells)
+      const game = new Game()
+      // Unlocked up to here in the set being replayed, and the game put on that set, since a level is
+      // an index into whichever set is up.
+      game.settings.levelSet = SETS.findIndex((set) => set.progress === progress)
+      game.progress = {
+        [progress]: Object.fromEntries(LEVELS.slice(0, index).map((_, at) => [at, 1])),
+      }
+      game.start("puzzle", { level: index })
+      settle(game)
+      const before = game.player.score
+      for (const cells of route) {
+        playChain(game, cells)
+      }
+      assert.equal(game.board.count, 0, `level ${index + 1} "${level.name}" was emptied`)
+      assert.equal(
+        game.player.score - before,
+        level.par,
+        `level ${index + 1} "${level.name}" paid ${game.player.score - before} for a par order`,
+      )
     }
-    assert.equal(game.board.count, 0, `level ${index + 1} "${level.name}" was emptied`)
-    assert.equal(
-      game.player.score - before,
-      level.par,
-      `level ${index + 1} "${level.name}" paid ${game.player.score - before} for a par order`,
-    )
   }
 })

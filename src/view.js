@@ -508,7 +508,7 @@ export class GameView {
     } else if (level && game.phase === PHASE.PLAYING) {
       // Which of how many, faint, then the level's own name: the count is a label and the name
       // is the thing, so they are drawn as two on one line to keep that difference.
-      const count = `${game.level + 1}/${game.mode.levels.length}: `
+      const count = `${game.level + 1}/${game.levels.length}: `
       renderer.text(count, 28, stripY, {
         color: theme.text.faint,
         size: 21,
@@ -1241,7 +1241,7 @@ export class GameView {
         // On a board that is never refilled and was never designed, what is left on it
         // is the measure of the game: most random boards cannot be emptied at all, so
         // the question is "how few did you leave", not "did you clear it".
-        if (game.mode.refill === false && !game.mode.levels && game.board) {
+        if (game.mode.refill === false && !game.levels && game.board) {
           const left = game.board.count
           lines.push({
             text: left === 1 ? "1 dot left" : `${left} dots left`,
@@ -1264,7 +1264,7 @@ export class GameView {
       case "levels": {
         // What the ladder amounts to so far. Stars are only on the levels that have one to
         // give, so the total is of those and not of every level.
-        const levels = game.mode.levels || []
+        const levels = game.levels || []
         const cleared = levels.filter((level, index) => game.levelCleared(index)).length
         const stars = levels.filter((level, index) => game.levelStarred(index)).length
         const possible = levels.filter((level, index) => game.levelContested(index)).length
@@ -1275,7 +1275,11 @@ export class GameView {
           game.notice
             ? { text: game.notice, colour: theme.accent, size: 19 }
             : {
-                text: `${cleared} of ${levels.length} cleared, ${stars} of ${possible} stars`,
+                // Which set, where there is more than one, since the button at the foot names the
+                // one it would swap to and nothing else would say which of them is on screen.
+                text:
+                  `${game.levelSet ? `${game.levelSet.name}: ` : ""}` +
+                  `${cleared} of ${levels.length} cleared, ${stars} of ${possible} stars`,
                 colour: theme.text.dim,
                 size: 19,
               },

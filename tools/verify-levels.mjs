@@ -26,8 +26,8 @@ import { fileURLToPath } from "node:url"
 
 import { analyse, parRoute, measureFingerprint } from "../src/analysis.js"
 import { parse, boardId } from "../src/solver.js"
-import { LEVELS, PUZZLE_COLS, PUZZLE_ROWS } from "../src/modes/levels.js"
-import { PUZZLE } from "../src/modes/puzzle.js"
+import { PUZZLE_COLS, PUZZLE_ROWS } from "../src/modes/levels.js"
+import { PUZZLE, PUZZLE_SETS } from "../src/modes/puzzle.js"
 import { CONFIG } from "../src/config.js"
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
@@ -128,6 +128,13 @@ function verify(level) {
   }
 }
 
+// Every level of every set, in one list. The cache is keyed by the board, so the two sets share it
+// without either knowing about the other; what a set adds is a label, so a line of output says which
+// ladder the level is on.
+const ALL = PUZZLE_SETS.flatMap((set) =>
+  set.levels.map((level, at) => ({ ...level, set: set.name, at: at + 1 })),
+)
+
 if (import.meta.url === `file://${process.argv[1]}`) {
   const all = process.argv.includes("--all")
   const only = process.argv.includes("--check")
@@ -138,13 +145,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.log("the measure has changed, so nothing already written down counts. Verifying all.")
   }
   const boards = stale ? {} : { ...cache.boards }
-  const live = new Set(
-    LEVELS.map((level) => boardId(parse(level.layout, PUZZLE_COLS, PUZZLE_ROWS))),
-  )
+  const live = new Set(ALL.map((level) => boardId(parse(level.layout, PUZZLE_COLS, PUZZLE_ROWS))))
 
   let missing = 0
   let verified = 0
-  for (const [index, level] of LEVELS.entries()) {
+  for (const [index, level] of ALL.entries()) {
     const id = boardId(parse(level.layout, PUZZLE_COLS, PUZZLE_ROWS))
     if (boards[id]) {
       // The name is the only thing that can change without the board changing.
@@ -161,14 +166,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     verified++
     save(fingerprint, boards, live)
     console.log(
-      `${String(index + 1).padStart(2)} ${level.name.padEnd(13)} par ${String(boards[id].par).padStart(5)} ` +
+      `${level.set.padEnd(8)} ${String(level.at).padStart(2)} ${level.name.padEnd(13)} par ${String(boards[id].par).padStart(5)} ` +
         `floor ${String(boards[id].floor).padStart(4)} diff ${boards[id].difficulty.toFixed(2).padStart(5)} ` +
         `proved in ${((Date.now() - started) / 1000).toFixed(1)}s`,
     )
   }
 
   if (only) {
-    console.log(missing === 0 ? `all ${LEVELS.length} proved` : `${missing} not proved`)
+    console.log(missing === 0 ? `all ${ALL.length} proved` : `${missing} not proved`)
     process.exit(missing === 0 ? 0 : 1)
   }
 

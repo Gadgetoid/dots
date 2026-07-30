@@ -66,13 +66,13 @@ be left rather than a toll to be paid.
 Any board can be linked to, all in the query string so a link survives being served from a
 subpath and needs no rewrite rules:
 
-| Link           | Opens                                              |
-| -------------- | -------------------------------------------------- |
-| `?seed`        | the seeded mode on today's board                   |
-| `?seed=314522` | the seeded mode on that code                       |
-| `?mode=rush`   | that mode, by id, as `src/modes/` names it         |
-| `?puzzle=9`    | puzzle level 9, counted from one as the HUD counts |
-| `?puzzle=comb` | that puzzle level by name                          |
+| Link           | Opens                                                                      |
+| -------------- | -------------------------------------------------------------------------- |
+| `?seed`        | the seeded mode on today's board                                           |
+| `?seed=314522` | the seeded mode on that code                                               |
+| `?mode=rush`   | that mode, by id, as `src/modes/` names it                                 |
+| `?puzzle=9`    | puzzle level 9 of the set being played, counted from one as the HUD counts |
+| `?puzzle=comb` | that puzzle level by name, in whichever set holds it                       |
 
 The game writes the link for whatever is being played back into the address bar, so copying
 the URL is the whole of sharing a board. Today's seeded board writes a valueless `?seed`
@@ -87,16 +87,16 @@ into a level they have not climbed to would give away the ladder.
 
 ## Modes
 
-| Mode        | Board | Chain | What is different                                      |
-| ----------- | ----- | ----- | ------------------------------------------------------ |
-| Classic     | 6x6   | 2     | The 32blit game. Refills until nothing matches         |
-| Rush        | 6x6   | 2     | Ninety seconds, as the original browser game gave      |
-| Long game   | 8x8   | 3     | A pair is not a move                                   |
-| Endless     | 7x7   | 2     | Deals against itself: matches are hidden, never absent |
-| Elimination | 6x6   | 2     | A colour cleared off the board never comes back        |
-| Clear out   | 6x7   | 2     | No refill, and the board is random. Whittle it down    |
-| Puzzle      | 6x7   | 2     | Designed boards, cleared one after another             |
-| Seeded      | 6x6   | 2     | The same board for everyone holding the code           |
+| Mode        | Board | Chain | What is different                                       |
+| ----------- | ----- | ----- | ------------------------------------------------------- |
+| Classic     | 6x6   | 2     | The 32blit game. Refills until nothing matches          |
+| Rush        | 6x6   | 2     | Ninety seconds, as the original browser game gave       |
+| Long game   | 8x8   | 3     | A pair is not a move                                    |
+| Endless     | 7x7   | 2     | Deals against itself: matches are hidden, never absent  |
+| Elimination | 6x6   | 2     | A colour cleared off the board never comes back         |
+| Clear out   | 6x7   | 2     | No refill, and the board is random. Whittle it down     |
+| Puzzle      | 6x7   | 2     | Designed boards, in two sets, cleared one after another |
+| Seeded      | 6x6   | 2     | The same board for everyone holding the code            |
 
 The last three all come from the original browser game, which had `puzzle`,
 `elimination` and an endless default. Elimination refills only with colours still in
@@ -155,8 +155,13 @@ numbered them. What is drawn falls, so a shape does not have to be bottom-aligne
 though the shipped ones are written already fallen so the file shows what the board will look
 like. `prettier-ignore` keeps the formatter from flattening each one onto a single line.
 
-There are fifty-two, opened one at a time as the one before is cleared and resumable from any
-that has been reached. Each carries two exact numbers:
+There are two sets of fifty-two, and the button at the foot of the picker swaps between them: two
+ladders rather than one long one, each opening on a warm up and ending on the hardest board it holds.
+No board is in both, and that is checked for mirrors and recolourings as well as for exact copies.
+Each set remembers how far it got on its own, so a player stuck on one can go and play the other.
+
+Within a set they open one at a time as the one before is cleared, and any that has been reached can
+be resumed. Each level carries two exact numbers:
 
 | Field   | What it is                                                                       |
 | ------- | -------------------------------------------------------------------------------- |

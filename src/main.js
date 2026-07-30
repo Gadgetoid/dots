@@ -129,7 +129,7 @@ function syncLink() {
     code: game.seedText,
     today: game.seed === dailySeed(),
     level: game.level,
-    levels: game.mode.levels,
+    levels: game.levels,
   })
   const written = JSON.stringify(params)
   if (appliedLink === written) {

@@ -40,6 +40,18 @@ src/analysis.js     par, floor and difficulty derived from it
 
 The view is a fixed 600x800 field letterboxed into whatever the canvas is, so every coordinate in the game is in those units and nothing has to know the window size.
 
+## The page
+
+`index.html` carries no comments, because it is the one file the build does not minify and every byte of it goes to every player. The things in it that are not obvious:
+
+Nothing the player works the game with lives in the page. Every control is drawn inside the field, where a finger, a pad and a key can all reach it; a control that only exists in the page can only be reached by a pointer. What is in the page is the field and, under it, a bug link and a thank you, neither of which is part of playing.
+
+`.stage` sets a width and lets the height follow from `aspect-ratio`. Setting both a percentage height and a ratio is over-constrained and engines disagree about which to drop - Safari keeps the ratio, makes the stage taller than the window, and `overflow: hidden` clips the board. `max-height` guards the other direction, where the footer wraps to more lines than `--below` allows: then the stage is wider than the field and the view letterboxes inside it, which is what it does anyway.
+
+The touch properties are on `html, body` rather than on the canvas. `touch-action` has to cover the letterbox either side of the field or a finger landing there pinches the page, and on iOS that is what is honoured rather than the meta viewport's `user-scalable`. `position: fixed` on the body is for the document rubber-banding with nowhere to go. Selection and `-webkit-touch-callout` inherit, so they are set once - the callout is the one that bites, since holding a dot otherwise raises the copy and look-up sheet over the board. A canvas is an image to a drag, which `-webkit-user-drag` and the `draggable` attribute refuse between them, one because Safari honours the attribute where it ignores the property.
+
+`role="application"` on the canvas is what stops a screen reader taking the arrow keys for its own browse cursor. The `.speak` button is a skip link, first in the tab order and invisible until focused: the field is a canvas and cannot be read out, so a player who needs the game to talk has no way to find a setting that is only drawn, and nothing can ask the browser whether that player is there.
+
 ## Drawing
 
 Shapes are distance fields cut out of quads and antialiased with `fwidth` in the fragment shader, so an edge is a pixel wide at any canvas size and there is no multisampled target to pay for. A dot's jelly is part of that field: one damped oscillator per dot scales its radius by a two-lobed cosine, and a hint is the only thing that sets it ringing.

@@ -3,7 +3,6 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <!-- Discord tints an embed with this, as well as it being the browser's own chrome. -->
     <meta name="theme-color" content="#0a0c12" />
     <title>Dots</title>
     <meta
@@ -11,10 +10,6 @@
       content="Draw a line through dots of one colour to pop them out of existence."
     />
 
-    <!-- What a link to the game turns into on Bluesky, Discord, Mastodon and anywhere else
-         that reads Open Graph tags. These have to be absolute, so the build rewrites them
-         to wherever the site is actually being published: see tools/build.mjs. Every one of
-         those readers crops to about 1.9:1, which is what screenshots/social.png is. -->
     <link rel="canonical" href="https://gadgetoid.github.io/dots/" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Dots" />
@@ -33,8 +28,6 @@
       content="A glowing chain drawn through four rows of coloured dots"
     />
     <meta name="twitter:card" content="summary_large_image" />
-    <!-- Three of the game's own dots, inline so the page asks the server for
-         nothing but its scripts. -->
     <link
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='9' cy='9' r='6' fill='%23b455e6'/%3E%3Ccircle cx='23' cy='9' r='6' fill='%233cc4ff'/%3E%3Ccircle cx='16' cy='23' r='6' fill='%23ffa640'/%3E%3C/svg%3E"
@@ -43,17 +36,9 @@
       * {
         box-sizing: border-box;
       }
-      /* The whole page refuses the browser's own touch gestures, not only the canvas: a
-         finger that lands in the letterbox either side of the field would otherwise pinch
-         the page or drag it about. On iOS the meta viewport is not what decides that -
-         user-scalable is ignored there and touch-action is what is honoured - and the
-         document rubber-bands even with nowhere to go, which is what position: fixed on the
-         body is for. Nothing here scrolls, so none of this takes anything away.
-
-         Selection and the long-press callout are refused here rather than on the canvas
-         because both inherit, and neither has anything to act on anywhere in this page. The
-         callout is the one that bites: holding a dot for a moment otherwise raises the copy
-         and look-up sheet over the board, and -webkit- is the only spelling of it there is. */
+      :root {
+        --below: 3.5rem;
+      }
       html,
       body {
         height: 100%;
@@ -62,14 +47,8 @@
         user-select: none;
         -webkit-user-select: none;
         -webkit-touch-callout: none;
-        /* No grey flash where a finger lands: the game answers a touch itself. */
         -webkit-tap-highlight-color: transparent;
       }
-      /* The page is the game and nothing else: no buttons, no help line, no chrome.
-         Everything the player can work is drawn inside the field, where it can be
-         reached by a finger, a pad or a key alike - a control that only exists in the
-         page can only be reached by a pointer. The theme sets these colours from
-         script; these are the dark theme's, so nothing flashes before the first frame. */
       body {
         position: fixed;
         inset: 0;
@@ -78,15 +57,16 @@
         color: #8b93ab;
         font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
         display: grid;
-        place-items: center;
+        grid-template-rows: 1fr auto;
+        justify-items: center;
+        align-items: center;
         overflow: hidden;
       }
-      /* The field is 600x800; the stage holds that shape and the view letterboxes
-         within it, so an odd window is still correct. */
       .stage {
         position: relative;
-        width: min(100vw, calc(100vh * 0.75));
+        width: min(100vw, calc((100vh - var(--below)) * 0.75));
         aspect-ratio: 600 / 800;
+        max-height: 100%;
         display: grid;
         place-items: center;
       }
@@ -94,18 +74,8 @@
         display: block;
         width: 100%;
         height: 100%;
-        /* A canvas is an image as far as a drag is concerned, and on iPad a slow one lifts
-           it out of the page. This does not inherit, so it is set where it applies; the
-           draggable attribute says the same thing again, because Safari honours that where
-           it ignores this. Everything else a long press does is refused on the page. */
         -webkit-user-drag: none;
       }
-      /* The spoken-menus toggle: the first thing in the tab order and out of sight until
-         it is focused, which is the skip-link pattern. It has to live in the page rather
-         than only inside the field, because the field is a canvas and a canvas cannot be
-         read out: a player who needs the game to talk has no way to find a setting that
-         is only drawn. Nothing can ask the browser whether that player is here, so this
-         is how they are met - it costs a sighted player nothing and one Tab finds it. */
       .speak {
         position: absolute;
         width: 1px;
@@ -134,6 +104,27 @@
         background: #6fd8ff;
         outline: 3px solid #fff;
       }
+      .below {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 4px 18px;
+        padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+        font-size: 13px;
+        line-height: 1.5;
+        text-align: center;
+      }
+      .below a {
+        color: inherit;
+      }
+      .below a:hover,
+      .below a:focus-visible {
+        color: #6fd8ff;
+      }
+      .below a:focus-visible {
+        outline: 2px solid currentColor;
+        outline-offset: 3px;
+      }
       .unsupported {
         display: grid;
         place-content: center;
@@ -161,11 +152,6 @@
       gather dots of one colour and let go to pop them.
     </p>
     <div class="stage" id="screen">
-      <!-- role="application" is what stops a screen reader taking the arrow keys for its
-           own browse cursor: the field is played with them, and the canvas has nothing in
-           it to browse. -->
-      <!-- draggable="false" as well as the CSS: Safari honours the attribute where it
-           ignores -webkit-user-drag on a canvas. -->
       <canvas
         id="game"
         tabindex="0"
@@ -174,6 +160,17 @@
         draggable="false"
       ></canvas>
     </div>
+    <footer class="below">
+      <span>
+        <a href="https://github.com/Gadgetoid/dots" target="_blank" rel="noopener">Report a bug</a>
+      </span>
+      <span>
+        Throw me a bone:
+        <a href="https://github.com/sponsors/gadgetoid" target="_blank" rel="noopener">GitHub</a>,
+        <a href="https://www.patreon.com/gadgetoid" target="_blank" rel="noopener">Patreon</a>
+        or <a href="https://ko-fi.com/gadgetoid" target="_blank" rel="noopener">Ko-fi</a>
+      </span>
+    </footer>
     <script type="module" src="src/main.js"></script>
   </body>
 </html>

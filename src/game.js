@@ -2347,7 +2347,14 @@ export class Game {
         break
       case "restart":
         Sound.menuConfirm()
-        this.start(this.mode.id)
+        // The board being played again, which on a ladder is the level being played and not
+        // the ladder: starting the mode would deal its first level, throwing away a climb
+        // nobody asked to leave.
+        if (this.currentLevel) {
+          this.retryLevel()
+        } else {
+          this.start(this.mode.id)
+        }
         break
       case "resume":
         this.page = null

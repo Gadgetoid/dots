@@ -642,6 +642,39 @@ test("clearing a level records it, unlocks the next and nothing else", () => {
   assert.equal(game.levelUnlocked(2), false, "and only the next one")
 })
 
+// Press the button naming this action, wherever the page has put it.
+function press(game, action) {
+  const rows = game.menuRows()
+  for (const [index, row] of rows.entries()) {
+    const option = (row.options || []).findIndex((cell) => cell && cell.action === action)
+    if (option >= 0) {
+      game.menuTap(index, option)
+      return true
+    }
+  }
+  return false
+}
+
+test("restarting a puzzle deals the level being played, not the first one", () => {
+  const game = new Game()
+  game.start("puzzle")
+  settle(game)
+  while (popLongest(game)) {
+    /* clear the first level */
+  }
+  advanceUntil(game, () => game.level === 1, 4)
+  settle(game)
+  const banked = game.player.score
+  assert.equal(game.level, 1)
+
+  game.togglePause()
+  assert.equal(game.page, "pause")
+  assert.ok(press(game, "restart"))
+  assert.equal(game.level, 1, "the ladder is not thrown away by asking for the board again")
+  assert.equal(game.player.score, banked, "at the score the level was dealt at")
+  assert.equal(game.phase, PHASE.PLAYING)
+})
+
 test("a star is for par, and only where par is worth reaching", () => {
   // The first level pays the same however it is played, so there is no star in it however
   // well it is cleared.

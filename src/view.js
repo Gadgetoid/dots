@@ -55,6 +55,10 @@ const HINT_H = 46
 // this is a hint to shorten.
 const HINT_SIZE = 18
 const HINT_SIZE_MIN = 14
+// The star on the cleared page, across the corners: the whole point of the page, so it is
+// drawn at a size no other mark in the game is given. And how long it takes to arrive.
+const CLEARED_STAR = 76
+const CLEARED_STAR_FLIGHT = 0.42
 // How far a banner keeps off the edges of the field it is written across.
 const BANNER_MARGIN = 22
 // The gutter a settings row's name sits in, to the left of its values.
@@ -696,14 +700,18 @@ export class GameView {
     // one sits from the top of the panel is the padding and not the size of the type.
     let textY = y + PANEL_PAD
     for (const line of heading) {
-      renderer.text(line.text, VIEW_W / 2, textY + line.size / 2, {
-        color: line.colour,
-        size: this.#fitted(line.text, line.size, width - PANEL_PAD * 2),
-        align: "center",
-        baseline: "middle",
-        bold: line.bold,
-        glow: line.glow || 0,
-      })
+      if (line.star) {
+        this.#drawClearedStar(game, theme, VIEW_W / 2, textY + line.size / 2, line.size / 2)
+      } else {
+        renderer.text(line.text, VIEW_W / 2, textY + line.size / 2, {
+          color: line.colour,
+          size: this.#fitted(line.text, line.size, width - PANEL_PAD * 2),
+          align: "center",
+          baseline: "middle",
+          bold: line.bold,
+          glow: line.glow || 0,
+        })
+      }
       textY += line.size + 10
     }
 
@@ -1154,19 +1162,51 @@ export class GameView {
   //
   // An unearned one is the same shape with a smaller pair punched out of it in the colour
   // behind, so it reads as the outline of the star that is there to be won.
-  #drawStar(x, y, r, colour, filled, behind) {
+  #drawStar(x, y, r, colour, filled, behind, { turn = 0, glow = 0.45 } = {}) {
     const renderer = this.renderer
     // A third of a turn apart, and `strength` at half is the point where the shape reaches the
     // polygon exactly: see #form in glrenderer.js.
-    const points = (radius, color, glow) => {
-      for (const turn of [0, Math.PI / 3]) {
-        renderer.disc(x, y, radius, { color, glow, shape: { sides: 3, turn, strength: 0.5 } })
+    const points = (radius, color, light) => {
+      for (const at of [0, Math.PI / 3]) {
+        renderer.disc(x, y, radius, {
+          color,
+          glow: light,
+          shape: { sides: 3, turn: turn + at, strength: 0.5 },
+        })
       }
     }
-    points(r, colour, filled ? 0.45 : 0)
+    points(r, colour, filled ? glow : 0)
     if (!filled) {
       points(r * 0.62, behind, 0)
     }
+  }
+
+  // The star on the cleared page. An earned one arrives rather than appearing: it swells past
+  // its size and settles back, unwinding a turn as it comes, and flares as it lands. That
+  // flight is the whole difference between a mark being given and a mark being announced.
+  //
+  // A missed one is drawn at rest and hollow. Nothing happened, and animating that would be
+  // saying something happened.
+  #drawClearedStar(game, theme, x, y, r) {
+    const cleared = game.cleared
+    const earned = Boolean(cleared && cleared.starred)
+    // A reduced-motion session gets the star and not the flight.
+    if (!earned || game.reducedMotion) {
+      this.#drawStar(x, y, r, earned ? theme.accent : theme.text.faint, earned, theme.panel)
+      return
+    }
+    const flight = clamp(cleared.age / CLEARED_STAR_FLIGHT, 0, 1)
+    const landed = easeOutCubic(flight)
+    // Past its size and back, at its widest half way through the flight. Off a seed rather
+    // than off nothing: a star that starts at no size at all is one frame of nothing drawn.
+    const scale = 0.06 + 0.94 * landed * (1 + Math.sin(flight * Math.PI) * 0.22)
+    const spin = (1 - landed) * Math.PI * 0.8
+    // And the flare, which peaks as it lands and falls back to what a star normally carries.
+    const flare = clamp(1 - Math.abs(flight - 1) * 4, 0, 1)
+    this.#drawStar(x, y, r * scale, theme.accent, true, theme.panel, {
+      turn: spin,
+      glow: 0.45 + flare * 0.9,
+    })
   }
 
   // A padlock: a ring for the shackle with the body over it, which is as much of one as
@@ -1265,6 +1305,30 @@ export class GameView {
         if (game.mode.seeded) {
           lines.push({ text: `Code ${game.seedText}`, colour: theme.text.faint, size: 19 })
         }
+        return lines
+      }
+      case "cleared": {
+        const cleared = game.cleared
+        if (!cleared) {
+          return [{ text: PAGE_TITLES.cleared, colour: theme.text.bright, size: 30, bold: true }]
+        }
+        const lines = [
+          { text: PAGE_TITLES.cleared, colour: theme.text.bright, size: 30, bold: true },
+          { text: cleared.name, colour: theme.text.dim, size: 19 },
+        ]
+        // The star, where the level had one to give. Drawn earned or not: a hollow star says
+        // what is still there to be had far better than the absence of one does.
+        if (cleared.contested) {
+          lines.push({ star: true, size: CLEARED_STAR })
+        }
+        lines.push({
+          text: cleared.par > 0 ? `${cleared.scored} of ${cleared.par}` : `${cleared.scored}`,
+          colour: cleared.starred ? theme.accent : theme.text.normal,
+          size: 40,
+          bold: true,
+          glow: cleared.starred ? 1 : 0,
+        })
+        lines.push({ text: turnsText(cleared.turns), colour: theme.text.faint, size: 19 })
         return lines
       }
       case "modes":

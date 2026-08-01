@@ -14,12 +14,13 @@ The previous iterations still exist if you're curious; the 32blit version is in 
 
 ## Screenshots
 
-|                                                        |                                                               |
-| ------------------------------------------------------ | ------------------------------------------------------------- |
-| ![A chain of six dots, glowing](screenshots/board.png) | ![A chain unzipping](screenshots/popping.png)                 |
-| ![The light theme, mid chain](screenshots/light.png)   | ![The board turned down for the night](screenshots/night.png) |
-| ![An authored puzzle level](screenshots/puzzle.png)    | ![The pause menu](screenshots/menu.png)                       |
-| ![The puzzle picker](screenshots/levels.png)           | ![The settings page](screenshots/settings.png)                |
+|                                                            |                                                               |
+| ---------------------------------------------------------- | ------------------------------------------------------------- |
+| ![A chain of six dots, glowing](screenshots/board.png)     | ![A chain unzipping](screenshots/popping.png)                 |
+| ![The light theme, mid chain](screenshots/light.png)       | ![The board turned down for the night](screenshots/night.png) |
+| ![An authored puzzle level](screenshots/puzzle.png)        | ![The pause menu](screenshots/menu.png)                       |
+| ![The puzzle picker](screenshots/levels.png)               | ![The settings page](screenshots/settings.png)                |
+| ![A level cleared, with its star](screenshots/cleared.png) | ![The game over screen](screenshots/over.png)                 |
 
 ## Playing
 
@@ -64,7 +65,7 @@ Just copy the current URL to share a board. Note that today's seeded board write
 
 The last three all come from the original browser game, which had `puzzle`, `elimination` and a dangerously addictive Endless default. **Elimination** refills only with colours still in play, so the pool shrinks as the game goes on. Take the final colour off the board to win.
 
-**Puzzle** is the place to find a challenge: nothing refills, order counts and pitfalls abound because every pop collapses the columns under it. Every level has a par - the most any clearing order can score - and reaching it earns a star. Leave a colour with one dot on the board and the level is over there and then, because that dot can never be matched and the board can no longer be emptied. Two sets of 52 puzzles give you somewhere to go if you get stuck!
+**Puzzle** is the place to find a challenge: nothing refills, order counts and pitfalls abound because every pop collapses the columns under it. Every level has a par - the most any clearing order can score - and reaching it earns a star. Leave a colour with one dot on the board and the level is over there and then, because that dot can never be matched and the board can no longer be emptied. Clearing one stops on a page that says what it paid and what it cost, so a level cleared short of its par is one you can go straight back to. Two sets of 52 puzzles give you somewhere to go if you get stuck!
 
 **Clear out** is the same premise on a random board, and a random board usually cannot be emptied at all - at sizes small enough to search exhaustively, only about one dealt board in ten can be, and the rest strand a colour whatever order they are taken in. So it asks how far a board can be whittled down and reports what was left on it, and clearing one outright is an occasional thing worth a mention. If you want a board that is certainly clearable, that is what the designed levels are for.
 

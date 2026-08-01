@@ -351,6 +351,27 @@ const SHOTS = [
     }`,
   },
   {
+    // A level cleared: what it paid against what it could have, what it cost, and the star
+    // it earned. Caught part way through the star's flight, which is the moment the page is
+    // for; a clear short of par has a hollow one and a retry offered beside the way on.
+    file: "cleared.png",
+    theme: "dark",
+    frames: 22,
+    pose: `(game) => {
+      // The third level, which is the first with a star in it, and reached rather than
+      // dropped into: nothing can start a level the ladder has not opened.
+      game.progress = { puzzle: { 0: 1, 1: 1 } }
+      game.start("puzzle", { level: 2 })
+      game.settle(2)
+      // Exactly par, taken from the level rather than written down, so the shot keeps its
+      // star if the level is ever revalued.
+      game.player.score = game.levelPar
+      game.turns = 9
+      game.board.remove(game.board.dots.slice())
+      game.settle(3)
+    }`,
+  },
+  {
     // Shapes on: every colour bent slightly toward a polygon of its own, so the board can
     // be read without relying on the colours. The most confusable pairs get the shapes
     // that look least alike - see DOT_SHAPES.

@@ -368,16 +368,25 @@ test("the game-over screen draws, won and lost", () => {
   assertSane(drawn(won), "won")
 })
 
-test("a cleared level draws its banner", () => {
+test("a cleared level draws its page, star earned and star missed", () => {
   const game = new Game()
   game.start("puzzle")
   settle(game)
   game.board.remove(game.board.dots.slice())
-  for (let i = 0; i < 60 * 3 && !game.banner; i++) {
+  for (let i = 0; i < 60 * 3 && !game.cleared; i++) {
     game.advance(FRAME)
   }
-  assert.ok(game.banner, "there was something to say")
-  assertSane(drawn(game), "level cleared")
+  assert.ok(game.cleared, "there was something to say")
+  // Both marks and the flight between them: the star arrives over about half a second, and
+  // a missed one is a different page - a hollow star and a retry beside the way on.
+  for (const starred of [true, false]) {
+    game.cleared.starred = starred
+    game.cleared.contested = true
+    for (const age of [0, 0.2, 0.42, 2]) {
+      game.cleared.age = age
+      assertSane(drawn(game), `level cleared, star ${starred} at ${age}s`)
+    }
+  }
 })
 
 test("the clock draws at every point of its run", () => {
@@ -569,6 +578,18 @@ test("every hint fits the panel it is drawn in", () => {
 test("no menu page runs off the field", () => {
   const game = new Game()
   game.start("puzzle")
+  // A page that is a held-up result rather than a menu reached by walking to it, so it has
+  // something to draw when the loop below puts it up.
+  game.cleared = {
+    name: game.currentLevel.name,
+    scored: 1234,
+    par: 2048,
+    turns: 7,
+    starred: false,
+    contested: true,
+    last: false,
+    age: 0.2,
+  }
   // Every page, including the two with the most on them: the settings, and the controls
   // with a row per control per device.
   for (const page of [
@@ -577,6 +598,7 @@ test("no menu page runs off the field", () => {
     "levels",
     "pause",
     "over",
+    "cleared",
     "settings",
     "controls",
     "seed",

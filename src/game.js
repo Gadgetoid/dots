@@ -173,8 +173,11 @@ export class Game {
     // against what it paid, which is the other half of how well it was played.
     this.turns = 0
     this.levelStartTurns = 0
-    // A line over the board for a moment: a level cleared, and which is next.
+    // A line over the board for a moment, for the one thing a game that opens without a
+    // title screen would otherwise never say. See #welcome.
     this.banner = null
+    // The level just cleared, while its page is up: see #levelCleared.
+    this.cleared = null
     // Seconds since anything was picked up or spent, and what the board is pointing at
     // because of it. See #advanceHint.
     this.sinceMove = 0
@@ -815,6 +818,7 @@ export class Game {
     this.turns = 0
     this.levelStartTurns = 0
     this.banner = null
+    this.cleared = null
     this.notice = null
     this.#dealBoard()
     this.particles.clear()
@@ -842,17 +846,54 @@ export class Game {
     // Whatever the last board had to say is not the title screen's to say: a level cleared
     // belongs to the game that cleared it.
     this.banner = null
+    this.cleared = null
     this.notice = null
     this.dealAttractBoard()
     this.#resetMenuCursor()
   }
 
-  // Move on to the next authored level, keeping the score. What a mode with levels
-  // does instead of finishing when a board comes up clear.
-  #nextLevel() {
-    const cleared = this.currentLevel
+  // A level cleared: written down, and then held up on a page of its own.
+  //
+  // A page rather than the line this used to be. A level cleared short of its par is a
+  // level worth another go, and that is a question to be asked and answered - a line that
+  // fades while the next board drops in behind it can only be read. It is also where the
+  // star has room to be drawn at a size worth earning.
+  #levelCleared() {
+    const level = this.currentLevel
     const scored = this.levelScore
     const starred = this.#recordLevel(this.level, scored)
+    // Nothing is held - the board is empty - but the glow the last chain left is still
+    // fading, and a pointer that was dragging has nothing under it now.
+    for (const player of this.players) {
+      player.glow = 0
+      player.dragging = false
+    }
+    this.cleared = {
+      name: level.name,
+      scored,
+      par: level.par || 0,
+      turns: this.levelTurns,
+      starred,
+      // Whether there was a star to be had at all: a level every order pays the same for
+      // has none, so it is not drawn as one missed. See levelContested.
+      contested: this.levelContested(this.level),
+      last: this.lastLevel,
+      // How far into the drawn star's flight this is; see GameView's cleared heading.
+      age: 0,
+    }
+    this.page = "cleared"
+    this.#resetMenuCursor()
+    Sound.clear()
+  }
+
+  // On to the next authored level, keeping the score, or off the end of the ladder: having
+  // cleared them all is the one thing in this game that can be won.
+  #continueLevel() {
+    this.cleared = null
+    if (this.lastLevel) {
+      this.#finish("won")
+      return
+    }
     this.level++
     this.levelStartScore = this.player.score
     this.levelStartTurns = this.turns
@@ -866,17 +907,9 @@ export class Game {
     }
     this.settleFor = 0
     this.overFor = 0
-    // What that level paid, against the most it could have. The next level's name is in
-    // the HUD; what a player wants at this moment is the mark they just got.
-    const par = cleared && cleared.par ? ` of ${cleared.par}` : ""
-    this.banner = {
-      text: starred ? "Level cleared, star" : "Level cleared",
-      sub: `${scored}${par}`,
-      star: starred,
-      age: 0,
-      life: 2.4,
-    }
-    Sound.clear()
+    this.page = null
+    this.menuIndex = 0
+    this.menuOption = 0
   }
 
   // Deal the current level again, at the score it was dealt at. A level with no
@@ -903,6 +936,7 @@ export class Game {
     this.overFor = 0
     this.settleFor = 0
     this.banner = null
+    this.cleared = null
     this.phase = PHASE.PLAYING
     this.page = null
     this.menuIndex = 0
@@ -913,6 +947,7 @@ export class Game {
     this.outcome = outcome
     this.phase = PHASE.OVER
     this.page = "over"
+    this.cleared = null
     this.#resetMenuCursor()
     for (const player of this.players) {
       this.#dropChain(player, true)
@@ -948,6 +983,12 @@ export class Game {
       if (this.banner.age >= this.banner.life) {
         this.banner = null
       }
+    }
+    // The cleared page's star flies in rather than appearing. Aged here with the banner,
+    // ahead of the early return a page makes, since the page it is on is the one thing
+    // still moving while it is up.
+    if (this.cleared) {
+      this.cleared.age += dt
     }
     if (!this.board) {
       return
@@ -1166,15 +1207,11 @@ export class Game {
     if (this.overFor < (verdict === "won" ? 0.4 : CONFIG.LOSE_DELAY)) {
       return
     }
-    // A cleared level with more behind it moves on; the last one
-    // ends the game, and having cleared them all is what winning this mode is.
-    if (verdict === "won" && !this.lastLevel) {
-      this.#nextLevel()
-      return
-    }
-    // The last level is not followed by another, so this is where its own record is kept.
+    // A cleared level is held up before whatever follows it, the last one included: see
+    // #levelCleared, which is also where its record is kept.
     if (verdict === "won" && this.currentLevel) {
-      this.#recordLevel(this.level, this.levelScore)
+      this.#levelCleared()
+      return
     }
     this.#finish(verdict)
   }
@@ -1552,6 +1589,26 @@ export class Game {
             { action: "settings", label: "Settings" },
           ]),
         ]
+      case "cleared": {
+        const cleared = this.cleared
+        // A star earned leaves nothing to decide, so the only thing to press is the one that
+        // carries on. Short of par there is a choice, and the level is offered again beside
+        // it - with the cursor on carrying on, since that is the answer that costs nothing.
+        const onward = {
+          action: "continue",
+          label: cleared && cleared.last ? "Finish" : "Continue",
+        }
+        const starred = Boolean(cleared && cleared.starred)
+        return [
+          this.#buttons(starred ? [onward] : [{ action: "retry", label: "Retry level" }, onward], {
+            primary: starred,
+          }),
+          this.#buttons([
+            { action: "levels", label: "Puzzles" },
+            { action: "title", label: "Quit to title" },
+          ]),
+        ]
+      }
       case "settings":
         return [
           ...this.#settingRows(),
@@ -1879,6 +1936,13 @@ export class Game {
     if (row.id === "modes") {
       return Math.max(GAME_MODES.indexOf(this.mode), 0)
     }
+    // Carrying on, where a row offers it: the cleared page puts the level again to the left
+    // of it in reading order, and going back to a level already cleared is the deliberate
+    // one of the two.
+    const onward = row.options.findIndex((cell) => cell && cell.action === "continue")
+    if (onward >= 0) {
+      return onward
+    }
     const first = row.options.findIndex((cell) => this.#pressable(cell))
     return first < 0 ? 0 : first
   }
@@ -2139,6 +2203,13 @@ export class Game {
         .filter(Boolean)
         .join(". ")
     }
+    if (this.page === "cleared" && this.cleared) {
+      // The star first: it is the mark, and the numbers behind it are how it was arrived at.
+      const cleared = this.cleared
+      const star = cleared.starred ? ", star" : ""
+      const par = cleared.par > 0 ? ` of ${cleared.par}` : ""
+      return `${PAGE_TITLES.cleared}${star}. ${cleared.scored}${par}, ${turnsText(cleared.turns)}`
+    }
     // Why this page is the page being looked at, said before what is on it: a player who did
     // not ask for it needs to hear that first.
     if (this.notice) {
@@ -2199,6 +2270,13 @@ export class Game {
     if (this.page === "pause") {
       this.page = null
       Sound.menuBack()
+      return
+    }
+    // There is nothing behind a cleared level to go back to, so back carries on: a page
+    // with no way out of it is the one thing a menu must never be.
+    if (this.page === "cleared") {
+      Sound.menuBack()
+      this.#continueLevel()
       return
     }
     if (this.page === "over") {
@@ -2373,6 +2451,10 @@ export class Game {
       case "again":
         Sound.menuConfirm()
         this.start(this.mode.id)
+        break
+      case "continue":
+        Sound.menuConfirm()
+        this.#continueLevel()
         break
       case "retry":
         Sound.menuConfirm()

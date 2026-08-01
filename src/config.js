@@ -327,6 +327,8 @@ export const MENU_NOTES = {
   seedRandom: -5.25,
   again: -7,
   retry: -6,
+  // Carrying on from a level cleared, which is offered beside that retry and sounds next to it.
+  continue: -5.75,
   settings: -4,
   controls: -3,
   resetBindings: -2,
@@ -398,6 +400,7 @@ export const PAGE_TITLES = {
   controls: "Controls",
   levels: "Puzzles",
   seed: "Seeded",
+  cleared: "Level cleared",
 }
 
 // Chains spent, in words. Three pages print it and one of them says it out loud, so it is

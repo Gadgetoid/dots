@@ -63,6 +63,16 @@ function popLongest(game) {
   return true
 }
 
+// Take the page a cleared level stops on. Its cursor opens on the button that carries on,
+// so confirming is the way past it however the level was scored.
+function carryOn(game) {
+  assert.ok(
+    advanceUntil(game, () => game.page === "cleared", 4),
+    "the level was held up",
+  )
+  game.menuConfirm()
+}
+
 // Clear a level by the order the solver found, which is the only order some levels
 // have. Also checks the solver's idea of a move against the game's: every chain it
 // found has to be one the game will actually accept.
@@ -484,14 +494,17 @@ test("clearing a level moves on to the next and keeps the score", () => {
   assert.ok(scored > 0)
 
   assert.ok(
-    advanceUntil(game, () => game.level === 1, 4),
-    "the next level is dealt",
+    advanceUntil(game, () => game.page === "cleared", 4),
+    "the level is held up rather than passed over",
   )
+  assert.equal(game.cleared.scored, scored, "with what it paid")
+  assert.equal(game.cleared.turns, game.turns, "and what it cost")
+  game.menuConfirm()
+  assert.equal(game.level, 1, "and the next is dealt on being told to carry on")
   assert.equal(game.phase, PHASE.PLAYING, "and the game did not end")
   assert.equal(game.player.score, scored, "the score carried over")
   assert.equal(game.levelStartScore, scored, "and is what a retry would cost")
   assert.equal(game.levelStartTurns, game.turns, "as are the turns it was dealt at")
-  assert.ok(game.banner, "the player is told")
   assert.equal(game.board.empty, false)
 })
 
@@ -503,7 +516,7 @@ test("running out of moves on a level offers a retry, which costs only that leve
   while (popLongest(game)) {
     /* clear */
   }
-  advanceUntil(game, () => game.level === 1, 4)
+  carryOn(game)
   settle(game)
   const banked = game.player.score
 
@@ -547,7 +560,10 @@ test("clearing the last level wins the mode", () => {
   playSolution(game, LEVELS.at(-1))
 
   assert.equal(game.board.empty, true)
-  assert.ok(advanceUntil(game, () => game.phase === PHASE.OVER, 4))
+  // The last level is held up like any other, and what follows it is the end of the mode
+  // rather than another board.
+  carryOn(game)
+  assert.equal(game.phase, PHASE.OVER)
   assert.equal(game.outcome, "won")
   assert.equal(game.level, LEVELS.length - 1, "it did not roll on past the end")
 })
@@ -684,7 +700,7 @@ test("restarting a puzzle deals the level being played, not the first one", () =
   while (popLongest(game)) {
     /* clear the first level */
   }
-  advanceUntil(game, () => game.level === 1, 4)
+  carryOn(game)
   settle(game)
   const banked = game.player.score
   assert.equal(game.level, 1)

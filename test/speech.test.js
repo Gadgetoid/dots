@@ -266,10 +266,10 @@ test("a level cleared is announced on its own account", () => {
       game.advance(FRAME)
     }
     game.board.remove(game.board.dots.slice())
-    for (let i = 0; i < 180 && !game.banner; i++) {
+    for (let i = 0; i < 180 && !game.cleared; i++) {
       game.advance(FRAME)
     }
-    assert.ok(game.banner, "there was a banner")
+    assert.ok(game.cleared, "the level was cleared")
     game.advance(FRAME)
     Speech.flush()
     assert.match(synth.last.text, /Level cleared/, "which is not attached to any cursor")

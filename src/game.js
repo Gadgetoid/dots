@@ -1131,6 +1131,14 @@ export class Game {
       this.overFor = 0
       return
     }
+    if (verdict === "stranded" && this.overFor === 0) {
+      // Which dot ended it. A board still full of matches does not otherwise show what
+      // went wrong, and the whole lesson of the level is in that one dot.
+      const stranded = this.board.strandedDot()
+      if (stranded) {
+        this.#showHint([stranded])
+      }
+    }
     // A dead board sits there for a moment first: long enough to see that nothing
     // matches, short enough not to feel stuck.
     this.overFor += dt

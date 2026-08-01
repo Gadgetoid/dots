@@ -655,6 +655,27 @@ function press(game, action) {
   return false
 }
 
+test("a colour left with one dot ends the level, moves or no moves", () => {
+  const game = new Game()
+  game.start("puzzle")
+  settle(game)
+
+  // Two of one colour beside each other and one of another: still a move on the board, and
+  // still a board that can never be emptied.
+  game.board.remove(game.board.dots.slice(3))
+  const [first, second, alone] = game.board.dots
+  first.colour = 0
+  second.colour = 0
+  alone.colour = 1
+  game.board.collapse()
+  settle(game)
+  assert.ok(game.board.moveAvailable(), "the pair is still there to be taken")
+
+  assert.ok(advanceUntil(game, () => game.phase === PHASE.OVER, 4))
+  assert.equal(game.outcome, "stranded", "and the level is over anyway")
+  assert.ok(press(game, "retry"), "with another go at it offered")
+})
+
 test("restarting a puzzle deals the level being played, not the first one", () => {
   const game = new Game()
   game.start("puzzle")

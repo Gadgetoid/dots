@@ -36,6 +36,9 @@ export const PUZZLE = {
   minChain: 2,
   colours: 5,
   refill: false,
+  // A level is only cleared by emptying it, so a colour left with one dot has already
+  // decided the board and the level ends there.
+  stranded: true,
   timeLimit: 0,
   specialChance: 0,
   // Slendro, in cents rather than semitones because it is not an equal-tempered

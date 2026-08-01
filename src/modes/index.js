@@ -14,6 +14,10 @@
 //   colours         how many of the theme's dot colours it deals from
 //   refill          whether popped dots are replaced. Either a boolean or a
 //                   predicate taking the board, for a mode that stops dealing.
+//   stranded        whether a colour down to one dot ends the board. On a mode that
+//                   never refills that dot can never be matched, so a mode played to
+//                   empty the board has already lost; one not trying to empty it, like
+//                   clear out, plays on.
 //   timeLimit       seconds, or 0 for a board that lasts as long as it lasts
 //   specialChance   chance a new dot carries a powerup; see specials.js
 //   levels          authored boards, if the mode has them: clearing one moves on to
@@ -76,6 +80,12 @@ export const modeRefills = (mode, board) =>
 export function defaultOutcome(mode, board) {
   if (board.empty) {
     return "won"
+  }
+  // A board that can no longer be emptied is finished, whatever is still matchable on it:
+  // playing on to a board with no moves left costs the player the moves it takes to find
+  // that out and pays nothing they could not already see. See Board.strandedDot.
+  if (mode.stranded && board.strandedDot()) {
+    return "stranded"
   }
   if (!board.moveAvailable()) {
     return "lost"

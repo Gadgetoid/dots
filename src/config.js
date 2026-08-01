@@ -405,6 +405,9 @@ export const OUTCOMES = {
   lost: "No moves left",
   timeup: "Time up",
   won: "Board cleared",
+  // A colour down to its last dot, which is a board that cannot be emptied however many
+  // moves are still on it. Named apart from a dead board, since the two look nothing alike.
+  stranded: "A colour is stranded",
   // Clearing the last authored level is not a board cleared, it is the whole mode
   // finished, which is the one thing in this game that can be won.
   levels: "All levels cleared",

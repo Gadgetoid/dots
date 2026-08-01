@@ -240,6 +240,19 @@ export class Board {
     return counts
   }
 
+  // A dot that is the last of its colour, if there is one. Where nothing refills it can
+  // never be matched, so a board holding one can no longer be emptied whatever is done
+  // with the rest of it. The dot itself, so what went wrong can be pointed at.
+  strandedDot() {
+    const counts = this.colourCounts()
+    for (const dot of this.dots) {
+      if (counts[dot.colour] === 1) {
+        return dot
+      }
+    }
+    return null
+  }
+
   // ---- linking ------------------------------------------------------------
   static adjacent(a, b) {
     return Math.abs(a.col - b.col) + Math.abs(a.row - b.row) === 1

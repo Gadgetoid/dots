@@ -10,6 +10,7 @@ import test from "node:test"
 import assert from "node:assert/strict"
 
 import { LEVELS, PUZZLE_COLS, PUZZLE_ROWS } from "../src/modes/levels.js"
+import { LEVELS_TWO } from "../src/modes/levels-two.js"
 import { PUZZLE, PUZZLE_SETS } from "../src/modes/puzzle.js"
 import { solve, parse, unpack, columnGroups, EMPTY, describe as shapeOf } from "../src/solver.js"
 import { analyse, parRoute } from "../src/analysis.js"
@@ -769,6 +770,20 @@ test("the two sets remember how far they got apart from each other", () => {
   assert.equal(game.levelUnlocked(1), true, "clearing one there opens the next there")
   game.settings.levelSet = 0
   assert.equal(game.levelUnlocked(2), true, "and the first set is where it was left")
+})
+
+test("a star is judged against the par of the level actually played", () => {
+  // Both sets number their levels from one, so a star has to be measured against the set being
+  // played and not against whichever set the mode happens to name.
+  const game = new Game()
+  game.settings.levelSet = 1
+  const [index, level] = LEVELS_TWO.entries().find(([at]) => game.levelContested(at, "puzzle"))
+  game.progress = { [game.progressKey("puzzle")]: { [index]: level.par } }
+  assert.equal(
+    game.levelStarred(index, "puzzle"),
+    true,
+    `the second set's "${level.name}" is starred by its own par`,
+  )
 })
 
 test("a link names a level in either set, and opens the set that holds it", () => {

@@ -641,7 +641,7 @@ export class Game {
     if (!this.levelContested(index, modeId)) {
       return false
     }
-    const level = modeById(modeId).levels[index]
+    const level = this.levelsFor(modeId)[index]
     const scored = this.levelBest(modeId)[index]
     return scored !== undefined && scored >= level.par
   }

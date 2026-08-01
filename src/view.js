@@ -70,6 +70,13 @@ const RANK_APART = 0.16
 const RANK_FLIGHT = 0.3
 const RANK_MAX = 5
 
+// Where a star's points sit and how much of one an unearned one keeps. Up, because a star
+// with a point at the top is the one every reward chart draws; the field is drawn with y
+// downward, so up is a quarter turn back. The hollow one is thinner than a polygon's would
+// be, since a five-pointed star has far less body to lose before its arms close up.
+const STAR_UP = -Math.PI / 2
+const STAR_HOLLOW = 0.7
+
 // How far a banner keeps off the edges of the field it is written across.
 const BANNER_MARGIN = 22
 // The gutter a settings row's name sits in, to the left of its values.
@@ -1178,31 +1185,22 @@ export class GameView {
     })
   }
 
-  // A star, as two triangles turned against each other.
+  // A star: five points, one distance field, drawn filled. See #form in glrenderer.js for
+  // the shape and for why it is not stroked or pathed.
   //
-  // Filled geometry, not a stroked outline: a star's points are far narrower than any stroke
-  // that would fill them, so stroking one leaves a star-shaped hole in the middle and rounds
-  // the points into blobs, and the seam where the closed path meets itself reads as a doubled
-  // point at the top. Two triangles have no seam and are solid by construction.
-  //
-  // An unearned one is the same shape with a smaller pair punched out of it in the colour
+  // An unearned one is the same shape with a smaller one punched out of it in the colour
   // behind, so it reads as the outline of the star that is there to be won.
   #drawStar(x, y, r, colour, filled, behind, { turn = 0, glow = 0.45 } = {}) {
     const renderer = this.renderer
-    // A third of a turn apart, and `strength` at half is the point where the shape reaches the
-    // polygon exactly: see #form in glrenderer.js.
-    const points = (radius, color, light) => {
-      for (const at of [0, Math.PI / 3]) {
-        renderer.disc(x, y, radius, {
-          color,
-          glow: light,
-          shape: { sides: 3, turn: turn + at, strength: 0.5 },
-        })
-      }
-    }
+    const points = (radius, color, light) =>
+      renderer.disc(x, y, radius, {
+        color,
+        glow: light,
+        shape: { points: 5, turn: STAR_UP + turn },
+      })
     points(r, colour, filled ? glow : 0)
     if (!filled) {
-      points(r * 0.62, behind, 0)
+      points(r * STAR_HOLLOW, behind, 0)
     }
   }
 

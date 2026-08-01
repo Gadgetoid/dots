@@ -38,22 +38,28 @@ export const DISC_VS = `#version 300 es
   layout(location=2) in vec4 aShape;    // wobble amount, wobble axis, ring half-width, sheen
   layout(location=3) in vec4 aColor;
   layout(location=4) in vec4 aForm;     // polygon sides, its turn, how far toward it
-  out vec2 vUV; out vec4 vShape; out vec4 vColor; out vec3 vForm;
+  out vec2 vUV; out vec4 vShape; out vec4 vColor; out vec4 vForm;
   ${PROJECT}
   void main() {
-    vUV = aUV; vShape = aShape; vColor = aColor; vForm = aForm.xyz;
+    vUV = aUV; vShape = aShape; vColor = aColor; vForm = aForm;
     gl_Position = project(aPos);
   }`
 export const DISC_FS = `#version 300 es
   precision highp float;
-  in vec2 vUV; in vec4 vShape; in vec4 vColor; in vec3 vForm;
+  in vec2 vUV; in vec4 vShape; in vec4 vColor; in vec4 vForm;
   out vec4 frag;
-  // How far out the edge is at this angle, for a dot bent toward a regular polygon. The
-  // polygon is scaled so its corners sit on the circle and its sides bow inward, so the
-  // dot never grows - it is dented, which is what keeps a board of these reading as dots.
+  // How far out the edge is at this angle, for a dot bent toward a corner-on-the-circle
+  // shape: the corners sit on the circle and the edges between them bow inward, so the dot
+  // never grows - it is dented, which is what keeps a board of these reading as dots.
+  //
+  // One straight edge per sector, and the lean is how far round the sector that edge's
+  // nearest point sits. At zero the edge is square across the sector and the shape is a regular
+  // polygon, which is what every dot shape asks for. Leaning it back opens the sector into a
+  // deep valley and pulls the corners into points: a star, from the same two cosines. See
+  // #form in glrenderer.js for where a lean comes from.
   //
   // A colour whose shape is round asks for no sides and gets the circle back untouched.
-  float form(float angle, float sides, float turn, float amount) {
+  float form(float angle, float sides, float turn, float amount, float lean) {
     if (sides < 3.0 || amount <= 0.0) {
       return 1.0;
     }
@@ -61,15 +67,16 @@ export const DISC_FS = `#version 300 es
     // Half a sector, named for what it is rather than "half", which is a reserved word in
     // GLSL ES and will not compile.
     float sector = segment * 0.5;
-    // The angle to the nearest of the polygon's edges, folded into one sector.
-    float across = mod(angle - turn + sector, segment) - sector;
-    return mix(1.0, cos(sector) / cos(across), amount);
+    // The angle into the nearest sector, folded and then mirrored: a leaning edge is not
+    // symmetric about the sector, so which side of it this is has to stop mattering.
+    float across = abs(mod(angle - turn + sector, segment) - sector);
+    return mix(1.0, cos(sector - lean) / cos(across - lean), amount);
   }
   void main() {
     float radius = length(vUV);
     float angle = atan(vUV.y, vUV.x);
     float wobble = 1.0 + vShape.x * cos(2.0 * (angle - vShape.y));
-    wobble *= form(angle, vForm.x, vForm.y, vForm.z);
+    wobble *= form(angle, vForm.x, vForm.y, vForm.z, vForm.w);
     // Signed distance to the deformed edge, in quad units, then in pixels.
     float d = radius / max(wobble, 0.2) - 1.0;
     float aa = max(fwidth(d), 1e-5);

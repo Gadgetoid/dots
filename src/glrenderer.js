@@ -812,14 +812,37 @@ export class WebGLRenderer extends Renderer {
     )
   }
 
-  // A dot's shape, as the shader wants it: how many sides, how far round they are turned,
-  // and how far to bend the circle toward them.
+  // A shape, as the shader wants it: how many corners, how far round they are turned, how far
+  // to bend the circle toward them, and how far the edge between two corners leans.
   //
-  // The bend is divided by how much difference that many sides makes at all, so every shape
-  // dents its edges in by the same fraction of the radius: a triangle moves its edges far
-  // further than a hexagon does for the same mix, and a board where the triangles shout and
-  // the hexagons whisper is a board where only some of the shapes do their job.
+  // Two shapes come out of this. `sides` is a regular polygon, which is what a dot wears: the
+  // bend is divided by how much difference that many sides makes at all, so every shape dents
+  // its edges in by the same fraction of the radius. A triangle moves its edges far further
+  // than a hexagon does for the same mix, and a board where the triangles shout and the
+  // hexagons whisper is a board where only some of the shapes do their job.
+  //
+  // `points` is a star, and it is the same shape with its edges leaned back. An edge running
+  // from a corner on the circle down to a valley at `inner` is still one straight line across
+  // the sector, only no longer square to it; `lean` is where its nearest point has moved to,
+  // and the shader draws it from that alone. A polygon is the star whose valleys are as deep
+  // as a polygon's edges, so it leans by nothing - which is why the dots are untouched by
+  // this and why there is one function rather than two.
+  //
+  // Filled either way. A star's points are far narrower than any stroke that would fill them,
+  // so an outlined one leaves a star-shaped hole in the middle and rounds the points into
+  // blobs; and one drawn as a closed path has a seam where it meets itself, which reads as a
+  // doubled point. A distance field has neither.
   #form(shape) {
+    if (shape && shape.points >= 3) {
+      const half = Math.PI / shape.points
+      // How deep the valleys go, against the corners at one. The default is the classic
+      // five-pointed star: the valleys where the arms of a pentagram cross.
+      const inner = shape.inner ?? Math.cos(2 * half) / Math.cos(half)
+      // `turn` names where a point goes, which is the only thing anybody asks of a star. The
+      // shader measures from the valley between two of them, half a sector back.
+      const lean = Math.atan2(inner - Math.cos(half), Math.sin(half))
+      return [shape.points, (shape.turn || 0) - half, 1, lean]
+    }
     if (!shape || !(shape.sides >= 3)) {
       return [0, 0, 0, 0]
     }

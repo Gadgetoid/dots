@@ -396,9 +396,9 @@ test("a round of turns is marked out of five, and the stars arrive one by one", 
   game.turns = 30
   game.player.score = 30 * 1296 // a run of sixes, which is four of the five
   assert.equal(game.rank, 4)
-  // A star is two triangles, and a filled one is the pair that carries the glow.
+  // A star is one shaped disc, and a filled one is the one that carries the glow.
   const filled = (calls) =>
-    calls.filter((call) => call.kind === "disc" && call.opts.shape && call.opts.glow > 0).length / 2
+    calls.filter((call) => call.kind === "disc" && call.opts.shape && call.opts.glow > 0).length
   game.page = "over"
   const landed = [0, 0.4, 1.2, 3].map((age) => {
     game.finishedAt = game.time - age

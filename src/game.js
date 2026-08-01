@@ -39,6 +39,7 @@ import { FONTS, fontById, fontReady, ensureFont } from "./fonts.js"
 import { resolveTuning } from "./scales.js"
 import { clamp, lerp, mulberry32 } from "./math.js"
 import { parseLink, levelFromToken } from "./link.js"
+import { packRun, unpackRun, replayRun } from "./replay.js"
 import {
   SEED_DOTS,
   SEED_COLOURS,
@@ -182,6 +183,16 @@ export class Game {
     this.banner = null
     // The level just cleared, while its page is up: see #levelCleared.
     this.cleared = null
+    // Every chain spent on a seeded board, so a finished round can be handed over with the
+    // game that made it and not only the number it came to. See replay.js.
+    this.moves = []
+    // A round somebody else played, arrived at by link and checked here: see #openCard.
+    this.card = null
+    // Copying the link is the page's business and not the game's, so main.js hands this in.
+    // Null under node, and on a browser that will not have it.
+    this.shareHandler = null
+    // When the link was last copied, so the button can say so for a moment.
+    this.sharedAt = -99
     // Seconds since anything was picked up or spent, and what the board is pointing at
     // because of it. See #advanceHint.
     this.sinceMove = 0
@@ -508,6 +519,11 @@ export class Game {
   // the player was doing, having said why where the reason is worth saying.
   #openLink(wanted) {
     const mode = modeById(wanted.mode)
+    // A round somebody played, before anything else the link says: it names a board, but what
+    // it is for is the game that was played on it.
+    if (wanted.run && validSeed(wanted.seed) && this.#openCard(wanted.seed, wanted.run)) {
+      return true
+    }
     if (mode.levels && wanted.puzzle !== null) {
       const found = this.#levelFromLink(mode, wanted.puzzle)
       if (found === null) {
@@ -534,6 +550,46 @@ export class Game {
       return true
     }
     this.#openMode(mode, wanted.seed)
+    return true
+  }
+
+  // A round somebody else played, arrived at by link. Their chains are played back here
+  // against the board the code deals, and what that comes to is the score the card shows:
+  // nothing in the link is taken on trust, because nothing in a link ever could be. See
+  // replay.js for why that is the whole of the security here.
+  //
+  // A run that does not play out is refused, and the link falls through to whatever else it
+  // says - which for a run link is the board it was played on, offered to be played.
+  #openCard(seed, run) {
+    const mode = SEEDED_MODE
+    if (!mode) {
+      return false
+    }
+    const moves = unpackRun(run, mode.cols, mode.rows)
+    const played = moves && replayRun(mode, seed, moves)
+    if (!played) {
+      return false
+    }
+    // Not `settings.mode`: looking at somebody's card is not playing a mode, and it should
+    // not decide what the next visit opens on. Pressing play does that.
+    this.mode = mode
+    this.seed = seed
+    this.seedDraft = seed
+    this.layout = boardLayout(mode.cols, mode.rows)
+    // The board the card is about, behind the card: the field is the one thing that says a
+    // score was made on a real board and not made up.
+    this.#dealBoard()
+    this.card = {
+      seed,
+      score: played.score,
+      turns: played.turns,
+      stars: rankStars(played.score, played.turns),
+      age: 0,
+    }
+    this.phase = PHASE.TITLE
+    this.page = "card"
+    this.pageReturn = null
+    this.#resetMenuCursor()
     return true
   }
 
@@ -759,9 +815,24 @@ export class Game {
     return this.mode.turnLimit > 0 ? rankStars(this.player.score, this.turns) : 0
   }
 
+  // The round just played, packed for a link: the chains that made it, which is what lets
+  // somebody else check the score rather than take it. Empty where there is nothing to prove.
+  get runText() {
+    if (!this.mode.seeded || this.moves.length === 0) {
+      return ""
+    }
+    return packRun(this.moves, this.mode.cols, this.mode.rows) || ""
+  }
+
   // How long the game-over page has been up, which is what its stars arrive on.
   get sinceFinish() {
     return this.time - this.finishedAt
+  }
+
+  // What the share button says. It says so for a moment after being pressed: a copy leaves
+  // no trace of itself, and a button that appears to have done nothing gets pressed again.
+  get shareLabel() {
+    return this.time - this.sharedAt < 2 ? "Link copied" : "Copy link"
   }
 
   // A board for the title screen to sit over, so the game shows itself instead of offering a
@@ -840,8 +911,10 @@ export class Game {
     this.levelStartScore = 0
     this.turns = 0
     this.levelStartTurns = 0
+    this.moves = []
     this.banner = null
     this.cleared = null
+    this.card = null
     this.notice = null
     this.#dealBoard()
     this.particles.clear()
@@ -870,6 +943,7 @@ export class Game {
     // belongs to the game that cleared it.
     this.banner = null
     this.cleared = null
+    this.card = null
     this.notice = null
     this.dealAttractBoard()
     this.#resetMenuCursor()
@@ -1013,6 +1087,9 @@ export class Game {
     // still moving while it is up.
     if (this.cleared) {
       this.cleared.age += dt
+    }
+    if (this.card) {
+      this.card.age += dt
     }
     if (!this.board) {
       return
@@ -1325,6 +1402,11 @@ export class Game {
     const scored = CONFIG.chainScore(length) * player.multiplier
     player.score += scored
     this.turns++
+    // What was played, where the board came from a code and so can be played again by
+    // anybody: the chains are the proof of the score. See replay.js.
+    if (this.mode.seeded) {
+      this.moves.push(chain.map((dot) => ({ col: dot.col, row: dot.row })))
+    }
 
     const neighbours = this.board.neighboursOf(chain)
     this.board.remove(chain)
@@ -1620,6 +1702,16 @@ export class Game {
             { action: "settings", label: "Settings" },
           ]),
         ]
+      case "card":
+        // Somebody else's round. The only thing worth pressing is the board it was played on,
+        // which is the whole reason a card gets sent.
+        return [
+          this.#buttons([{ action: "seedPlay", label: "Play this board" }], { primary: true }),
+          this.#buttons([
+            { action: "title", label: "Title" },
+            { action: "modes", label: "New game" },
+          ]),
+        ]
       case "cleared": {
         const cleared = this.cleared
         // A star earned leaves nothing to decide, so the only thing to press is the one that
@@ -1664,6 +1756,13 @@ export class Game {
           rows.push(this.#buttons([{ action: "again", label: "Play again" }], { primary: true }))
         }
         rows.push({ id: "hint", kind: "hint" })
+        // A seeded round can be handed over with the game that made it, so the score is
+        // something the other player can check rather than take: see replay.js. Offered only
+        // where there is somewhere to put it - main.js hands in the copying, and a browser
+        // with no clipboard to write to hands in nothing.
+        if (this.mode.seeded && this.shareHandler && this.moves.length > 0) {
+          rows.push(this.#buttons([{ action: "share", label: this.shareLabel }]))
+        }
         rows.push(
           this.#buttons([
             // Play again is another go at the same board, so the way to a different one
@@ -2234,6 +2333,15 @@ export class Game {
         .filter(Boolean)
         .join(". ")
     }
+    if (this.page === "card" && this.card) {
+      // Whose round it is cannot be said, because a link does not carry a name. What it does
+      // carry is a score that has been checked, and saying so is the point of the page.
+      const card = this.card
+      return (
+        `${PAGE_TITLES.card}. ${card.score}, ${turnsText(card.turns)} on code ` +
+        `${seedCode(card.seed).split("").join(" ")}`
+      )
+    }
     if (this.page === "cleared" && this.cleared) {
       // The star first: it is the mark, and the numbers behind it are how it was arrived at.
       const cleared = this.cleared
@@ -2310,7 +2418,7 @@ export class Game {
       this.#continueLevel()
       return
     }
-    if (this.page === "over") {
+    if (this.page === "over" || this.page === "card") {
       this.toTitle()
       Sound.menuBack()
     }
@@ -2486,6 +2594,14 @@ export class Game {
       case "continue":
         Sound.menuConfirm()
         this.#continueLevel()
+        break
+      case "share":
+        if (this.shareHandler && this.runText) {
+          Sound.menuConfirm()
+          this.shareHandler()
+          this.sharedAt = this.time
+          Speech.say("Link copied")
+        }
         break
       case "retry":
         Sound.menuConfirm()

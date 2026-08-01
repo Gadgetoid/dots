@@ -21,7 +21,7 @@ The previous iterations still exist if you're curious; the 32blit version is in 
 | ![An authored puzzle level](screenshots/puzzle.png)        | ![The pause menu](screenshots/menu.png)                               |
 | ![The puzzle picker](screenshots/levels.png)               | ![The settings page](screenshots/settings.png)                        |
 | ![A level cleared, with its star](screenshots/cleared.png) | ![A seeded round, turns left above the board](screenshots/seeded.png) |
-| ![The game over screen](screenshots/over.png)              |                                                                       |
+| ![A shared round's score card](screenshots/card.png)       | ![The game over screen](screenshots/over.png)                         |
 
 ## Playing
 
@@ -41,15 +41,18 @@ A returning player carries on with the mode they last played, and a first-time p
 
 Any board can be linked to:
 
-| Link           | Opens                                                                      |
-| -------------- | -------------------------------------------------------------------------- |
-| `?seed`        | the seeded mode on today's board                                           |
-| `?seed=314522` | the seeded mode on that code                                               |
-| `?mode=rush`   | that mode, by id, as `src/modes/` names it                                 |
-| `?puzzle=9`    | puzzle level 9 of the set being played, counted from one as the HUD counts |
-| `?puzzle=comb` | that puzzle level by name, in whichever set holds it                       |
+| Link                  | Opens                                                                      |
+| --------------------- | -------------------------------------------------------------------------- |
+| `?seed`               | the seeded mode on today's board                                           |
+| `?seed=314522`        | the seeded mode on that code                                               |
+| `?seed=314522&run=..` | a finished seeded round on that code, as a score card                      |
+| `?mode=rush`          | that mode, by id, as `src/modes/` names it                                 |
+| `?puzzle=9`           | puzzle level 9 of the set being played, counted from one as the HUD counts |
+| `?puzzle=comb`        | that puzzle level by name, in whichever set holds it                       |
 
 Just copy the current URL to share a board. Note that today's seeded board writes a valueless `?seed` rather than its code, so you always get the latest board of the day.
+
+A finished seeded round adds `run`, which is every chain you played packed into about eighty characters, and the score card at the end of one has a button that copies the lot. Whoever opens it doesn't have to take your word for the score: their copy of the game plays your chains back against the board the code deals and works the number out itself. There's no server here and no key that could be kept secret in a page anyone can read the source of, so a signature would be worthless - but a game can't be faked, only played.
 
 ## Modes
 

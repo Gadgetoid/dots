@@ -36,6 +36,7 @@ src/gamepad.js      pads
 src/persistence.js  best scores, level and seed records, settings and bindings, in IndexedDB
 src/solver.js       the puzzle search
 src/analysis.js     par, floor and difficulty derived from it
+src/replay.js       a seeded round packed into a link, and played back to check it
 ```
 
 The view is a fixed 600x800 field letterboxed into whatever the canvas is, so every coordinate in the game is in those units and nothing has to know the window size.
@@ -113,6 +114,14 @@ node tools/find-levels.mjs --out found   # look for more, until stopped
 ```
 
 [docs/puzzle-analysis.md](docs/puzzle-analysis.md) is the whole of it: the rules that bound the problem, how a board is scored, what is worth knowing about one and why each answer is exactly computable, what that costs, and what the search does about the cost.
+
+## Sharing a round
+
+A finished seeded round writes itself into the link as `run`: every chain that was played, packed as a length, a first cell and two bits a step, in base64url. Thirty chains is about eighty characters.
+
+Which is the whole of the security, and it is worth being clear about why. There is no server and no key that could be kept - anything in the bundle is readable by whoever opens the page, so a signature over a score is a signature anybody can forge, and a link that carries only a number carries nothing. What cannot be forged is a game: the board and every colour dealt into it come from the code, so a run replays to exactly one score. `src/replay.js` plays the chains back through the board's own rules with no frames in between, refusing anything that is not a legal chain, and the number it arrives at is the number the card shows. Claiming a score means handing over a game that really makes it.
+
+The two additions must stay in step: `replay.js` and `game.js` are the same arithmetic written twice, and a link is worth nothing if they can disagree. `test/replay.test.js` plays a real round and checks its own run back against it, which is what catches that.
 
 ## Sound
 

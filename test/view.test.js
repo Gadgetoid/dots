@@ -608,8 +608,8 @@ test("every hint fits the panel it is drawn in", () => {
 test("no menu page runs off the field", () => {
   const game = new Game()
   game.start("puzzle")
-  // A page that is a held-up result rather than a menu reached by walking to it, so it has
-  // something to draw when the loop below puts it up.
+  // The two pages that are a held-up result rather than a menu reached by walking to it, so
+  // they have something to draw when the loop below puts them up.
   game.cleared = {
     name: game.currentLevel.name,
     scored: 1234,
@@ -620,6 +620,7 @@ test("no menu page runs off the field", () => {
     last: false,
     age: 0.2,
   }
+  game.card = { seed: 12345, score: 40000, turns: 30, stars: 3, age: 1 }
   // Every page, including the two with the most on them: the settings, and the controls
   // with a row per control per device.
   for (const page of [
@@ -629,6 +630,7 @@ test("no menu page runs off the field", () => {
     "pause",
     "over",
     "cleared",
+    "card",
     "settings",
     "controls",
     "seed",

@@ -420,6 +420,7 @@ export const PAGE_TITLES = {
   levels: "Puzzles",
   seed: "Seeded",
   cleared: "Level cleared",
+  card: "A round to beat",
 }
 
 // Chains spent, in words. Three pages print it and one of them says it out loud, so it is

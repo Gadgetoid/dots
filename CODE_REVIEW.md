@@ -29,6 +29,7 @@ seed.js         the six-dot code a seeded board is dealt from
 link.js         the URL grammar
 solver.js       the puzzle search
 analysis.js     par, floor and difficulty derived from it
+replay.js       a seeded round packed into a link, and played back to check it
 specials.js     powerup registry
 scales.js       the tunings a mode can play in
 game.js         phases, scoring, menus, settings, per-player chain state
@@ -83,6 +84,13 @@ than reasoning from the source. `test/game.test.js` has the helpers (`advanceUnt
   chosen by the day, which takes anything from seconds to several minutes and is worth it after
   a change to the search that no fingerprint could notice. `tools/verify-levels.mjs` is the
   thorough way.
+- **`replay.js` and `popChain` are the same arithmetic written twice.** A shared link is a
+  score somebody else's copy of the game works out for itself, so a scoring change made in one
+  and not the other makes every existing link read as a forgery. `test/replay.test.js` plays a
+  round and checks its own run back.
+- **A run is checked, never believed.** Nothing in a link can be signed - the bundle is
+  readable - so anything a link claims has to be recomputed from the chains it carries. Do not
+  add a field to the grammar that is taken at its word.
 - **Level names are user-facing and get renamed.** Links slug them, so two names that
   slug alike would silently make one unreachable; there is a test for it.
 - **A banner is drawn before the menu panel**, so one raised while a page is open is

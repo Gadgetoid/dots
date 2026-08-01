@@ -1363,6 +1363,25 @@ export class GameView {
         }
         return lines
       }
+      case "card": {
+        const card = game.card
+        if (!card) {
+          return [{ text: PAGE_TITLES.card, colour: theme.text.bright, size: 30, bold: true }]
+        }
+        return [
+          { text: PAGE_TITLES.card, colour: theme.text.bright, size: 30, bold: true },
+          { text: `${card.score}`, colour: theme.accent, size: 48, bold: true, glow: 1 },
+          { rank: card.stars, age: card.age, size: RANK_STAR * 2 },
+          {
+            text: `${turnsText(card.turns)} on code ${seedCode(card.seed)}`,
+            colour: theme.text.dim,
+            size: 19,
+          },
+          // Said plainly, because it is the only reason to believe the number above it: the
+          // link carries the chains that were played, and the game has just played them.
+          { text: "Checked by playing it back", colour: theme.text.faint, size: 17 },
+        ]
+      }
       case "cleared": {
         const cleared = game.cleared
         if (!cleared) {

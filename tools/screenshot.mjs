@@ -385,6 +385,17 @@ const SHOTS = [
     }`,
   },
   {
+    // A round somebody else played, arrived at by link and worked out here rather than read
+    // off it. Five places, three of them filled.
+    file: "card.png",
+    theme: "dark",
+    frames: 90,
+    pose: `(game) => {
+      game.card = { seed: 12345, score: 21870, turns: 30, stars: 3, age: 0 }
+      game.page = "card"
+    }`,
+  },
+  {
     // Shapes on: every colour bent slightly toward a polygon of its own, so the board can
     // be read without relying on the colours. The most confusable pairs get the shapes
     // that look least alike - see DOT_SHAPES.

@@ -5,6 +5,7 @@
 //
 //   ?seed           the seeded mode on today's board
 //   ?seed=314522    the seeded mode on that code
+//   ?seed=314522&run=... a round somebody played on that code, as the chains they played
 //   ?mode=<id>      that mode, from its own start
 //   ?puzzle=9       the puzzle mode, level 9, counted from one as the HUD counts it
 //   ?puzzle=comb    the puzzle mode, that level by name
@@ -20,7 +21,7 @@ import { seedFromCode } from "./seed.js"
 
 // Every key the grammar owns, so writing a link can clear the ones it is not using and leave
 // anything else in the query alone.
-export const LINK_KEYS = ["mode", "seed", "puzzle"]
+export const LINK_KEYS = ["mode", "seed", "puzzle", "run"]
 
 // Which mode a key asks for where the link names one only by implication.
 const IMPLIED_MODE = [
@@ -57,9 +58,10 @@ export function levelFromToken(levels, token) {
 // `modes` is the ids a link may name, so an unknown one is refused here instead of falling
 // through to the game's default mode and opening something else.
 //
-// Returns { mode, seed, puzzle }. `seed` is a seed number, or "today" where the link asked
-// for the seeded mode without naming a board. `puzzle` is the token still unresolved, since
-// resolving it needs the levels.
+// Returns { mode, seed, puzzle, run }. `seed` is a seed number, or "today" where the link
+// asked for the seeded mode without naming a board. `puzzle` is the token still unresolved,
+// since resolving it needs the levels. `run` is a round played on that board, still packed:
+// unpacking it is replay.js's business and believing it is nobody's.
 export function parseLink(search, modes = []) {
   let params
   try {
@@ -93,7 +95,12 @@ export function parseLink(search, modes = []) {
     }
   }
 
-  return { mode, seed, puzzle: params.get("puzzle") }
+  // A run is only meaningful against the board it was played on, so one arriving without a
+  // code is dropped: today's board is a different board tomorrow, and replaying a round
+  // against the wrong one would refuse a link that was honest when it was written.
+  const run = code ? params.get("run") : null
+
+  return { mode, seed, puzzle: params.get("puzzle"), run }
 }
 
 // The params that would reproduce what is being played, as [key, value] pairs where a null
@@ -102,12 +109,20 @@ export function parseLink(search, modes = []) {
 //
 // Today's board writes a valueless ?seed rather than its code, for the reason above: pinning
 // the code would deal yesterday's board on a reload tomorrow.
-export function linkParams({ mode, playing, code, today, level, levels } = {}) {
+export function linkParams({ mode, playing, code, today, level, levels, run } = {}) {
   if (!mode || !playing) {
     return []
   }
   if (mode.seeded) {
-    return [["seed", today ? null : code]]
+    // A run pins the code it was played on, whatever day it is: a valueless ?seed means the
+    // board of the day it is opened, and the chains would replay against a board they were
+    // never played on and be refused.
+    return run
+      ? [
+          ["seed", code],
+          ["run", run],
+        ]
+      : [["seed", today ? null : code]]
   }
   if (mode.levels && levels && levels[level]) {
     return [["puzzle", levelSlug(levels[level].name)]]

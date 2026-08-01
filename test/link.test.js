@@ -13,7 +13,12 @@ import { seedFromCode, seedCode, dailySeed } from "../src/seed.js"
 const IDS = GAME_MODES.map((mode) => mode.id)
 
 test("a link names a mode, outright or by implication", () => {
-  assert.deepEqual(parseLink("?mode=rush", IDS), { mode: "rush", seed: "today", puzzle: null })
+  assert.deepEqual(parseLink("?mode=rush", IDS), {
+    mode: "rush",
+    seed: "today",
+    puzzle: null,
+    run: null,
+  })
   // ?seed and ?puzzle say which mode by being the thing they are.
   assert.equal(parseLink("?seed", IDS).mode, "seeded")
   assert.equal(parseLink("?puzzle=3", IDS).mode, "puzzle")

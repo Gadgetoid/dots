@@ -123,6 +123,12 @@ function syncSpeech() {
 // browser may refuse this over file:// exactly as it may refuse storage.
 let appliedLink = null
 function syncLink() {
+  // A score card is a link being looked at, and nothing is being played behind it, so what
+  // follows would strip the link out of the address bar the moment it was honoured. Left
+  // exactly as it arrived until the card is left, so reloading the page opens it again.
+  if (game.card) {
+    return
+  }
   const params = linkParams({
     mode: game.mode,
     playing: game.phase !== PHASE.TITLE,
@@ -130,6 +136,10 @@ function syncLink() {
     today: game.seed === dailySeed(),
     level: game.level,
     levels: game.levels,
+    // A finished seeded round writes the chains that made it into the link as well, so
+    // copying the address bar hands over a score somebody else can check: see replay.js.
+    // Only once it is finished - a round still being played is not a claim about anything.
+    run: game.phase === PHASE.OVER ? game.runText : "",
   })
   const written = JSON.stringify(params)
   if (appliedLink === written) {
@@ -158,6 +168,25 @@ function syncLink() {
     history.replaceState(null, "", url)
   } catch {
     /* ignore */
+  }
+}
+
+// Copying the share link, which the score card offers as a button: the address bar already
+// says the same thing, and a phone is not a place where copying it is easy.
+//
+// Built from the game rather than read off the address bar, so it cannot hand over a link
+// half way through being rewritten. Handed to the game rather than reached for by it: the
+// game touches no DOM, and a browser with no clipboard to write to hands in nothing, which
+// is what takes the button off the page.
+if (navigator.clipboard && navigator.clipboard.writeText) {
+  game.shareHandler = () => {
+    const url = new URL(location.href)
+    for (const key of LINK_KEYS) {
+      url.searchParams.delete(key)
+    }
+    url.searchParams.set("seed", game.seedText)
+    url.searchParams.set("run", game.runText)
+    navigator.clipboard.writeText(url.toString()).catch(() => {})
   }
 }
 

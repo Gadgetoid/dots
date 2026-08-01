@@ -490,6 +490,7 @@ test("clearing a level moves on to the next and keeps the score", () => {
   assert.equal(game.phase, PHASE.PLAYING, "and the game did not end")
   assert.equal(game.player.score, scored, "the score carried over")
   assert.equal(game.levelStartScore, scored, "and is what a retry would cost")
+  assert.equal(game.levelStartTurns, game.turns, "as are the turns it was dealt at")
   assert.ok(game.banner, "the player is told")
   assert.equal(game.board.empty, false)
 })

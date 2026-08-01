@@ -31,6 +31,7 @@ import {
   REDUCED_MOTION_RATE,
   PAGE_TITLES,
   OUTCOMES,
+  turnsText,
 } from "./config.js"
 import { THEMES, THEME_IDS, DOT_SHAPES } from "./palette.js"
 import { FONTS, fontById, fontReady, ensureFont } from "./fonts.js"
@@ -167,6 +168,11 @@ export class Game {
     // what was banked before it.
     this.level = 0
     this.levelStartScore = 0
+    // Chains spent this game, and how many had been spent when the current level was
+    // dealt: a level's turns are its own, the way its score is. What a board cost as
+    // against what it paid, which is the other half of how well it was played.
+    this.turns = 0
+    this.levelStartTurns = 0
     // A line over the board for a moment: a level cleared, and which is next.
     this.banner = null
     // Seconds since anything was picked up or spent, and what the board is pointing at
@@ -676,6 +682,11 @@ export class Game {
     return this.player.score - this.levelStartScore
   }
 
+  // And what it has cost, for the same reason: turns carry across levels too.
+  get levelTurns() {
+    return this.turns - this.levelStartTurns
+  }
+
   get levelPar() {
     const level = this.currentLevel
     return level && level.par ? level.par : 0
@@ -719,6 +730,12 @@ export class Game {
     const best = this.bestScore
     const scored = `Scored ${this.player.score}`
     return best > 0 ? `${scored}, best ${best}` : scored
+  }
+
+  // What it has cost, in chains spent: the level's own where a level is being played, since
+  // the score beside it is the level's too.
+  get turnsLine() {
+    return turnsText(this.currentLevel ? this.levelTurns : this.turns)
   }
 
   // A board for the title screen to sit over, so the game shows itself instead of offering a
@@ -795,6 +812,8 @@ export class Game {
     this.level =
       levels && this.levelUnlocked(wanted, this.mode.id) ? clamp(wanted, 0, levels.length - 1) : 0
     this.levelStartScore = 0
+    this.turns = 0
+    this.levelStartTurns = 0
     this.banner = null
     this.notice = null
     this.#dealBoard()
@@ -836,6 +855,7 @@ export class Game {
     const starred = this.#recordLevel(this.level, scored)
     this.level++
     this.levelStartScore = this.player.score
+    this.levelStartTurns = this.turns
     this.#dealBoard()
     this.popping.length = 0
     for (const player of this.players) {
@@ -868,6 +888,7 @@ export class Game {
       return
     }
     this.player.score = this.levelStartScore
+    this.turns = this.levelStartTurns
     this.#dealBoard()
     this.particles.clear()
     this.popping.length = 0
@@ -1235,6 +1256,7 @@ export class Game {
     const length = chain.length
     const scored = CONFIG.chainScore(length) * player.multiplier
     player.score += scored
+    this.turns++
 
     const neighbours = this.board.neighboursOf(chain)
     this.board.remove(chain)
@@ -2111,8 +2133,11 @@ export class Game {
     }
     if (this.page === "pause") {
       // The same words the page shows, which is the point of pausing for anyone who cannot
-      // read the score off the board: what is being played, and what it has paid so far.
-      return [this.mode.name, this.boardName, this.scoreLine].filter(Boolean).join(". ")
+      // read the score off the board: what is being played, what it has paid so far, and
+      // what it has cost.
+      return [this.mode.name, this.boardName, this.scoreLine, this.turnsLine]
+        .filter(Boolean)
+        .join(". ")
     }
     // Why this page is the page being looked at, said before what is on it: a player who did
     // not ask for it needs to hear that first.

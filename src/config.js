@@ -400,6 +400,10 @@ export const PAGE_TITLES = {
   seed: "Seeded",
 }
 
+// Chains spent, in words. Three pages print it and one of them says it out loud, so it is
+// written once.
+export const turnsText = (turns) => (turns === 1 ? "1 turn" : `${turns} turns`)
+
 // What a finished board is told it did.
 export const OUTCOMES = {
   lost: "No moves left",

@@ -439,12 +439,14 @@ test("the pause page says which board and what it has paid", () => {
   assert.match(spoken, /^Puzzle\. (?!Puzzle)/, "the mode's name once, not twice")
   assert.match(spoken, new RegExp(puzzle.currentLevel.name), "then the board's own name")
   assert.match(spoken, /Scored 0 of \d+/, "and what it has paid against its par")
+  assert.match(spoken, /0 turns/, "and what it has cost")
   // The page shows the same words it says.
   const shown = drawn(puzzle)
     .filter((call) => call.kind === "text")
     .map((call) => call.opts.str)
   assert.ok(shown.includes(puzzle.boardName), "the board is named on the page")
   assert.ok(shown.includes(puzzle.scoreLine), "and so is the score")
+  assert.ok(shown.includes(puzzle.turnsLine), "and the turns beside it")
 
   // Counted and named off the set being played, not off the first one: `mode.levels` is only
   // ever the first set.

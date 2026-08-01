@@ -6,7 +6,15 @@
 // dots over it, then the particles, then a curtain over the strip above the board
 // where refilled dots are still falling in, and the HUD and any menu over that.
 
-import { VIEW_W, VIEW_H, CONFIG, cellCentre, PAGE_TITLES, LEVEL_COLUMNS } from "./config.js"
+import {
+  VIEW_W,
+  VIEW_H,
+  CONFIG,
+  cellCentre,
+  PAGE_TITLES,
+  LEVEL_COLUMNS,
+  turnsText,
+} from "./config.js"
 import { PHASE } from "./game.js"
 import { THEMES, DOT_SHAPES } from "./palette.js"
 import { levelGrid, PUZZLE_COLS, PUZZLE_ROWS } from "./modes/levels.js"
@@ -1249,6 +1257,9 @@ export class GameView {
             size: 19,
           })
         }
+        // What the score cost, which is the other half of how it was played: two players on
+        // one code can hold up the same number and have arrived at it quite differently.
+        lines.push({ text: turnsText(game.turns), colour: theme.text.faint, size: 19 })
         // The code, on the screen most likely to be shared: it is what somebody else needs to
         // play the board this score was made on.
         if (game.mode.seeded) {
@@ -1319,6 +1330,7 @@ export class GameView {
           size: 19,
         })
         lines.push({ text: game.scoreLine, colour: theme.accent, size: 22, bold: true })
+        lines.push({ text: game.turnsLine, colour: theme.text.dim, size: 19 })
         return lines
       }
     }

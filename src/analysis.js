@@ -160,7 +160,7 @@ export function analyse(layout, cols, rows, minChain, rules, options = {}) {
       moveCount++
       if (rest.best == null) {
         trapCount++
-        if (!announces(child)) {
+        if (!announces(child, minChain)) {
           silentTrapCount++
         }
         continue
@@ -197,7 +197,7 @@ export function analyse(layout, cols, rows, minChain, rules, options = {}) {
     const rest = memo.get(`${outcome.key}|${rules.multiplierAfter(1, outcome.cells.length)}`)
     if (!rest || rest.best == null) {
       firstTraps++
-      if (!announces(outcome.child)) {
+      if (!announces(outcome.child, minChain)) {
         firstSilent++
       }
     }
@@ -276,18 +276,22 @@ export function analyse(layout, cols, rows, minChain, rules, options = {}) {
 
 // Does this position prove, on sight, that it is lost?
 //
-// One dot of a colour with no other dot of that colour anywhere is the answer: nothing
-// refills, so it can never be matched, and a player looking at the board can see that as
-// plainly as the solver can. Every opening trap in the original seven levels is this kind,
-// which is why they play as forgiving despite most of their moves stranding the board.
+// A colour with too few dots left to make a chain is the answer: nothing refills, so they can
+// never be matched, and a player looking at the board can see that as plainly as the solver
+// can. Every opening trap in the original seven levels is this kind, which is why they play as
+// forgiving despite most of their moves stranding the board.
+//
+// Counted against the chain length rather than against one, for the same reason
+// Board.strandedDot is: where a pair is not a move, a colour down to two announces itself
+// exactly as a colour down to one does.
 //
 // A dot merely having no same-colour dot *beside* it is not the same thing and is not counted:
 // a collapse can bring two of them together several moves later, so a player cannot know it is
 // a mistake, and neither can anything short of the search. Those are the traps worth weighting,
 // and the ones a hard level is made of.
-function announces(position) {
+function announces(position, minChain) {
   for (const count of coloursIn(position).values()) {
-    if (count === 1) {
+    if (count < minChain) {
       return true
     }
   }

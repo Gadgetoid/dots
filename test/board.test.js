@@ -76,6 +76,21 @@ test("a move is a chain as long as the mode demands", () => {
   assert.equal(hasThree.moveAvailable(), true)
 })
 
+test("a colour with too few left to chain is stranded, by the mode's own chain length", () => {
+  // Three of one colour and two of another. Where a pair is a move, nothing is stranded;
+  // where three are needed, the pair is as dead as a lone dot would be.
+  const rows = ["001", "001", "000"]
+  assert.equal(boardFrom(rows, { minChain: 2 }).strandedDot(), null, "a pair is still a move")
+
+  const stranded = boardFrom(rows, { minChain: 3 }).strandedDot()
+  assert.ok(stranded, "a pair cannot be chained where three are needed")
+  assert.equal(stranded.colour, 1, "and it is the pair that is pointed at")
+
+  // And the plain case: one dot of a colour, wherever the bar is set.
+  const alone = boardFrom(["0010", "0000"], { minChain: 2 }).strandedDot()
+  assert.equal(alone.colour, 1)
+})
+
 test("hasChain finds a run that turns a corner", () => {
   // The twos make an L exactly four long: down one column and along a row. No
   // other colour on this board runs longer than three.

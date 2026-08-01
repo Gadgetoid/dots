@@ -240,13 +240,18 @@ export class Board {
     return counts
   }
 
-  // A dot that is the last of its colour, if there is one. Where nothing refills it can
-  // never be matched, so a board holding one can no longer be emptied whatever is done
-  // with the rest of it. The dot itself, so what went wrong can be pointed at.
+  // A dot of a colour with too few left to make a chain, if there is one. Where nothing
+  // refills, those dots can never be matched, so a board holding one can no longer be
+  // emptied whatever is done with the rest of it. The dot itself, so what went wrong can be
+  // pointed at.
+  //
+  // Against the chain length rather than against one, because what a colour needs to survive
+  // is what a chain needs: where a pair is not a move, a colour down to two is as dead as a
+  // colour down to one.
   strandedDot() {
     const counts = this.colourCounts()
     for (const dot of this.dots) {
-      if (counts[dot.colour] === 1) {
+      if (counts[dot.colour] < this.minChain) {
         return dot
       }
     }

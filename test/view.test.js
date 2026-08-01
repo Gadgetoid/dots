@@ -389,6 +389,16 @@ test("a cleared level draws its page, star earned and star missed", () => {
   }
 })
 
+test("the turn gauge draws at every point of a round, and holds its label", () => {
+  const game = new Game()
+  game.start("seeded")
+  settle(game)
+  for (const spent of [0, 1, 17, 29, 30]) {
+    game.turns = spent
+    assertOnScreen(drawn(game), `${game.turnsLeft} turns left`)
+  }
+})
+
 test("the clock draws at every point of its run", () => {
   const game = new Game()
   game.start("rush")

@@ -372,6 +372,19 @@ const SHOTS = [
     }`,
   },
   {
+    // A seeded round part way through: the gauge above the board is the turns left, which is
+    // what makes a round the same length for everyone.
+    file: "seeded.png",
+    theme: "dark",
+    frames: 60,
+    pose: `(game, art) => {
+      game.start("seeded", { seed: 12345 })
+      game.settle(2)
+      art.play(game, 22)
+      game.settle(3)
+    }`,
+  },
+  {
     // Shapes on: every colour bent slightly toward a polygon of its own, so the board can
     // be read without relying on the colours. The most confusable pairs get the shapes
     // that look least alike - see DOT_SHAPES.
@@ -531,6 +544,24 @@ try {
               }
             }
             throw new Error("waited and it never happened")
+          },
+          // Spend some turns, taking the longest chain each time, for a shot of a board part
+          // way through rather than one just dealt. Stops early on a board with nothing left.
+          play(target, turns) {
+            for (let spent = 0; spent < turns; spent++) {
+              const chain = target.board.longestChain()
+              if (chain.length < target.mode.minChain) {
+                return spent
+              }
+              target.player.cursor = { col: chain[0].col, row: chain[0].row }
+              target.startChain(0)
+              for (let at = 1; at < chain.length; at++) {
+                target.extendTo(0, chain[at].col, chain[at].row)
+              }
+              target.popChain(0)
+              target.settle(2)
+            }
+            return turns
           },
           press(target, action) {
             const rows = target.menuRows()

@@ -499,7 +499,14 @@ export class GameView {
     }
 
     if (game.mode.timeLimit > 0) {
-      this.#drawTimer(game, theme)
+      this.#drawGauge(
+        game,
+        theme,
+        game.timeLeft / game.mode.timeLimit,
+        `${Math.ceil(game.timeLeft)}`,
+      )
+    } else if (game.mode.turnLimit > 0) {
+      this.#drawGauge(game, theme, game.turnsLeft / game.mode.turnLimit, `${game.turnsLeft} left`)
     }
 
     // The strip under the board says only what the board cannot: which level this is,
@@ -586,32 +593,37 @@ export class GameView {
     }
   }
 
-  // The clock: the width of the board, above it, with what is left of it written
-  // inside the bar. A thin line with a number beside it reads as a detail; this reads
+  // What a mode is running out of: the width of the board, above it, with how much is left
+  // written inside the bar. A thin line with a number beside it reads as a detail; this reads
   // as the thing the mode is about.
-  #drawTimer(game, theme) {
+  //
+  // The clock is one of these and the turns a seeded round has are the other. Both are a
+  // budget being spent, so both are drawn as the same bar; a mode has at most one of them, so
+  // what is being counted is never in question and the label is only how much is left.
+  #drawGauge(game, theme, fraction, label) {
     const layout = game.layout
     const height = 24
     const y = layout.y - layout.cell * 0.22 - height - 12
-    const left = game.timeLeft / game.mode.timeLimit
+    const left = clamp(fraction, 0, 1)
     const running = left < 0.2 ? theme.warn : theme.accent
     this.renderer.panel(layout.x, y, layout.width, height, {
       fill: theme.cell,
       radius: height / 2,
     })
     if (left > 0) {
-      // Never shorter than the number written in it, or the last few seconds are dark
-      // text hanging off the end of a stub.
-      const filled = Math.max(layout.width * left, 58)
+      // Never shorter than what is written in it, or the last of it is dark text hanging off
+      // the end of a stub. Measured, since the two gauges write different things.
+      const floor = this.renderer.measureText(label, 20, true) + 28
+      const filled = Math.max(layout.width * left, floor)
       this.renderer.panel(layout.x, y, filled, height, {
         fill: running,
         radius: height / 2,
         glow: left < 0.2 ? 1.2 : 0.35,
       })
     }
-    // Inside the bar, at its left end where the time still is. On the theme's own
+    // Inside the bar, at its left end where what is left still is. On the theme's own
     // background colour, so it reads against the filled part behind it.
-    this.renderer.text(`${Math.ceil(game.timeLeft)}`, layout.x + 14, y + height / 2, {
+    this.renderer.text(label, layout.x + 14, y + height / 2, {
       color: theme.background,
       size: 20,
       baseline: "middle",

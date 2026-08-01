@@ -411,6 +411,7 @@ export const turnsText = (turns) => (turns === 1 ? "1 turn" : `${turns} turns`)
 export const OUTCOMES = {
   lost: "No moves left",
   timeup: "Time up",
+  turnsup: "Out of turns",
   won: "Board cleared",
   // A colour down to its last dot, which is a board that cannot be emptied however many
   // moves are still on it. Named apart from a dead board, since the two look nothing alike.

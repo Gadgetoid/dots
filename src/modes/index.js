@@ -19,6 +19,9 @@
 //                   empty the board has already lost; one not trying to empty it, like
 //                   clear out, plays on.
 //   timeLimit       seconds, or 0 for a board that lasts as long as it lasts
+//   turnLimit       chains that may be spent, or 0 for as many as the board allows. What a
+//                   mode uses instead of a clock to make a round a fixed size: a limit on
+//                   moves is the same length for everyone however fast they press.
 //   specialChance   chance a new dot carries a powerup; see specials.js
 //   levels          authored boards, if the mode has them: clearing one moves on to
 //                   the next and keeps the score. See levels.js for the format.

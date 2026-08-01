@@ -690,6 +690,13 @@ export class Game {
     return this.turns - this.levelStartTurns
   }
 
+  // Chains a mode with a turn limit has left to spend. Zero where it has none, which is
+  // what keeps the gauge off a board that is not counting.
+  get turnsLeft() {
+    const limit = this.mode.turnLimit || 0
+    return limit > 0 ? Math.max(0, limit - this.turns) : 0
+  }
+
   get levelPar() {
     const level = this.currentLevel
     return level && level.par ? level.par : 0
@@ -1190,6 +1197,13 @@ export class Game {
       ? this.mode.outcome(this.board)
       : defaultOutcome(this.mode, this.board)
     if (verdict == null) {
+      // A round of a fixed number of turns ends when they run out, however much is still
+      // matchable on the board. Judged here rather than as the chain is spent, so the last
+      // one bursts and the board settles before the page comes up.
+      if (this.mode.turnLimit > 0 && this.turns >= this.mode.turnLimit) {
+        this.#finish("turnsup")
+        return
+      }
       this.overFor = 0
       return
     }

@@ -68,7 +68,9 @@ Each theme carries its own five dot colours, chosen by a search over OKLCH for t
 
 ## Modes
 
-A mode is a plain object: grid size, minimum chain length, how many colours, whether it refills, an optional clock, an optional tuning, optional levels, whether it deals from a seed, plus optional hooks for choosing what it deals and judging what it left. Endless uses the hooks - it picks colours that avoid their neighbours, and if that leaves a dead board it recolours the shortest legal run back in, somewhere in the middle where it is hardest to spot. Adding a mode is a file in `src/modes/` and a line in `src/modes/index.js`.
+A mode is a plain object: grid size, minimum chain length, how many colours, whether it refills, an optional clock, an optional turn limit, an optional tuning, optional levels, whether it deals from a seed, plus optional hooks for choosing what it deals and judging what it left. Endless uses the hooks - it picks colours that avoid their neighbours, and if that leaves a dead board it recolours the shortest legal run back in, somewhere in the middle where it is hardest to spot. Adding a mode is a file in `src/modes/` and a line in `src/modes/index.js`.
+
+A clock and a turn limit are the two ways a mode can be a fixed size, and they measure different things: a clock measures how fast you press and a turn limit does not, which is why the seeded mode - the one mode two players compare scores on - uses turns. Both draw the same gauge above the board.
 
 The 32blit game's own seed generator is not reproduced. It was an LFSR with a 16 bit tap, which gives a period of 32,767 and puts every seed on one ring at a different offset, so seed N+1 deals seed N's board shifted along by one dot: fine for a number nudged with a d-pad, and not for a code people pass around. The seed feeds `mulberry32` instead, under which all 15,625 codes give distinct boards, none of them opening without a legal move.
 

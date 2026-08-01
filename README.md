@@ -14,13 +14,14 @@ The previous iterations still exist if you're curious; the 32blit version is in 
 
 ## Screenshots
 
-|                                                            |                                                               |
-| ---------------------------------------------------------- | ------------------------------------------------------------- |
-| ![A chain of six dots, glowing](screenshots/board.png)     | ![A chain unzipping](screenshots/popping.png)                 |
-| ![The light theme, mid chain](screenshots/light.png)       | ![The board turned down for the night](screenshots/night.png) |
-| ![An authored puzzle level](screenshots/puzzle.png)        | ![The pause menu](screenshots/menu.png)                       |
-| ![The puzzle picker](screenshots/levels.png)               | ![The settings page](screenshots/settings.png)                |
-| ![A level cleared, with its star](screenshots/cleared.png) | ![The game over screen](screenshots/over.png)                 |
+|                                                            |                                                                       |
+| ---------------------------------------------------------- | --------------------------------------------------------------------- |
+| ![A chain of six dots, glowing](screenshots/board.png)     | ![A chain unzipping](screenshots/popping.png)                         |
+| ![The light theme, mid chain](screenshots/light.png)       | ![The board turned down for the night](screenshots/night.png)         |
+| ![An authored puzzle level](screenshots/puzzle.png)        | ![The pause menu](screenshots/menu.png)                               |
+| ![The puzzle picker](screenshots/levels.png)               | ![The settings page](screenshots/settings.png)                        |
+| ![A level cleared, with its star](screenshots/cleared.png) | ![A seeded round, turns left above the board](screenshots/seeded.png) |
+| ![The game over screen](screenshots/over.png)              |                                                                       |
 
 ## Playing
 
@@ -61,7 +62,7 @@ Just copy the current URL to share a board. Note that today's seeded board write
 | Elimination | 6x6   | 2     | A colour cleared off the board never comes back         |
 | Clear out   | 6x7   | 2     | No refill, and the board is random. Whittle it down     |
 | Puzzle      | 6x7   | 2     | Designed boards, in two sets, cleared one after another |
-| Seeded      | 6x6   | 2     | The same board for everyone holding the code            |
+| Seeded      | 6x6   | 2     | The same board and thirty turns for everyone            |
 
 The last three all come from the original browser game, which had `puzzle`, `elimination` and a dangerously addictive Endless default. **Elimination** refills only with colours still in play, so the pool shrinks as the game goes on. Take the final colour off the board to win.
 
@@ -70,6 +71,8 @@ The last three all come from the original browser game, which had `puzzle`, `eli
 **Clear out** is the same premise on a random board, and a random board usually cannot be emptied at all - at sizes small enough to search exhaustively, only about one dealt board in ten can be, and the rest strand a colour whatever order they are taken in. So it asks how far a board can be whittled down and reports what was left on it, and clearing one outright is an occasional thing worth a mention. If you want a board that is certainly clearable, that is what the designed levels are for.
 
 **Seeded** is classic rules dealt from a number, inspired by the 32blit version: the board and every colour dealt after it come from one seed. Two players with the same code play the same dots and the only thing between them is their skill and their score. A code is six dots, written as six digits 1 to 5 for a total of 15,625 possible boards, entered by pressing the dots round the colours or by typing the digits, and shared as a link. Every day there's a new seed everyone shares by default, and your best score is remembered per code.
+
+A round is thirty turns rather than a clock, so it's the same length for everyone however fast they press.
 
 ## Sound
 

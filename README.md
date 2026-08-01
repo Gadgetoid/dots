@@ -6,7 +6,7 @@ Match dots with a simple swipe or master the field with precision gamepad/keyboa
 
 Dots started life around 2013 as a RaphaelJS toy - SVG circles, a drag handler and a 90 second clock. It was very heavily inspired by the 2013 iPhone game of the same name, which in turn was basically a minimalist Bejeweled (Grandma would be proud <3). It got embedded into a couple of websites where people played and enjoyed it, but it never amounted to more than that.
 
-It was later rewritten in C++ for the [32blit](https://32blit.com) handheld, which gained it button input, a score multiplier and a proper lose condition, and lost it antialiasing. This is that game again in WebGL2: the same five colours and the same cubed scoring, with the graphics the STM32 could never have managed.
+It was later rewritten in C++ for the [32blit](https://32blit.com) handheld, which gained it button input, a score multiplier and a proper lose condition, and lost it antialiasing. This is that game again in WebGL2: the same five colours, the same scoring curve turned up a notch, and the graphics the STM32 could never have managed.
 
 Along for the ride come a slew of visual accessibility options, hopefully opening up the game for more players, and perhaps another thirteen years of life.
 
@@ -23,7 +23,7 @@ The previous iterations still exist if you're curious; the 32blit version is in 
 
 ## Playing
 
-Link two or more dots of one colour through cardinal neighbours and pop them. A chain is worth the cube of its length, so one chain of six dots is worth far more than three pairs. Clear four or more and the next chain scores at a multiplier.
+Link two or more dots of one colour through cardinal neighbours and pop them. A chain is worth the fourth power of its length, so one chain of six dots is worth twenty-seven times what three pairs pay. Clear four or more and the next chain scores at a multiplier.
 
 | Device   | Controls                                                                           |
 | -------- | ---------------------------------------------------------------------------------- |

@@ -3,7 +3,7 @@
 // The game's own board is not available to a page - it is a WebGL field driven by a game loop -
 // so this replays a route through the elements board.js builds: the chain grows a dot at a time,
 // the run unzips, and the columns fall in behind it. What the numbers do is the game's: the score
-// is the cube of the chain's length times the multiplier in hand, and a chain of fewer than four
+// is the fourth power of the chain's length times the multiplier in hand, and a chain of fewer than four
 // puts that multiplier back to one.
 //
 // The whole of it is a position in a list of frames, two per move: the chain drawn and waiting,

@@ -26,8 +26,8 @@
 // The order is by measured difficulty as far as the last fourteen, rising from 2.0 to 11.8: see
 // src/analysis.js for what that measure is made of, and tools/find-levels.mjs for how all but the
 // first seven levels were found. The first three fall to taking the longest chain every time; the
-// next nine have several clearing orders paying very differently; from the thirteenth exactly one
-// order pays par and the obvious play misses it or strands the board.
+// next nine have several clearing orders paying very differently; from the thirteenth the orders
+// that pay par are down to one or two, and the obvious play misses it or strands the board.
 //
 // The last fourteen are arranged rather than sorted. Sorted, they run 11.97 to 14.25 without a
 // pause, which is a wall to climb rather than an ending to play: so the hardest are spread through
@@ -72,8 +72,8 @@ export function levelGrid(level) {
 export const LEVELS = [
   {
     name: "Warm up",
-    par: 24,
-    floor: 24,
+    par: 48,
+    floor: 48,
     layout: [
       "......",
       "......",
@@ -86,8 +86,8 @@ export const LEVELS = [
   },
   {
     name: "Stacks",
-    par: 81,
-    floor: 81,
+    par: 243,
+    floor: 243,
     layout: [
       "......",
       "......",
@@ -100,8 +100,8 @@ export const LEVELS = [
   },
   {
     name: "Pyramid",
-    par: 1120,
-    floor: 64,
+    par: 8512,
+    floor: 128,
     layout: [
       "......",
       "......",
@@ -114,8 +114,8 @@ export const LEVELS = [
   },
   {
     name: "Pillars",
-    par: 1176,
-    floor: 72,
+    par: 6800,
+    floor: 144,
     layout: [
       "......",
       "......",
@@ -128,8 +128,8 @@ export const LEVELS = [
   },
   {
     name: "Zigzag",
-    par: 1229,
-    floor: 83,
+    par: 7987,
+    floor: 193,
     layout: [
       "......",
       "......",
@@ -142,8 +142,8 @@ export const LEVELS = [
   },
   {
     name: "Bullseye",
-    par: 1248,
-    floor: 72,
+    par: 6720,
+    floor: 144,
     layout: [
       "......",
       "......",
@@ -156,8 +156,8 @@ export const LEVELS = [
   },
   {
     name: "The gate",
-    par: 3717,
-    floor: 126,
+    par: 33077,
+    floor: 306,
     layout: [
       "......",
       "......",
@@ -170,8 +170,8 @@ export const LEVELS = [
   },
   {
     name: "Steps",
-    par: 1265,
-    floor: 129,
+    par: 9157,
+    floor: 339,
     layout: [
       "......",
       ".....1",
@@ -184,8 +184,8 @@ export const LEVELS = [
   },
   {
     name: "Comb",
-    par: 2048,
-    floor: 96,
+    par: 12000,
+    floor: 192,
     layout: [
       "......",
       "......",
@@ -198,8 +198,8 @@ export const LEVELS = [
   },
   {
     name: "Spire",
-    par: 2184,
-    floor: 118,
+    par: 20770,
+    floor: 290,
     layout: [
       "......",
       "..22..",
@@ -212,8 +212,8 @@ export const LEVELS = [
   },
   {
     name: "Battlements",
-    par: 609,
-    floor: 99,
+    par: 3155,
+    floor: 225,
     layout: [
       "......",
       "......",
@@ -226,8 +226,8 @@ export const LEVELS = [
   },
   {
     name: "Towers",
-    par: 1166,
-    floor: 156,
+    par: 6184,
+    floor: 420,
     layout: [
       "......",
       "2....3",
@@ -239,9 +239,23 @@ export const LEVELS = [
     ],
   },
   {
+    name: "Plinth",
+    par: 3314,
+    floor: 242,
+    layout: [
+      "......",
+      "......",
+      "......",
+      "......",
+      ".2221.",
+      "223331",
+      "331111",
+    ],
+  },
+  {
     name: "Checkmate",
-    par: 1408,
-    floor: 88,
+    par: 7776,
+    floor: 176,
     layout: [
       "......",
       "......",
@@ -254,8 +268,8 @@ export const LEVELS = [
   },
   {
     name: "The lock",
-    par: 2072,
-    floor: 88,
+    par: 15216,
+    floor: 176,
     layout: [
       "......",
       ".1....",
@@ -268,8 +282,8 @@ export const LEVELS = [
   },
   {
     name: "Ridge",
-    par: 286,
-    floor: 67,
+    par: 1490,
+    floor: 161,
     layout: [
       "......",
       "......",
@@ -282,8 +296,8 @@ export const LEVELS = [
   },
   {
     name: "Seam",
-    par: 5891,
-    floor: 126,
+    par: 61207,
+    floor: 306,
     layout: [
       "......",
       "......",
@@ -296,8 +310,8 @@ export const LEVELS = [
   },
   {
     name: "Barrow",
-    par: 1961,
-    floor: 126,
+    par: 10983,
+    floor: 306,
     layout: [
       "......",
       "......",
@@ -310,8 +324,8 @@ export const LEVELS = [
   },
   {
     name: "Lintel",
-    par: 411,
-    floor: 94,
+    par: 1781,
+    floor: 242,
     layout: [
       "......",
       "......",
@@ -324,8 +338,8 @@ export const LEVELS = [
   },
   {
     name: "Flight",
-    par: 115,
-    floor: 59,
+    par: 385,
+    floor: 145,
     layout: [
       "......",
       "......",
@@ -337,23 +351,9 @@ export const LEVELS = [
     ],
   },
   {
-    name: "Plinth",
-    par: 660,
-    floor: 94,
-    layout: [
-      "......",
-      "......",
-      "......",
-      "......",
-      ".2221.",
-      "223331",
-      "331111",
-    ],
-  },
-  {
     name: "Undertow",
-    par: 1706,
-    floor: 91,
+    par: 14482,
+    floor: 209,
     layout: [
       "......",
       "......",
@@ -366,8 +366,8 @@ export const LEVELS = [
   },
   {
     name: "Buttress",
-    par: 2450,
-    floor: 126,
+    par: 15604,
+    floor: 306,
     layout: [
       "......",
       "1....4",
@@ -380,8 +380,8 @@ export const LEVELS = [
   },
   {
     name: "Deadeye",
-    par: 1375,
-    floor: 102,
+    par: 8773,
+    floor: 258,
     layout: [
       "......",
       "......",
@@ -394,8 +394,8 @@ export const LEVELS = [
   },
   {
     name: "Portcullis",
-    par: 1610,
-    floor: 126,
+    par: 8948,
+    floor: 306,
     layout: [
       "......",
       "......",
@@ -408,8 +408,8 @@ export const LEVELS = [
   },
   {
     name: "Watchtowers",
-    par: 1168,
-    floor: 156,
+    par: 5260,
+    floor: 420,
     layout: [
       "......",
       "1....1",
@@ -422,8 +422,8 @@ export const LEVELS = [
   },
   {
     name: "Iris",
-    par: 1070,
-    floor: 102,
+    par: 5718,
+    floor: 258,
     layout: [
       "......",
       "......",
@@ -436,8 +436,8 @@ export const LEVELS = [
   },
   {
     name: "Bad steps",
-    par: 1565,
-    floor: 99,
+    par: 10131,
+    floor: 225,
     layout: [
       "......",
       ".....3",
@@ -450,8 +450,8 @@ export const LEVELS = [
   },
   {
     name: "The keep",
-    par: 1966,
-    floor: 129,
+    par: 15638,
+    floor: 339,
     layout: [
       "......",
       "......",
@@ -464,8 +464,8 @@ export const LEVELS = [
   },
   {
     name: "Riptide",
-    par: 805,
-    floor: 121,
+    par: 3721,
+    floor: 323,
     layout: [
       "......",
       "......",
@@ -478,8 +478,8 @@ export const LEVELS = [
   },
   {
     name: "The flue",
-    par: 1611,
-    floor: 118,
+    par: 12711,
+    floor: 290,
     layout: [
       "..33..",
       "..13..",
@@ -492,8 +492,8 @@ export const LEVELS = [
   },
   {
     name: "Rampart",
-    par: 2140,
-    floor: 99,
+    par: 15460,
+    floor: 225,
     layout: [
       "......",
       "......",
@@ -506,8 +506,8 @@ export const LEVELS = [
   },
   {
     name: "Needle",
-    par: 2024,
-    floor: 88,
+    par: 14160,
+    floor: 176,
     layout: [
       "......",
       "..11..",
@@ -520,8 +520,8 @@ export const LEVELS = [
   },
   {
     name: "The mast",
-    par: 1345,
-    floor: 118,
+    par: 8327,
+    floor: 290,
     layout: [
       "2.....",
       "2.....",
@@ -534,8 +534,8 @@ export const LEVELS = [
   },
   {
     name: "Teeth",
-    par: 1498,
-    floor: 126,
+    par: 7988,
+    floor: 306,
     layout: [
       "......",
       "......",
@@ -548,8 +548,8 @@ export const LEVELS = [
   },
   {
     name: "Spindle",
-    par: 1086,
-    floor: 118,
+    par: 5750,
+    floor: 290,
     layout: [
       "......",
       "..11..",
@@ -562,8 +562,8 @@ export const LEVELS = [
   },
   {
     name: "Barbican",
-    par: 1789,
-    floor: 126,
+    par: 14803,
+    floor: 306,
     layout: [
       "......",
       "......",
@@ -576,8 +576,8 @@ export const LEVELS = [
   },
   {
     name: "Steeple",
-    par: 4702,
-    floor: 134,
+    par: 43048,
+    floor: 322,
     layout: [
       "..11..",
       "..11..",
@@ -590,8 +590,8 @@ export const LEVELS = [
   },
   {
     name: "Descent",
-    par: 1459,
-    floor: 129,
+    par: 9049,
+    floor: 339,
     layout: [
       "......",
       ".....2",
@@ -604,8 +604,8 @@ export const LEVELS = [
   },
   {
     name: "Quarry",
-    par: 2681,
-    floor: 150,
+    par: 15698,
+    floor: 354,
     layout: [
       "......",
       "......",
@@ -618,8 +618,8 @@ export const LEVELS = [
   },
   {
     name: "Palisade",
-    par: 2959,
-    floor: 150,
+    par: 18233,
+    floor: 354,
     layout: [
       "1.3.1.",
       "1.3.1.",
@@ -632,8 +632,8 @@ export const LEVELS = [
   },
   {
     name: "Citadel",
-    par: 5299,
-    floor: 188,
+    par: 41487,
+    floor: 484,
     layout: [
       "......",
       "33..11",
@@ -646,8 +646,8 @@ export const LEVELS = [
   },
   {
     name: "Sally port",
-    par: 2555,
-    floor: 126,
+    par: 22471,
+    floor: 306,
     layout: [
       "......",
       "......",
@@ -660,8 +660,8 @@ export const LEVELS = [
   },
   {
     name: "Anvil",
-    par: 6058,
-    floor: 150,
+    par: 67622,
+    floor: 354,
     layout: [
       "......",
       "......",
@@ -674,8 +674,8 @@ export const LEVELS = [
   },
   {
     name: "Ravine",
-    par: 5370,
-    floor: 161,
+    par: 48790,
+    floor: 403,
     layout: [
       "......",
       "1....2",
@@ -688,8 +688,8 @@ export const LEVELS = [
   },
   {
     name: "The slab",
-    par: 4060,
-    floor: 150,
+    par: 28692,
+    floor: 354,
     layout: [
       "......",
       "......",
@@ -702,8 +702,8 @@ export const LEVELS = [
   },
   {
     name: "Chasm",
-    par: 6340,
-    floor: 131,
+    par: 57156,
+    floor: 289,
     layout: [
       "......",
       "3....2",
@@ -716,8 +716,8 @@ export const LEVELS = [
   },
   {
     name: "Saddle",
-    par: 1266,
-    floor: 134,
+    par: 6182,
+    floor: 322,
     layout: [
       "......",
       "......",
@@ -730,8 +730,8 @@ export const LEVELS = [
   },
   {
     name: "Ziggurat",
-    par: 3439,
-    floor: 142,
+    par: 25189,
+    floor: 338,
     layout: [
       "......",
       "..11..",
@@ -744,8 +744,8 @@ export const LEVELS = [
   },
   {
     name: "The well",
-    par: 3811,
-    floor: 142,
+    par: 30183,
+    floor: 338,
     layout: [
       "......",
       "33..11",
@@ -758,8 +758,8 @@ export const LEVELS = [
   },
   {
     name: "Wicket",
-    par: 783,
-    floor: 156,
+    par: 3959,
+    floor: 420,
     layout: [
       "......",
       "......",
@@ -772,8 +772,8 @@ export const LEVELS = [
   },
   {
     name: "Bastion",
-    par: 2656,
-    floor: 188,
+    par: 16540,
+    floor: 484,
     layout: [
       "......",
       "2.44.1",
@@ -786,8 +786,8 @@ export const LEVELS = [
   },
   {
     name: "Redoubt",
-    par: 1731,
-    floor: 150,
+    par: 9083,
+    floor: 354,
     layout: [
       "3.2.4.",
       "3.4.4.",

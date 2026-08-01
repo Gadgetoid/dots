@@ -30,12 +30,12 @@ Two consequences do most of the work later:
 
 ## How a board is scored
 
-A chain of _n_ dots is worth **n³**, multiplied by the multiplier standing when it is spent.
+A chain of _n_ dots is worth **n⁴**, multiplied by the multiplier standing when it is spent.
 
 ```
-chain of 2 ->     8      chain of 5 ->   125
-chain of 3 ->    27      chain of 6 ->   216
-chain of 4 ->    64      chain of 7 ->   343
+chain of 2 ->    16      chain of 5 ->   625
+chain of 3 ->    81      chain of 6 ->  1296
+chain of 4 ->   256      chain of 7 ->  2401
 ```
 
 The multiplier starts at 1 and, after each chain:
@@ -45,7 +45,7 @@ The multiplier starts at 1 and, after each chain:
 
 So the order chains are taken in matters twice: it decides which chains are available later, and it
 decides what each one is worth. Two orders that clear the same board can pay wildly different
-scores - on level 7 of the shipped set, anywhere between 126 and 3717.
+scores - on level 7 of the shipped set, anywhere between 306 and 33,077.
 
 The rules live in `src/config.js` as `chainScore`, `MULTIPLIER_CHAIN` and `MULTIPLIER_MAX`, and are
 passed **into** the analysis rather than restated in it, so the two cannot drift.

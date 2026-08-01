@@ -252,7 +252,9 @@ test("a board that is several puzzles side by side is only exact about par", () 
     6,
     "it is six independent puzzles",
   )
-  assert.equal(found.par, 7203, "par is what walking it says it is")
+  // One chain of seven per column, taken with the multiplier climbing all the way: 7^4 times
+  // 1 + 2 + 3 + 4 + 5 + 6.
+  assert.equal(found.par, 50421, "par is what walking it says it is")
   assert.equal(found.exact, true, "and the walk got to the end of it")
   assert.equal(found.clearable, true)
 })
@@ -641,7 +643,7 @@ test("clearing a level records it, unlocks the next and nothing else", () => {
 
 test("a star is for par, and only where par is worth reaching", () => {
   // The first level pays the same however it is played, so there is no star in it however
-  // well it is cleared. The third pays anywhere from 64 to 1120.
+  // well it is cleared.
   const forced = new Game()
   forced.start("puzzle")
   clearLevel(forced, LEVELS[0].par)

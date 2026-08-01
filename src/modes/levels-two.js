@@ -12,8 +12,8 @@
 // nothing a run keeps measures under about 5. The opening was drawn and measured instead - small
 // silhouettes, colours grown as regions, kept only where the numbers landed in range.
 //
-// The order is by measured difficulty as far as the last twelve, rising from 2.0 to 11.9. The last
-// twelve are arranged rather than sorted, all of them above everything before them, with six steps
+// The order is by measured difficulty as far as the last twelve, rising from 2.0 to 11.6. The last
+// twelve are arranged rather than sorted, all of them above everything before them, with five steps
 // down in them and the hardest board in the set at the end. Bands run 3, 6, 16, 11, 16, which is a
 // gentler middle than the first set's 2, 1, 9, 15, 25 and the reason this is the set to come to when
 // the first one has stopped being fun.
@@ -22,8 +22,8 @@
 export const LEVELS_TWO = [
   {
     name: "Outcrop",
-    par: 24,
-    floor: 24,
+    par: 48,
+    floor: 48,
     layout: [
       "......",
       "......",
@@ -36,8 +36,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Scree",
-    par: 32,
-    floor: 32,
+    par: 64,
+    floor: 64,
     layout: [
       "......",
       "......",
@@ -50,8 +50,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Shingle",
-    par: 96,
-    floor: 40,
+    par: 320,
+    floor: 80,
     layout: [
       "......",
       "......",
@@ -64,8 +64,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Cobble",
-    par: 104,
-    floor: 48,
+    par: 336,
+    floor: 96,
     layout: [
       "......",
       "......",
@@ -78,8 +78,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Spoil",
-    par: 195,
-    floor: 78,
+    par: 819,
+    floor: 210,
     layout: [
       "......",
       "......",
@@ -92,8 +92,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Tailings",
-    par: 134,
-    floor: 59,
+    par: 450,
+    floor: 145,
     layout: [
       "......",
       "......",
@@ -106,8 +106,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Adit",
-    par: 224,
-    floor: 48,
+    par: 832,
+    floor: 96,
     layout: [
       "......",
       "......",
@@ -120,8 +120,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Drift",
-    par: 403,
-    floor: 86,
+    par: 1765,
+    floor: 226,
     layout: [
       "......",
       "......",
@@ -134,8 +134,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Gallery",
-    par: 153,
-    floor: 78,
+    par: 515,
+    floor: 210,
     layout: [
       "......",
       "......",
@@ -148,8 +148,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Crosscut",
-    par: 256,
-    floor: 56,
+    par: 1376,
+    floor: 112,
     layout: [
       "......",
       "......",
@@ -162,8 +162,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Sump",
-    par: 872,
-    floor: 64,
+    par: 4720,
+    floor: 128,
     layout: [
       "......",
       "......",
@@ -176,8 +176,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Lode",
-    par: 1248,
-    floor: 72,
+    par: 6720,
+    floor: 144,
     layout: [
       "......",
       "......",
@@ -190,8 +190,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Stope",
-    par: 721,
-    floor: 94,
+    par: 3445,
+    floor: 242,
     layout: [
       "......",
       "......",
@@ -204,8 +204,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Pithead",
-    par: 729,
-    floor: 102,
+    par: 3461,
+    floor: 258,
     layout: [
       "......",
       "......",
@@ -218,8 +218,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Headframe",
-    par: 176,
-    floor: 78,
+    par: 754,
+    floor: 210,
     layout: [
       "......",
       "......",
@@ -232,8 +232,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "The cage",
-    par: 115,
-    floor: 59,
+    par: 385,
+    floor: 145,
     layout: [
       "......",
       "......",
@@ -246,8 +246,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Manway",
-    par: 214,
-    floor: 97,
+    par: 884,
+    floor: 275,
     layout: [
       "......",
       "......",
@@ -260,8 +260,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Timbering",
-    par: 668,
-    floor: 102,
+    par: 3092,
+    floor: 258,
     layout: [
       "......",
       "......",
@@ -274,8 +274,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Props",
-    par: 1120,
-    floor: 64,
+    par: 8512,
+    floor: 128,
     layout: [
       "......",
       "......",
@@ -288,8 +288,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Bench",
-    par: 248,
-    floor: 48,
+    par: 1360,
+    floor: 96,
     layout: [
       "......",
       "......",
@@ -302,8 +302,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Highwall",
-    par: 305,
-    floor: 86,
+    par: 1555,
+    floor: 226,
     layout: [
       "......",
       "......",
@@ -316,8 +316,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Rockface",
-    par: 365,
-    floor: 86,
+    par: 1635,
+    floor: 226,
     layout: [
       "......",
       "......",
@@ -330,8 +330,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Overburden",
-    par: 782,
-    floor: 75,
+    par: 5122,
+    floor: 177,
     layout: [
       "......",
       "......",
@@ -344,8 +344,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Strata",
-    par: 736,
-    floor: 113,
+    par: 3336,
+    floor: 307,
     layout: [
       "......",
       "......",
@@ -358,8 +358,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Bedding",
-    par: 1070,
-    floor: 102,
+    par: 5718,
+    floor: 258,
     layout: [
       "......",
       "......",
@@ -372,8 +372,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Fault",
-    par: 2060,
-    floor: 99,
+    par: 13220,
+    floor: 225,
     layout: [
       "......",
       "......",
@@ -385,9 +385,23 @@ export const LEVELS_TWO = [
     ],
   },
   {
+    name: "Weir",
+    par: 3281,
+    floor: 177,
+    layout: [
+      "......",
+      "......",
+      "......",
+      "...3..",
+      "..333.",
+      ".11222",
+      "111122",
+    ],
+  },
+  {
     name: "Fissure",
-    par: 1402,
-    floor: 129,
+    par: 8854,
+    floor: 339,
     layout: [
       "......",
       ".....1",
@@ -400,8 +414,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Cleft",
-    par: 286,
-    floor: 67,
+    par: 1490,
+    floor: 161,
     layout: [
       "......",
       "......",
@@ -414,8 +428,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Gully",
-    par: 1240,
-    floor: 118,
+    par: 7202,
+    floor: 290,
     layout: [
       "1.....",
       "1.....",
@@ -428,8 +442,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Culvert",
-    par: 1557,
-    floor: 91,
+    par: 10115,
+    floor: 209,
     layout: [
       "......",
       "......",
@@ -442,8 +456,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Trough",
-    par: 614,
-    floor: 94,
+    par: 2598,
+    floor: 242,
     layout: [
       "......",
       "......",
@@ -455,23 +469,9 @@ export const LEVELS_TWO = [
     ],
   },
   {
-    name: "Weir",
-    par: 599,
-    floor: 75,
-    layout: [
-      "......",
-      "......",
-      "......",
-      "...3..",
-      "..333.",
-      ".11222",
-      "111122",
-    ],
-  },
-  {
     name: "Sluice",
-    par: 9922,
-    floor: 158,
+    par: 121190,
+    floor: 370,
     layout: [
       "......",
       "11..33",
@@ -484,8 +484,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Millrace",
-    par: 1176,
-    floor: 72,
+    par: 6800,
+    floor: 144,
     layout: [
       "......",
       "......",
@@ -498,8 +498,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Spillway",
-    par: 2243,
-    floor: 118,
+    par: 14327,
+    floor: 290,
     layout: [
       "4.....",
       "4.....",
@@ -512,8 +512,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Shaft",
-    par: 2685,
-    floor: 118,
+    par: 22293,
+    floor: 290,
     layout: [
       "..11..",
       "..11..",
@@ -526,8 +526,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Sinking",
-    par: 1440,
-    floor: 88,
+    par: 7840,
+    floor: 176,
     layout: [
       "......",
       "..11..",
@@ -540,8 +540,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Sinkhole",
-    par: 2247,
-    floor: 126,
+    par: 13973,
+    floor: 306,
     layout: [
       "......",
       "1....3",
@@ -553,9 +553,23 @@ export const LEVELS_TWO = [
     ],
   },
   {
+    name: "Rockfall",
+    par: 70864,
+    floor: 256,
+    layout: [
+      "......",
+      "22..33",
+      "22..11",
+      "244411",
+      "241444",
+      "221334",
+      "221111",
+    ],
+  },
+  {
     name: "Swallow hole",
-    par: 3817,
-    floor: 126,
+    par: 31269,
+    floor: 306,
     layout: [
       "......",
       "......",
@@ -568,8 +582,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Cavern",
-    par: 3018,
-    floor: 134,
+    par: 26370,
+    floor: 322,
     layout: [
       "......",
       "......",
@@ -582,8 +596,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Grotto",
-    par: 4094,
-    floor: 158,
+    par: 31642,
+    floor: 370,
     layout: [
       ".4..3.",
       ".4..3.",
@@ -596,8 +610,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Flowstone",
-    par: 2702,
-    floor: 142,
+    par: 16374,
+    floor: 338,
     layout: [
       "......",
       "33..14",
@@ -610,8 +624,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Column",
-    par: 4623,
-    floor: 131,
+    par: 42755,
+    floor: 289,
     layout: [
       "......",
       "3....2",
@@ -624,8 +638,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Curtain",
-    par: 3457,
-    floor: 153,
+    par: 31927,
+    floor: 387,
     layout: [
       "......",
       "111...",
@@ -638,8 +652,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Boulder choke",
-    par: 3893,
-    floor: 161,
+    par: 35479,
+    floor: 403,
     layout: [
       "......",
       "2....2",
@@ -651,23 +665,9 @@ export const LEVELS_TWO = [
     ],
   },
   {
-    name: "Rockfall",
-    par: 7416,
-    floor: 128,
-    layout: [
-      "......",
-      "22..33",
-      "22..11",
-      "244411",
-      "241444",
-      "221334",
-      "221111",
-    ],
-  },
-  {
     name: "Deadfall",
-    par: 2970,
-    floor: 180,
+    par: 23642,
+    floor: 468,
     layout: [
       "3.1.3.",
       "3.1.3.",
@@ -680,8 +680,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Firedamp",
-    par: 3439,
-    floor: 142,
+    par: 25189,
+    floor: 338,
     layout: [
       "......",
       "..11..",
@@ -694,8 +694,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Blackdamp",
-    par: 1094,
-    floor: 126,
+    par: 5766,
+    floor: 306,
     layout: [
       "......",
       "4....3",
@@ -708,8 +708,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "The winze",
-    par: 1986,
-    floor: 150,
+    par: 15171,
+    floor: 354,
     layout: [
       "......",
       "......",
@@ -722,8 +722,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "The deep",
-    par: 1118,
-    floor: 126,
+    par: 5128,
+    floor: 306,
     layout: [
       "......",
       "......",
@@ -736,8 +736,8 @@ export const LEVELS_TWO = [
   },
   {
     name: "Bottomless",
-    par: 6062,
-    floor: 158,
+    par: 54886,
+    floor: 370,
     layout: [
       ".2..1.",
       ".2..1.",

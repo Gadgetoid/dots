@@ -1,17 +1,17 @@
 {
- "fingerprint": "m4;min2;cap3000;2:8,3:27,4:64,5:125,6:216,7:343,8:512,9:729;1>2/1,2>3/1,3>4/1,4>5/1,5>6/1,6>7/1,7>8/1,8>9/1,9>9/1;perMove=0.45,perDecade=0.8,silentTrapWeight=3,announcedTrapWeight=0.6,greedyStrands=3,greedyMissesPar=1.5,onlyOnePar=1.5,bands=0.3.5.6.8.5.11",
+ "fingerprint": "m4;min2;cap3000;2:16,3:81,4:256,5:625,6:1296,7:2401,8:4096,9:6561;1>2/1,2>3/1,3>4/1,4>5/1,5>6/1,6>7/1,7>8/1,8>9/1,9>9/1;perMove=0.45,perDecade=0.8,silentTrapWeight=3,announcedTrapWeight=0.6,greedyStrands=3,greedyMissesPar=1.5,onlyOnePar=1.5,bands=0.3.5.6.8.5.11",
  "boards": {
   "000000010000000100000002000000020000000300000003": {
    "name": "Warm up",
-   "par": 24,
-   "floor": 24,
+   "par": 48,
+   "floor": 48,
    "difficulty": 2.03,
    "band": 1,
    "parPaths": 6,
    "moves": 3,
    "firstMoves": 3,
    "firstSilent": 0,
-   "greedy": 24,
+   "greedy": 48,
    "positions": 7,
    "route": [
     [
@@ -48,15 +48,15 @@
   },
   "000000110000000100000022000000020000003300000003": {
    "name": "Stacks",
-   "par": 81,
-   "floor": 81,
+   "par": 243,
+   "floor": 243,
    "difficulty": 3.19,
    "band": 1,
    "parPaths": 6,
    "moves": 3,
    "firstMoves": 9,
    "firstSilent": 0,
-   "greedy": 81,
+   "greedy": 243,
    "positions": 63,
    "route": [
     [
@@ -105,15 +105,15 @@
   },
   "000000030000011300001221000012210000011300000003": {
    "name": "Pyramid",
-   "par": 1120,
-   "floor": 64,
+   "par": 8512,
+   "floor": 128,
    "difficulty": 4.58,
    "band": 2,
    "parPaths": 4,
    "moves": 4,
    "firstMoves": 12,
    "firstSilent": 0,
-   "greedy": 1120,
+   "greedy": 8512,
    "positions": 2229,
    "route": [
     [
@@ -192,15 +192,15 @@
   },
   "000111110000000100000334000003340000000200022222": {
    "name": "Pillars",
-   "par": 1176,
-   "floor": 72,
+   "par": 6800,
+   "floor": 144,
    "difficulty": 6.23,
    "band": 3,
    "parPaths": 2,
    "moves": 4,
    "firstMoves": 25,
    "firstSilent": 0,
-   "greedy": 872,
+   "greedy": 4720,
    "positions": 2996,
    "route": [
     [
@@ -287,15 +287,15 @@
   },
   "000000320000113200000113000000130000022100000221": {
    "name": "Zigzag",
-   "par": 1229,
-   "floor": 83,
+   "par": 7987,
+   "floor": 193,
    "difficulty": 6.75,
    "band": 3,
    "parPaths": 2,
    "moves": 4,
    "firstMoves": 20,
    "firstSilent": 4,
-   "greedy": 301,
+   "greedy": 1233,
    "positions": 3612,
    "route": [
     [
@@ -378,15 +378,15 @@
   },
   "000000030000111300001113000022430000224400000004": {
    "name": "Bullseye",
-   "par": 1248,
-   "floor": 72,
+   "par": 6720,
+   "floor": 144,
    "difficulty": 6.81,
    "band": 3,
    "parPaths": 3,
    "moves": 4,
    "firstMoves": 31,
    "firstSilent": 2,
-   "greedy": 792,
+   "greedy": 3600,
    "positions": 9067,
    "route": [
     [
@@ -473,15 +473,15 @@
   },
   "000111120000001200011112000444420000002300022223": {
    "name": "The gate",
-   "par": 3717,
-   "floor": 126,
+   "par": 33077,
+   "floor": 306,
    "difficulty": 7.73,
    "band": 3,
    "parPaths": 2,
    "moves": 4,
    "firstMoves": 47,
    "firstSilent": 10,
-   "greedy": 1467,
+   "greedy": 9683,
    "positions": 49538,
    "route": [
     [
@@ -592,15 +592,15 @@
   },
   "000000040000002400000224000033320001333200113322": {
    "name": "Steps",
-   "par": 1265,
-   "floor": 129,
+   "par": 9157,
+   "floor": 339,
    "difficulty": 7.92,
    "band": 3,
    "parPaths": 3,
    "moves": 5,
    "firstMoves": 53,
    "firstSilent": 7,
-   "greedy": 775,
+   "greedy": 5013,
    "positions": 41236,
    "route": [
     [
@@ -701,15 +701,15 @@
   },
   "000555550000054400022244000002440001111100000331": {
    "name": "Comb",
-   "par": 2048,
-   "floor": 96,
+   "par": 12000,
+   "floor": 192,
    "difficulty": 7.93,
    "band": 3,
    "parPaths": 3,
    "moves": 5,
    "firstMoves": 41,
    "firstSilent": 3,
-   "greedy": 1592,
+   "greedy": 8880,
    "positions": 63355,
    "route": [
     [
@@ -822,15 +822,15 @@
   },
   "000000110000041100211443002111330000013300000022": {
    "name": "Spire",
-   "par": 2184,
-   "floor": 118,
+   "par": 20770,
+   "floor": 290,
    "difficulty": 8.18,
    "band": 3,
    "parPaths": 5,
    "moves": 5,
    "firstMoves": 39,
    "firstSilent": 7,
-   "greedy": 782,
+   "greedy": 3670,
    "positions": 58220,
    "route": [
     [
@@ -935,15 +935,15 @@
   },
   "000114440000032200000333000022330000011500000115": {
    "name": "Battlements",
-   "par": 609,
-   "floor": 99,
+   "par": 3155,
+   "floor": 225,
    "difficulty": 8.36,
    "band": 3,
    "parPaths": 120,
    "moves": 7,
    "firstMoves": 28,
    "firstSilent": 4,
-   "greedy": 457,
+   "greedy": 2115,
    "positions": 9789,
    "route": [
     [
@@ -1048,15 +1048,15 @@
   },
   "002221110000011100000555000005530000022300334423": {
    "name": "Towers",
-   "par": 1166,
-   "floor": 156,
+   "par": 6184,
+   "floor": 420,
    "difficulty": 8.42,
    "band": 3,
    "parPaths": 4,
    "moves": 6,
    "firstMoves": 32,
    "firstSilent": 4,
-   "greedy": 617,
+   "greedy": 2983,
    "positions": 51884,
    "route": [
     [
@@ -1171,15 +1171,15 @@
   },
   "000001210000012100021342000213420000043300000433": {
    "name": "Checkmate",
-   "par": 1408,
-   "floor": 88,
+   "par": 7776,
+   "floor": 176,
    "difficulty": 9.06,
    "band": 4,
    "parPaths": 1,
    "moves": 5,
    "firstMoves": 15,
    "firstSilent": 1,
-   "greedy": 144,
+   "greedy": 416,
    "positions": 32278,
    "route": [
     [
@@ -1284,8 +1284,8 @@
   },
   "000003320011133200000113000000130002222100000221": {
    "name": "The lock",
-   "par": 2072,
-   "floor": 88,
+   "par": 15216,
+   "floor": 176,
    "difficulty": 9.27,
    "band": 4,
    "parPaths": 2,
@@ -1397,8 +1397,8 @@
   },
   "000000010000001100000121000001120000001300000033": {
    "name": "Ridge",
-   "par": 286,
-   "floor": 67,
+   "par": 1490,
+   "floor": 161,
    "difficulty": 9.47,
    "band": 4,
    "parPaths": 1,
@@ -1472,15 +1472,15 @@
   },
   "000033330000133300001333000011130000122200001211": {
    "name": "Seam",
-   "par": 5891,
-   "floor": 126,
+   "par": 61207,
+   "floor": 306,
    "difficulty": 9.55,
    "band": 4,
    "parPaths": 1,
    "moves": 4,
    "firstMoves": 132,
    "firstSilent": 27,
-   "greedy": 2029,
+   "greedy": 17683,
    "positions": 140570,
    "route": [
     [
@@ -1591,15 +1591,15 @@
   },
   "000004110000441500044255000222520000233300000333": {
    "name": "Barrow",
-   "par": 1961,
-   "floor": 126,
+   "par": 10983,
+   "floor": 306,
    "difficulty": 9.74,
    "band": 4,
    "parPaths": 1,
    "moves": 5,
    "firstMoves": 40,
    "firstSilent": 3,
-   "greedy": 1057,
+   "greedy": 4759,
    "positions": 153441,
    "route": [
     [
@@ -1712,8 +1712,8 @@
   },
   "000022250000005500000053000000330000001300001111": {
    "name": "Lintel",
-   "par": 411,
-   "floor": 94,
+   "par": 1781,
+   "floor": 242,
    "difficulty": 9.93,
    "band": 4,
    "parPaths": 1,
@@ -1801,8 +1801,8 @@
   },
   "000000010000000100000031000000130000001100000212": {
    "name": "Flight",
-   "par": 115,
-   "floor": 59,
+   "par": 385,
+   "floor": 145,
    "difficulty": 10.08,
    "band": 4,
    "parPaths": 1,
@@ -1868,11 +1868,11 @@
   },
   "000000230000022300000231000002310000013100000011": {
    "name": "Plinth",
-   "par": 660,
-   "floor": 94,
-   "difficulty": 10.2,
+   "par": 3314,
+   "floor": 242,
+   "difficulty": 8.7,
    "band": 4,
-   "parPaths": 1,
+   "parPaths": 2,
    "moves": 4,
    "firstMoves": 24,
    "firstSilent": 8,
@@ -1881,27 +1881,59 @@
    "route": [
     [
      [
-      3,
-      4
-     ],
-     [
       2,
-      4
-     ],
-     [
-      1,
-      4
-     ],
-     [
-      1,
       5
      ],
      [
-      0,
+      3,
+      5
+     ],
+     [
+      4,
       5
      ]
     ],
     [
+     [
+      0,
+      6
+     ],
+     [
+      1,
+      6
+     ]
+    ],
+    [
+     [
+      3,
+      5
+     ],
+     [
+      2,
+      5
+     ],
+     [
+      1,
+      5
+     ],
+     [
+      1,
+      6
+     ],
+     [
+      0,
+      6
+     ]
+    ],
+    [
+     [
+      4,
+      5
+     ],
+     [
+      5,
+      5
+     ],
      [
       5,
       6
@@ -1916,38 +1948,6 @@
      ],
      [
       2,
-      6
-     ]
-    ],
-    [
-     [
-      0,
-      6
-     ],
-     [
-      1,
-      6
-     ],
-     [
-      2,
-      6
-     ],
-     [
-      3,
-      6
-     ],
-     [
-      4,
-      6
-     ]
-    ],
-    [
-     [
-      4,
-      6
-     ],
-     [
-      5,
       6
      ]
     ]
@@ -1955,8 +1955,8 @@
   },
   "000001110000111300000023000011220000002200002222": {
    "name": "Undertow",
-   "par": 1706,
-   "floor": 91,
+   "par": 14482,
+   "floor": 209,
    "difficulty": 10.26,
    "band": 4,
    "parPaths": 1,
@@ -2054,8 +2054,8 @@
   },
   "001111110000031200000322000002230000033300444444": {
    "name": "Buttress",
-   "par": 2450,
-   "floor": 126,
+   "par": 15604,
+   "floor": 306,
    "difficulty": 10.3,
    "band": 4,
    "parPaths": 1,
@@ -2173,8 +2173,8 @@
   },
   "000000030000333300003223000011220000112200000002": {
    "name": "Deadeye",
-   "par": 1375,
-   "floor": 102,
+   "par": 8773,
+   "floor": 258,
    "difficulty": 10.45,
    "band": 4,
    "parPaths": 1,
@@ -2268,8 +2268,8 @@
   },
   "000555550000004500022444000222110000003100033333": {
    "name": "Portcullis",
-   "par": 1610,
-   "floor": 126,
+   "par": 8948,
+   "floor": 306,
    "difficulty": 10.73,
    "band": 4,
    "parPaths": 1,
@@ -2389,15 +2389,15 @@
   },
   "001111440000012400000322000003240000033400111134": {
    "name": "Watchtowers",
-   "par": 1168,
-   "floor": 156,
+   "par": 5260,
+   "floor": 420,
    "difficulty": 10.77,
    "band": 4,
    "parPaths": 1,
    "moves": 6,
    "firstMoves": 32,
    "firstSilent": 11,
-   "greedy": 793,
+   "greedy": 3385,
    "positions": 84565,
    "route": [
     [
@@ -2512,8 +2512,8 @@
   },
   "000000020000332200003221000031210000311100000001": {
    "name": "Iris",
-   "par": 1070,
-   "floor": 102,
+   "par": 5718,
+   "floor": 258,
    "difficulty": 10.87,
    "band": 4,
    "parPaths": 1,
@@ -2607,8 +2607,8 @@
   },
   "000000010000001100000211000022140002222400333333": {
    "name": "Bad steps",
-   "par": 1565,
-   "floor": 99,
+   "par": 10131,
+   "floor": 225,
    "difficulty": 10.93,
    "band": 4,
    "parPaths": 1,
@@ -2716,8 +2716,8 @@
   },
   "000222110000021100000221000033220000033200000311": {
    "name": "The keep",
-   "par": 1966,
-   "floor": 129,
+   "par": 15638,
+   "floor": 339,
    "difficulty": 11.03,
    "band": 5,
    "parPaths": 1,
@@ -2823,8 +2823,8 @@
   },
   "000003220000332200000032000011320000001100002221": {
    "name": "Riptide",
-   "par": 805,
-   "floor": 121,
+   "par": 3721,
+   "floor": 323,
    "difficulty": 11.24,
    "band": 5,
    "parPaths": 1,
@@ -2924,8 +2924,8 @@
   },
   "000000220000002203114422033114240000002100000022": {
    "name": "The flue",
-   "par": 1611,
-   "floor": 118,
+   "par": 12711,
+   "floor": 290,
    "difficulty": 11.33,
    "band": 5,
    "parPaths": 1,
@@ -3035,8 +3035,8 @@
   },
   "000222130000011300000133000011330000022300000223": {
    "name": "Rampart",
-   "par": 2140,
-   "floor": 99,
+   "par": 15460,
+   "floor": 225,
    "difficulty": 11.35,
    "band": 5,
    "parPaths": 1,
@@ -3142,8 +3142,8 @@
   },
   "000000220000042300111423001114220000042100000021": {
    "name": "Needle",
-   "par": 2024,
-   "floor": 88,
+   "par": 14160,
+   "floor": 176,
    "difficulty": 11.48,
    "band": 5,
    "parPaths": 1,
@@ -3255,8 +3255,8 @@
   },
   "022331120000011100000411000004220000043300000433": {
    "name": "The mast",
-   "par": 1345,
-   "floor": 118,
+   "par": 8327,
+   "floor": 290,
    "difficulty": 11.51,
    "band": 5,
    "parPaths": 1,
@@ -3370,8 +3370,8 @@
   },
   "000222220000025500044445000001430002211300000133": {
    "name": "Teeth",
-   "par": 1498,
-   "floor": 126,
+   "par": 7988,
+   "floor": 306,
    "difficulty": 11.54,
    "band": 5,
    "parPaths": 1,
@@ -3493,8 +3493,8 @@
   },
   "000000120000041200114442001143330000033200000032": {
    "name": "Spindle",
-   "par": 1086,
-   "floor": 118,
+   "par": 5750,
+   "floor": 290,
    "difficulty": 11.59,
    "band": 5,
    "parPaths": 1,
@@ -3608,8 +3608,8 @@
   },
   "000113310000003100021111000213320000002200033332": {
    "name": "Barbican",
-   "par": 1789,
-   "floor": 126,
+   "par": 14803,
+   "floor": 306,
    "difficulty": 11.66,
    "band": 5,
    "parPaths": 1,
@@ -3729,8 +3729,8 @@
   },
   "000000220000112201111222011232320000333400000044": {
    "name": "Steeple",
-   "par": 4702,
-   "floor": 134,
+   "par": 43048,
+   "floor": 322,
    "difficulty": 11.78,
    "band": 5,
    "parPaths": 1,
@@ -3858,8 +3858,8 @@
   },
   "000000020000002200000122000011230001113300222133": {
    "name": "Descent",
-   "par": 1459,
-   "floor": 129,
+   "par": 9049,
+   "floor": 339,
    "difficulty": 11.8,
    "band": 5,
    "parPaths": 1,
@@ -3967,17 +3967,51 @@
   },
   "000125150001251100012531000144310001444400022222": {
    "name": "Quarry",
-   "par": 2681,
-   "floor": 150,
-   "difficulty": 13.13,
+   "par": 15698,
+   "floor": 354,
+   "difficulty": 12.08,
    "band": 5,
-   "parPaths": 1,
-   "moves": 7,
+   "parPaths": 3,
+   "moves": 8,
    "firstMoves": 43,
    "firstSilent": 9,
    "greedy": "strands",
    "positions": 1025281,
    "route": [
+    [
+     [
+      0,
+      3
+     ],
+     [
+      1,
+      3
+     ],
+     [
+      2,
+      3
+     ]
+    ],
+    [
+     [
+      0,
+      3
+     ],
+     [
+      1,
+      3
+     ]
+    ],
+    [
+     [
+      1,
+      4
+     ],
+     [
+      2,
+      4
+     ]
+    ],
     [
      [
       2,
@@ -3986,42 +4020,6 @@
      [
       3,
       5
-     ]
-    ],
-    [
-     [
-      0,
-      5
-     ],
-     [
-      1,
-      5
-     ],
-     [
-      1,
-      6
-     ],
-     [
-      2,
-      6
-     ]
-    ],
-    [
-     [
-      0,
-      5
-     ],
-     [
-      0,
-      6
-     ],
-     [
-      1,
-      6
-     ],
-     [
-      2,
-      6
      ]
     ],
     [
@@ -4082,6 +4080,14 @@
       5
      ],
      [
+      1,
+      6
+     ],
+     [
+      2,
+      6
+     ],
+     [
       2,
       5
      ],
@@ -4101,14 +4107,10 @@
     [
      [
       0,
-      6
+      5
      ],
      [
-      1,
-      6
-     ],
-     [
-      2,
+      0,
       6
      ]
     ]
@@ -4116,8 +4118,8 @@
   },
   "011112220000022203333132000001440111144400000545": {
    "name": "Palisade",
-   "par": 2959,
-   "floor": 150,
+   "par": 18233,
+   "floor": 354,
    "difficulty": 12.93,
    "band": 5,
    "parPaths": 1,
@@ -4265,8 +4267,8 @@
   },
   "003443440033433400003225000012250011112500111155": {
    "name": "Citadel",
-   "par": 5299,
-   "floor": 188,
+   "par": 41487,
+   "floor": 484,
    "difficulty": 13.2,
    "band": 5,
    "parPaths": 1,
@@ -4420,8 +4422,8 @@
   },
   "000111120000002200011322000133320000003200033333": {
    "name": "Sally port",
-   "par": 2555,
-   "floor": 126,
+   "par": 22471,
+   "floor": 306,
    "difficulty": 12.08,
    "band": 5,
    "parPaths": 1,
@@ -4541,8 +4543,8 @@
   },
   "000114430001442300014425000114550002215100021111": {
    "name": "Anvil",
-   "par": 6058,
-   "floor": 150,
+   "par": 67622,
+   "floor": 354,
    "difficulty": 13.22,
    "band": 5,
    "parPaths": 1,
@@ -4688,8 +4690,8 @@
   },
   "001114550001141500001455000002220002223300222233": {
    "name": "Ravine",
-   "par": 5370,
-   "floor": 161,
+   "par": 48790,
+   "floor": 403,
    "difficulty": 12.15,
    "band": 5,
    "parPaths": 1,
@@ -4829,8 +4831,8 @@
   },
   "000153330001533300015552000154520001444200011122": {
    "name": "The slab",
-   "par": 4060,
-   "floor": 150,
+   "par": 28692,
+   "floor": 354,
    "difficulty": 13.26,
    "band": 5,
    "parPaths": 1,
@@ -4976,8 +4978,8 @@
   },
   "003311430003314400003114000001110002212200222222": {
    "name": "Chasm",
-   "par": 6340,
-   "floor": 131,
+   "par": 57156,
+   "floor": 289,
    "difficulty": 12.27,
    "band": 5,
    "parPaths": 1,
@@ -5117,8 +5119,8 @@
   },
   "000441330004115300000155000004550004442500044222": {
    "name": "Saddle",
-   "par": 1266,
-   "floor": 134,
+   "par": 6182,
+   "floor": 322,
    "difficulty": 13.27,
    "band": 5,
    "parPaths": 1,
@@ -5250,8 +5252,8 @@
   },
   "000002220003332200113312001122130001222300000322": {
    "name": "Ziggurat",
-   "par": 3439,
-   "floor": 142,
+   "par": 25189,
+   "floor": 338,
    "difficulty": 12.69,
    "band": 5,
    "parPaths": 1,
@@ -5389,8 +5391,8 @@
   },
   "003322210033321100000011000000130012223300121333": {
    "name": "The well",
-   "par": 3811,
-   "floor": 142,
+   "par": 30183,
+   "floor": 338,
    "difficulty": 13.2,
    "band": 5,
    "parPaths": 1,
@@ -5528,8 +5530,8 @@
   },
   "000333330000003200021442000111450000005500011155": {
    "name": "Wicket",
-   "par": 783,
-   "floor": 156,
+   "par": 3959,
+   "floor": 420,
    "difficulty": 11.97,
    "band": 5,
    "parPaths": 1,
@@ -5651,8 +5653,8 @@
   },
   "002224440000112200411123004441230000443300111333": {
    "name": "Bastion",
-   "par": 2656,
-   "floor": 188,
+   "par": 16540,
+   "floor": 484,
    "difficulty": 14.01,
    "band": 5,
    "parPaths": 1,
@@ -5808,8 +5810,8 @@
   },
   "033331310000011102444411000002310444221300000221": {
    "name": "Redoubt",
-   "par": 1731,
-   "floor": 150,
+   "par": 9083,
+   "floor": 354,
    "difficulty": 14.25,
    "band": 5,
    "parPaths": 1,
@@ -5959,15 +5961,15 @@
   },
   "000000110000000000000022000000000000003300000000": {
    "name": "Outcrop",
-   "par": 24,
-   "floor": 24,
+   "par": 48,
+   "floor": 48,
    "difficulty": 2.03,
    "band": 1,
    "parPaths": 6,
    "moves": 3,
    "firstMoves": 3,
    "firstSilent": 0,
-   "greedy": 24,
+   "greedy": 48,
    "positions": 7,
    "route": [
     [
@@ -6004,15 +6006,15 @@
   },
   "000000010000012200000334000000040000000000000000": {
    "name": "Scree",
-   "par": 32,
-   "floor": 32,
+   "par": 64,
+   "floor": 64,
    "difficulty": 2.63,
    "band": 1,
    "parPaths": 12,
    "moves": 4,
    "firstMoves": 3,
    "firstSilent": 0,
-   "greedy": 32,
+   "greedy": 64,
    "positions": 11,
    "route": [
     [
@@ -6059,15 +6061,15 @@
   },
   "000000020000000200000111000001330000000400000004": {
    "name": "Shingle",
-   "par": 96,
-   "floor": 40,
+   "par": 320,
+   "floor": 80,
    "difficulty": 3.34,
    "band": 1,
    "parPaths": 18,
    "moves": 4,
    "firstMoves": 8,
    "firstSilent": 0,
-   "greedy": 96,
+   "greedy": 320,
    "positions": 54,
    "route": [
     [
@@ -6122,15 +6124,15 @@
   },
   "000001120000023300000311000002230000000000000000": {
    "name": "Cobble",
-   "par": 104,
-   "floor": 48,
+   "par": 336,
+   "floor": 96,
    "difficulty": 5.14,
    "band": 2,
    "parPaths": 20,
    "moves": 5,
    "firstMoves": 4,
    "firstSilent": 0,
-   "greedy": 48,
+   "greedy": 96,
    "positions": 55,
    "route": [
     [
@@ -6195,15 +6197,15 @@
   },
   "000000210000312100003114000000440000000000000000": {
    "name": "Spoil",
-   "par": 195,
-   "floor": 78,
+   "par": 819,
+   "floor": 210,
    "difficulty": 5.29,
    "band": 2,
    "parPaths": 2,
    "moves": 4,
    "firstMoves": 9,
    "firstSilent": 0,
-   "greedy": 78,
+   "greedy": 210,
    "positions": 210,
    "route": [
     [
@@ -6266,15 +6268,15 @@
   },
   "000000030000000300000033000000440000001200000212": {
    "name": "Tailings",
-   "par": 134,
-   "floor": 59,
+   "par": 450,
+   "floor": 145,
    "difficulty": 5.41,
    "band": 2,
    "parPaths": 3,
    "moves": 4,
    "firstMoves": 9,
    "firstSilent": 1,
-   "greedy": 115,
+   "greedy": 385,
    "positions": 94,
    "route": [
     [
@@ -6333,15 +6335,15 @@
   },
   "000022110000001100000000000000210000112100000000": {
    "name": "Adit",
-   "par": 224,
-   "floor": 48,
+   "par": 832,
+   "floor": 96,
    "difficulty": 5.69,
    "band": 2,
    "parPaths": 2,
    "moves": 4,
    "firstMoves": 10,
    "firstSilent": 2,
-   "greedy": 104,
+   "greedy": 336,
    "positions": 171,
    "route": [
     [
@@ -6404,15 +6406,15 @@
   },
   "000003330000003300000012000000120000001100000444": {
    "name": "Drift",
-   "par": 403,
-   "floor": 86,
+   "par": 1765,
+   "floor": 226,
    "difficulty": 5.86,
    "band": 2,
    "parPaths": 2,
    "moves": 4,
    "firstMoves": 18,
    "firstSilent": 1,
-   "greedy": 342,
+   "greedy": 1396,
    "positions": 603,
    "route": [
     [
@@ -6483,15 +6485,15 @@
   },
   "000000310000003100000031000000120000002200000011": {
    "name": "Gallery",
-   "par": 153,
-   "floor": 78,
+   "par": 515,
+   "floor": 210,
    "difficulty": 5.96,
    "band": 2,
    "parPaths": 3,
    "moves": 4,
    "firstMoves": 10,
    "firstSilent": 2,
-   "greedy": 134,
+   "greedy": 450,
    "positions": 190,
    "route": [
     [
@@ -6554,15 +6556,15 @@
   },
   "000000330000221100000011000011220000003300000000": {
    "name": "Crosscut",
-   "par": 256,
-   "floor": 56,
+   "par": 1376,
+   "floor": 112,
    "difficulty": 6.07,
    "band": 3,
    "parPaths": 36,
    "moves": 5,
    "firstMoves": 11,
    "firstSilent": 1,
-   "greedy": 112,
+   "greedy": 352,
    "positions": 366,
    "route": [
     [
@@ -6635,15 +6637,15 @@
   },
   "000004440000041100000013000000130000022200000222": {
    "name": "Sump",
-   "par": 872,
-   "floor": 64,
+   "par": 4720,
+   "floor": 128,
    "difficulty": 6.2,
    "band": 3,
    "parPaths": 2,
    "moves": 4,
    "firstMoves": 25,
    "firstSilent": 1,
-   "greedy": 568,
+   "greedy": 2640,
    "positions": 1984,
    "route": [
     [
@@ -6722,15 +6724,15 @@
   },
   "000111130000000300044443000000030002222200000002": {
    "name": "Lode",
-   "par": 1248,
-   "floor": 72,
+   "par": 6720,
+   "floor": 144,
    "difficulty": 6.32,
    "band": 3,
    "parPaths": 6,
    "moves": 4,
    "firstMoves": 21,
    "firstSilent": 1,
-   "greedy": 792,
+   "greedy": 3600,
    "positions": 2395,
    "route": [
     [
@@ -6817,15 +6819,15 @@
   },
   "000000110000001100003312000022220000004400000044": {
    "name": "Stope",
-   "par": 721,
-   "floor": 94,
+   "par": 3445,
+   "floor": 242,
    "difficulty": 6.43,
    "band": 3,
    "parPaths": 2,
    "moves": 4,
    "firstMoves": 26,
    "firstSilent": 2,
-   "greedy": 599,
+   "greedy": 2707,
    "positions": 2654,
    "route": [
     [
@@ -6904,15 +6906,15 @@
   },
   "000111110000003300000033000000550000002400022224": {
    "name": "Pithead",
-   "par": 729,
-   "floor": 102,
+   "par": 3461,
+   "floor": 258,
    "difficulty": 6.57,
    "band": 3,
    "parPaths": 8,
    "moves": 5,
    "firstMoves": 19,
    "firstSilent": 0,
-   "greedy": 607,
+   "greedy": 2723,
    "positions": 2144,
    "route": [
     [
@@ -7001,15 +7003,15 @@
   },
   "000000110000142100001422000000330000000000000000": {
    "name": "Headframe",
-   "par": 176,
-   "floor": 78,
+   "par": 754,
+   "floor": 210,
    "difficulty": 6.72,
    "band": 3,
    "parPaths": 1,
    "moves": 4,
    "firstMoves": 9,
    "firstSilent": 0,
-   "greedy": 78,
+   "greedy": 210,
    "positions": 170,
    "route": [
     [
@@ -7072,8 +7074,8 @@
   },
   "000000020000000200000031000000310000003400000344": {
    "name": "The cage",
-   "par": 115,
-   "floor": 59,
+   "par": 385,
+   "floor": 145,
    "difficulty": 6.9,
    "band": 3,
    "parPaths": 2,
@@ -7139,8 +7141,8 @@
   },
   "000000030000003300000555000002550000002100000021": {
    "name": "Manway",
-   "par": 214,
-   "floor": 97,
+   "par": 884,
+   "floor": 275,
    "difficulty": 7,
    "band": 3,
    "parPaths": 5,
@@ -7214,15 +7216,15 @@
   },
   "000000440000014400001114000055220000033300000033": {
    "name": "Timbering",
-   "par": 668,
-   "floor": 102,
+   "par": 3092,
+   "floor": 258,
    "difficulty": 7.1,
    "band": 3,
    "parPaths": 4,
    "moves": 5,
    "firstMoves": 27,
    "firstSilent": 2,
-   "greedy": 607,
+   "greedy": 2723,
    "positions": 5212,
    "route": [
     [
@@ -7311,15 +7313,15 @@
   },
   "000002110000022200000021000000210000011100000111": {
    "name": "Props",
-   "par": 1120,
-   "floor": 64,
+   "par": 8512,
+   "floor": 128,
    "difficulty": 7.2,
    "band": 3,
    "parPaths": 7,
    "moves": 4,
    "firstMoves": 51,
    "firstSilent": 19,
-   "greedy": 968,
+   "greedy": 6736,
    "positions": 2937,
    "route": [
     [
@@ -7398,8 +7400,8 @@
   },
   "000000020000002200000112000001110000001300000003": {
    "name": "Bench",
-   "par": 248,
-   "floor": 48,
+   "par": 1360,
+   "floor": 96,
    "difficulty": 7.45,
    "band": 3,
    "parPaths": 6,
@@ -7469,8 +7471,8 @@
   },
   "000000440000001100000331000003330000003200000022": {
    "name": "Highwall",
-   "par": 305,
-   "floor": 86,
+   "par": 1555,
+   "floor": 226,
    "difficulty": 7.58,
    "band": 3,
    "parPaths": 3,
@@ -7548,15 +7550,15 @@
   },
   "000000220000334200000042000044410000001100000000": {
    "name": "Rockface",
-   "par": 365,
-   "floor": 86,
+   "par": 1635,
+   "floor": 226,
    "difficulty": 7.75,
    "band": 3,
    "parPaths": 1,
    "moves": 4,
    "firstMoves": 19,
    "firstSilent": 3,
-   "greedy": 342,
+   "greedy": 1396,
    "positions": 725,
    "route": [
     [
@@ -7627,15 +7629,15 @@
   },
   "000000030000001300000211000023130000033300000033": {
    "name": "Overburden",
-   "par": 782,
-   "floor": 75,
+   "par": 5122,
+   "floor": 177,
    "difficulty": 7.95,
    "band": 3,
    "parPaths": 1,
    "moves": 4,
    "firstMoves": 33,
    "firstSilent": 7,
-   "greedy": 503,
+   "greedy": 2977,
    "positions": 1202,
    "route": [
     [
@@ -7710,15 +7712,15 @@
   },
   "000004440000114200000122000033220000033300000000": {
    "name": "Strata",
-   "par": 736,
-   "floor": 113,
+   "par": 3336,
+   "floor": 307,
    "difficulty": 8.18,
    "band": 3,
    "parPaths": 1,
    "moves": 4,
    "firstMoves": 28,
    "firstSilent": 2,
-   "greedy": 675,
+   "greedy": 2967,
    "positions": 5252,
    "route": [
     [
@@ -7801,15 +7803,15 @@
   },
   "000333220000002200000022000000110000001100044441": {
    "name": "Bedding",
-   "par": 1070,
-   "floor": 102,
+   "par": 5718,
+   "floor": 258,
    "difficulty": 8.4,
    "band": 3,
    "parPaths": 1,
    "moves": 4,
    "firstMoves": 36,
    "firstSilent": 5,
-   "greedy": 766,
+   "greedy": 3638,
    "positions": 6503,
    "route": [
     [
@@ -7896,15 +7898,15 @@
   },
   "000333330000011300000221000022410000044400000444": {
    "name": "Fault",
-   "par": 2060,
-   "floor": 99,
+   "par": 13220,
+   "floor": 225,
    "difficulty": 8.6,
    "band": 4,
    "parPaths": 1,
    "moves": 4,
    "firstMoves": 38,
    "firstSilent": 3,
-   "greedy": 1223,
+   "greedy": 6785,
    "positions": 21536,
    "route": [
     [
@@ -8003,15 +8005,15 @@
   },
   "000000040000003400000234000012340001113400111222": {
    "name": "Fissure",
-   "par": 1402,
-   "floor": 129,
+   "par": 8854,
+   "floor": 339,
    "difficulty": 9.43,
    "band": 4,
    "parPaths": 1,
    "moves": 5,
    "firstMoves": 38,
    "firstSilent": 8,
-   "greedy": 691,
+   "greedy": 2999,
    "positions": 22751,
    "route": [
     [
@@ -8112,8 +8114,8 @@
   },
   "000000010000003100000131000002110000002300000033": {
    "name": "Cleft",
-   "par": 286,
-   "floor": 67,
+   "par": 1490,
+   "floor": 161,
    "difficulty": 9.58,
    "band": 4,
    "parPaths": 1,
@@ -8187,15 +8189,15 @@
   },
   "011111220000012200000232000002230000011300000111": {
    "name": "Gully",
-   "par": 1240,
-   "floor": 118,
+   "par": 7202,
+   "floor": 290,
    "difficulty": 9.69,
    "band": 4,
    "parPaths": 1,
    "moves": 5,
    "firstMoves": 34,
    "firstSilent": 9,
-   "greedy": 976,
+   "greedy": 4826,
    "positions": 34766,
    "route": [
     [
@@ -8300,8 +8302,8 @@
   },
   "000001110000111100000055000033250000002500002222": {
    "name": "Culvert",
-   "par": 1557,
-   "floor": 91,
+   "par": 10115,
+   "floor": 209,
    "difficulty": 9.81,
    "band": 4,
    "parPaths": 1,
@@ -8399,8 +8401,8 @@
   },
   "000011130000003300000031000000110000001200002212": {
    "name": "Trough",
-   "par": 614,
-   "floor": 94,
+   "par": 2598,
+   "floor": 242,
    "difficulty": 10.01,
    "band": 4,
    "parPaths": 1,
@@ -8486,17 +8488,39 @@
   },
   "000000010000001100000311000033210000032200000022": {
    "name": "Weir",
-   "par": 599,
-   "floor": 75,
-   "difficulty": 10.11,
+   "par": 3281,
+   "floor": 177,
+   "difficulty": 8.61,
    "band": 4,
-   "parPaths": 1,
+   "parPaths": 4,
    "moves": 4,
    "firstMoves": 38,
    "firstSilent": 10,
    "greedy": "strands",
    "positions": 4139,
    "route": [
+    [
+     [
+      3,
+      5
+     ],
+     [
+      4,
+      5
+     ],
+     [
+      5,
+      5
+     ],
+     [
+      5,
+      6
+     ],
+     [
+      4,
+      6
+     ]
+    ],
     [
      [
       0,
@@ -8507,61 +8531,39 @@
       6
      ],
      [
-      2,
-      6
-     ],
-     [
-      3,
-      6
-     ]
-    ],
-    [
-     [
-      4,
-      4
-     ],
-     [
-      3,
-      4
-     ],
-     [
-      3,
-      5
-     ],
-     [
-      2,
-      5
-     ]
-    ],
-    [
-     [
-      4,
-      5
-     ],
-     [
-      5,
-      5
-     ],
-     [
-      5,
-      6
-     ],
-     [
-      4,
-      6
-     ],
-     [
-      3,
-      6
-     ]
-    ],
-    [
-     [
       1,
-      6
+      5
      ],
      [
       2,
+      5
+     ],
+     [
+      2,
+      6
+     ],
+     [
+      3,
+      6
+     ]
+    ],
+    [
+     [
+      3,
+      6
+     ],
+     [
+      4,
+      6
+     ]
+    ],
+    [
+     [
+      2,
+      6
+     ],
+     [
+      3,
       6
      ]
     ]
@@ -8569,15 +8571,15 @@
   },
   "001111140011111400001113000022230032244400322444": {
    "name": "Sluice",
-   "par": 9922,
-   "floor": 158,
+   "par": 121190,
+   "floor": 370,
    "difficulty": 10.42,
    "band": 4,
    "parPaths": 1,
    "moves": 5,
    "firstMoves": 167,
    "firstSilent": 13,
-   "greedy": 3827,
+   "greedy": 38355,
    "positions": 1403249,
    "route": [
     [
@@ -8722,8 +8724,8 @@
   },
   "000000030000223300002133000021430000224400000004": {
    "name": "Millrace",
-   "par": 1176,
-   "floor": 72,
+   "par": 6800,
+   "floor": 144,
    "difficulty": 10.56,
    "band": 4,
    "parPaths": 1,
@@ -8817,8 +8819,8 @@
   },
   "044443330000033300000123000001220000012200000111": {
    "name": "Spillway",
-   "par": 2243,
-   "floor": 118,
+   "par": 14327,
+   "floor": 290,
    "difficulty": 10.68,
    "band": 4,
    "parPaths": 1,
@@ -8928,8 +8930,8 @@
   },
   "000000220000002201112223011122330000003300000011": {
    "name": "Shaft",
-   "par": 2685,
-   "floor": 118,
+   "par": 22293,
+   "floor": 290,
    "difficulty": 10.9,
    "band": 4,
    "parPaths": 1,
@@ -9039,8 +9041,8 @@
   },
   "000000330000023300111223001112530000055500000044": {
    "name": "Sinking",
-   "par": 1440,
-   "floor": 88,
+   "par": 7840,
+   "floor": 176,
    "difficulty": 11.16,
    "band": 5,
    "parPaths": 1,
@@ -9152,8 +9154,8 @@
   },
   "001111230000022300000221000001310000013100333331": {
    "name": "Sinkhole",
-   "par": 2247,
-   "floor": 126,
+   "par": 13973,
+   "floor": 306,
    "difficulty": 11.39,
    "band": 5,
    "parPaths": 1,
@@ -9273,8 +9275,8 @@
   },
   "000222330000024300011243000001440001114400000444": {
    "name": "Swallow hole",
-   "par": 3817,
-   "floor": 126,
+   "par": 31269,
+   "floor": 306,
    "difficulty": 11.61,
    "band": 5,
    "parPaths": 1,
@@ -9392,8 +9394,8 @@
   },
   "000222220000022100033111000431110000041100044414": {
    "name": "Cavern",
-   "par": 3018,
-   "floor": 134,
+   "par": 26370,
+   "floor": 322,
    "difficulty": 11.91,
    "band": 5,
    "parPaths": 1,
@@ -9519,8 +9521,8 @@
   },
   "000022120444331200011322000133220331433300004111": {
    "name": "Grotto",
-   "par": 4094,
-   "floor": 158,
+   "par": 31642,
+   "floor": 370,
    "difficulty": 13.78,
    "band": 5,
    "parPaths": 1,
@@ -9676,8 +9678,8 @@
   },
   "003332220033442100000011000000110014433100443333": {
    "name": "Flowstone",
-   "par": 2702,
-   "floor": 142,
+   "par": 16374,
+   "floor": 338,
    "difficulty": 12.64,
    "band": 5,
    "parPaths": 1,
@@ -9815,8 +9817,8 @@
   },
   "003331440003314300003114000001110002111200222222": {
    "name": "Column",
-   "par": 4623,
-   "floor": 131,
+   "par": 42755,
+   "floor": 289,
    "difficulty": 13.3,
    "band": 5,
    "parPaths": 1,
@@ -9960,8 +9962,8 @@
   },
   "001133220013132400111324000011440000014500000055": {
    "name": "Curtain",
-   "par": 3457,
-   "floor": 153,
+   "par": 31927,
+   "floor": 387,
    "difficulty": 12.8,
    "band": 5,
    "parPaths": 1,
@@ -10095,8 +10097,8 @@
   },
   "002221330001133300001333000003110002441100222411": {
    "name": "Boulder choke",
-   "par": 3893,
-   "floor": 161,
+   "par": 35479,
+   "floor": 403,
    "difficulty": 12.97,
    "band": 5,
    "parPaths": 1,
@@ -10238,11 +10240,11 @@
   },
   "002222220022442200004111000044310031143100311441": {
    "name": "Rockfall",
-   "par": 7416,
-   "floor": 128,
-   "difficulty": 12.94,
+   "par": 70864,
+   "floor": 256,
+   "difficulty": 11.44,
    "band": 5,
-   "parPaths": 1,
+   "parPaths": 6,
    "moves": 6,
    "firstMoves": 93,
    "firstSilent": 12,
@@ -10287,68 +10289,6 @@
     ],
     [
      [
-      4,
-      3
-     ],
-     [
-      4,
-      4
-     ],
-     [
-      5,
-      4
-     ],
-     [
-      5,
-      5
-     ],
-     [
-      5,
-      6
-     ],
-     [
-      4,
-      6
-     ]
-    ],
-    [
-     [
-      3,
-      5
-     ],
-     [
-      4,
-      5
-     ],
-     [
-      4,
-      6
-     ],
-     [
-      5,
-      6
-     ]
-    ],
-    [
-     [
-      2,
-      4
-     ],
-     [
-      2,
-      5
-     ],
-     [
-      2,
-      6
-     ],
-     [
-      3,
-      6
-     ]
-    ],
-    [
-     [
       0,
       1
      ],
@@ -10388,13 +10328,75 @@
       0,
       4
      ]
+    ],
+    [
+     [
+      4,
+      3
+     ],
+     [
+      4,
+      4
+     ],
+     [
+      5,
+      4
+     ],
+     [
+      5,
+      5
+     ],
+     [
+      5,
+      6
+     ],
+     [
+      4,
+      6
+     ],
+     [
+      3,
+      6
+     ],
+     [
+      2,
+      6
+     ],
+     [
+      2,
+      5
+     ],
+     [
+      2,
+      4
+     ]
+    ],
+    [
+     [
+      4,
+      6
+     ],
+     [
+      5,
+      6
+     ]
+    ],
+    [
+     [
+      3,
+      6
+     ],
+     [
+      4,
+      6
+     ]
     ]
    ]
   },
   "033331220000014201111144000001140333222400000222": {
    "name": "Deadfall",
-   "par": 2970,
-   "floor": 180,
+   "par": 23642,
+   "floor": 468,
    "difficulty": 12.87,
    "band": 5,
    "parPaths": 1,
@@ -10540,8 +10542,8 @@
   },
   "000001150001113500114233001442330004422300000222": {
    "name": "Firedamp",
-   "par": 3439,
-   "floor": 142,
+   "par": 25189,
+   "floor": 338,
    "difficulty": 13.22,
    "band": 5,
    "parPaths": 1,
@@ -10679,8 +10681,8 @@
   },
   "004444430000034100000211000002210000021100333111": {
    "name": "Blackdamp",
-   "par": 1094,
-   "floor": 126,
+   "par": 5766,
+   "floor": 306,
    "difficulty": 12.77,
    "band": 5,
    "parPaths": 1,
@@ -10804,11 +10806,11 @@
   },
   "000122550002251100012531000144340001144400021222": {
    "name": "The winze",
-   "par": 1986,
-   "floor": 150,
-   "difficulty": 13.62,
+   "par": 15171,
+   "floor": 354,
+   "difficulty": 12.12,
    "band": 5,
-   "parPaths": 1,
+   "parPaths": 10,
    "moves": 8,
    "firstMoves": 42,
    "firstSilent": 10,
@@ -10818,47 +10820,11 @@
     [
      [
       1,
-      6
-     ],
-     [
-      2,
-      6
-     ]
-    ],
-    [
-     [
-      3,
-      2
-     ],
-     [
-      4,
-      2
-     ],
-     [
-      4,
-      3
-     ],
-     [
-      5,
-      3
-     ]
-    ],
-    [
-     [
-      5,
-      3
-     ],
-     [
-      5,
       4
      ],
      [
-      5,
-      5
-     ],
-     [
-      5,
-      6
+      2,
+      4
      ]
     ],
     [
@@ -10885,27 +10851,35 @@
     ],
     [
      [
-      0,
-      6
+      5,
+      4
      ],
      [
-      0,
-      5
-     ],
-     [
-      1,
-      5
-     ],
-     [
-      2,
+      5,
       5
      ]
     ],
     [
      [
-      3,
-      3
+      0,
+      5
      ],
+     [
+      0,
+      6
+     ]
+    ],
+    [
+     [
+      2,
+      5
+     ],
+     [
+      3,
+      5
+     ]
+    ],
+    [
      [
       3,
       4
@@ -10925,16 +10899,10 @@
      [
       3,
       6
-     ]
-    ],
-    [
-     [
-      2,
-      6
      ],
      [
       3,
-      6
+      5
      ]
     ],
     [
@@ -10947,7 +10915,41 @@
       6
      ],
      [
+      1,
+      5
+     ],
+     [
       2,
+      5
+     ],
+     [
+      2,
+      6
+     ],
+     [
+      3,
+      6
+     ],
+     [
+      4,
+      6
+     ],
+     [
+      4,
+      5
+     ],
+     [
+      5,
+      5
+     ]
+    ],
+    [
+     [
+      5,
+      5
+     ],
+     [
+      5,
       6
      ]
     ]
@@ -10955,8 +10957,8 @@
   },
   "000033220000312100001221000022330000123100001133": {
    "name": "The deep",
-   "par": 1118,
-   "floor": 126,
+   "par": 5128,
+   "floor": 306,
    "difficulty": 12.63,
    "band": 5,
    "parPaths": 1,
@@ -11078,8 +11080,8 @@
   },
   "000033330222221300031113000332130112211300002213": {
    "name": "Bottomless",
-   "par": 6062,
-   "floor": 158,
+   "par": 54886,
+   "floor": 370,
    "difficulty": 13.84,
    "band": 5,
    "parPaths": 1,

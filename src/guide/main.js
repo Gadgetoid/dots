@@ -161,7 +161,7 @@ function longestChain(layout, cols, rows) {
 }
 
 // ---- what a chain is worth ------------------------------------------------
-function cubes() {
+function powers() {
   const rows = []
   for (let length = PUZZLE.minChain; length <= 8; length++) {
     const scored = CONFIG.chainScore(length)
@@ -174,7 +174,7 @@ function cubes() {
     ])
   }
   fill(
-    "cube-table",
+    "powers-table",
     table(
       [
         "chain",
@@ -191,7 +191,7 @@ function cubes() {
   const halves = CONFIG.chainScore(3) * 2
   const pairs = CONFIG.chainScore(2) * 3
   fill(
-    "cube-arithmetic",
+    "powers-arithmetic",
     html(
       "p",
       null,
@@ -201,7 +201,7 @@ function cubes() {
   )
   const row = figure(["111111"])
   fill(
-    "cube-board",
+    "powers-board",
     stillBoard(
       row,
       PUZZLE_COLS,
@@ -844,7 +844,7 @@ async function main() {
   document.documentElement.style.setProperty("--accent", THEME.accent)
 
   paletteKey()
-  cubes()
+  powers()
   multiplier()
   sounds()
   hint()

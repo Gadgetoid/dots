@@ -135,12 +135,16 @@ export const CONFIG = {
   MAX_PARTICLES: 1400,
 
   // ---- scoring ----------------------------------------------------------
-  // A chain is worth the cube of its length, as the 32blit game scored it, so a
-  // long chain is worth far more than the same dots taken a pair at a time.
-  // Clearing four or more banks a multiplier for the next chain.
+  // A chain is worth the fourth power of its length, so a long chain is worth far
+  // more than the same dots taken a pair at a time: a six is twenty-seven pairs
+  // rather than the nine the 32blit game's cube made it. Clearing four or more banks
+  // a multiplier for the next chain.
+  //
+  // Every level's par and floor come off this, so changing it invalidates all of them
+  // and the cache they are proved in; see tools/verify-levels.mjs.
   MULTIPLIER_CHAIN: 4,
   MULTIPLIER_MAX: 9,
-  chainScore: (length) => length * length * length,
+  chainScore: (length) => length * length * length * length,
 
   // ---- pacing -----------------------------------------------------------
   // How long the board sits there once it has no move left, before the game says

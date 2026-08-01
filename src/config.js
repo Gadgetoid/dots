@@ -183,6 +183,25 @@ export const CONFIG = {
   SHAPE_STRENGTH: 0.16,
 }
 
+// How a round of a fixed number of turns is marked, out of five stars.
+//
+// The measure is what the average turn paid, which is the length of chain a player managed to
+// keep up: a chain is worth the fourth power of its length, so 81 a turn is a run of threes
+// and 1296 a turn is a run of sixes. The multiplier counts toward it, so holding one up is
+// worth as much as making the chains longer, which is the game.
+//
+// Pairs pay 16 a turn and earn nothing. Five stars asks for sevens, or for fives with the
+// multiplier held near its ceiling, and is meant to be rare.
+export const RANK_LENGTHS = [3, 4, 5, 6, 7]
+
+export function rankStars(score, turns) {
+  if (turns <= 0) {
+    return 0
+  }
+  const perTurn = score / turns
+  return RANK_LENGTHS.filter((length) => perTurn >= CONFIG.chainScore(length)).length
+}
+
 // Where a board of this shape sits, in view units. Everything the view draws for
 // the board comes off this, so a mode changing its grid needs no layout code.
 export function boardLayout(cols, rows) {

@@ -389,6 +389,26 @@ test("a cleared level draws its page, star earned and star missed", () => {
   }
 })
 
+test("a round of turns is marked out of five, and the stars arrive one by one", () => {
+  const game = new Game()
+  game.start("seeded")
+  settle(game)
+  game.turns = 30
+  game.player.score = 30 * 1296 // a run of sixes, which is four of the five
+  assert.equal(game.rank, 4)
+  // A star is two triangles, and a filled one is the pair that carries the glow.
+  const filled = (calls) =>
+    calls.filter((call) => call.kind === "disc" && call.opts.shape && call.opts.glow > 0).length / 2
+  game.page = "over"
+  const landed = [0, 0.4, 1.2, 3].map((age) => {
+    game.finishedAt = game.time - age
+    const calls = drawn(game)
+    assertOnScreen(calls, `over, stars at ${age}s`)
+    return filled(calls)
+  })
+  assert.deepEqual(landed, [0, 1, 4, 4], "they arrive one at a time and stop at the rank")
+})
+
 test("the turn gauge draws at every point of a round, and holds its label", () => {
   const game = new Game()
   game.start("seeded")

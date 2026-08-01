@@ -72,7 +72,7 @@ The last three all come from the original browser game, which had `puzzle`, `eli
 
 **Seeded** is classic rules dealt from a number, inspired by the 32blit version: the board and every colour dealt after it come from one seed. Two players with the same code play the same dots and the only thing between them is their skill and their score. A code is six dots, written as six digits 1 to 5 for a total of 15,625 possible boards, entered by pressing the dots round the colours or by typing the digits, and shared as a link. Every day there's a new seed everyone shares by default, and your best score is remembered per code.
 
-A round is thirty turns rather than a clock, so it's the same length for everyone however fast they press.
+A round is thirty turns rather than a clock, so it's the same length for everyone however fast they press, and it ends on a score card marked out of five stars. The stars are what the average turn paid: three dots a turn earns one and seven earns all five, and holding the multiplier up counts as much as making the chains longer.
 
 ## Sound
 

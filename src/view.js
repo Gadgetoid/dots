@@ -59,6 +59,17 @@ const HINT_SIZE_MIN = 14
 // drawn at a size no other mark in the game is given. And how long it takes to arrive.
 const CLEARED_STAR = 76
 const CLEARED_STAR_FLIGHT = 0.42
+
+// The mark out of five on a score card: how big each star is, how far apart they sit, and how
+// they arrive - a wait, then one after another, so five of them is five events rather than one
+// picture. See rankStars for what earns them.
+const RANK_STAR = 19
+const RANK_GAP = RANK_STAR * 2.6
+const RANK_WAIT = 0.3
+const RANK_APART = 0.16
+const RANK_FLIGHT = 0.3
+const RANK_MAX = 5
+
 // How far a banner keeps off the edges of the field it is written across.
 const BANNER_MARGIN = 22
 // The gutter a settings row's name sits in, to the left of its values.
@@ -714,6 +725,8 @@ export class GameView {
     for (const line of heading) {
       if (line.star) {
         this.#drawClearedStar(game, theme, VIEW_W / 2, textY + line.size / 2, line.size / 2)
+      } else if (line.rank !== undefined) {
+        this.#drawRank(game, theme, VIEW_W / 2, textY + line.size / 2, line.rank, line.age)
       } else {
         renderer.text(line.text, VIEW_W / 2, textY + line.size / 2, {
           color: line.colour,
@@ -1221,6 +1234,32 @@ export class GameView {
     })
   }
 
+  // The mark out of five on a score card. Five places, always: what was missed is as much of
+  // the mark as what was earned, so the empty ones are drawn hollow rather than left out.
+  //
+  // Earned ones land one after another off `age`, which is how long the page has been up. A
+  // reduced-motion session gets all of them at rest.
+  #drawRank(game, theme, x, y, stars, age = 0) {
+    const first = x - (RANK_GAP * (RANK_MAX - 1)) / 2
+    for (let at = 0; at < RANK_MAX; at++) {
+      const cx = first + at * RANK_GAP
+      const flight = game.reducedMotion
+        ? 1
+        : clamp((age - (RANK_WAIT + at * RANK_APART)) / RANK_FLIGHT, 0, 1)
+      if (at >= stars || flight <= 0) {
+        this.#drawStar(cx, y, RANK_STAR, theme.text.faint, false, theme.panel)
+        continue
+      }
+      // Half size to full, past it and back, with a flare as it lands.
+      const landed = easeOutCubic(flight)
+      const scale = 0.5 + 0.5 * landed * (1 + Math.sin(flight * Math.PI) * 0.3)
+      const flare = clamp(1 - Math.abs(flight - 1) * 4, 0, 1)
+      this.#drawStar(cx, y, RANK_STAR * scale, theme.accent, true, theme.panel, {
+        glow: 0.45 + flare * 0.9,
+      })
+    }
+  }
+
   // A padlock: a ring for the shackle with the body over it, which is as much of one as
   // reads at this size.
   #drawLock(theme, box) {
@@ -1292,6 +1331,11 @@ export class GameView {
             bold: true,
             glow: record ? 1 : 0,
           },
+          // The mark out of five, under the number it is worked out from. Only a mode of a
+          // fixed number of turns has one: see rankStars.
+          ...(game.mode.turnLimit > 0
+            ? [{ rank: game.rank, age: game.sinceFinish, size: RANK_STAR * 2 }]
+            : []),
           {
             text: record ? "Best yet" : `Best ${best}`,
             colour: theme.text.dim,

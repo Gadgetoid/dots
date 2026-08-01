@@ -32,6 +32,7 @@ import {
   PAGE_TITLES,
   OUTCOMES,
   turnsText,
+  rankStars,
 } from "./config.js"
 import { THEMES, THEME_IDS, DOT_SHAPES } from "./palette.js"
 import { FONTS, fontById, fontReady, ensureFont } from "./fonts.js"
@@ -163,6 +164,9 @@ export class Game {
     this.settleFor = 0
     this.outcome = null
     this.overFor = 0
+    // When the game ended, so the score card knows how long it has been up and can bring
+    // its stars in one at a time.
+    this.finishedAt = 0
     // Where a mode with authored levels has got to, and what the score was when the
     // current one was dealt, so retrying a level costs what was made on it and not
     // what was banked before it.
@@ -748,6 +752,18 @@ export class Game {
     return turnsText(this.currentLevel ? this.levelTurns : this.turns)
   }
 
+  // What this round was worth as a mark out of five. Only a mode of a fixed number of turns
+  // has one: elsewhere a round is however long the board lasted, and marking that would be
+  // marking two different games against one scale. See rankStars.
+  get rank() {
+    return this.mode.turnLimit > 0 ? rankStars(this.player.score, this.turns) : 0
+  }
+
+  // How long the game-over page has been up, which is what its stars arrive on.
+  get sinceFinish() {
+    return this.time - this.finishedAt
+  }
+
   // A board for the title screen to sit over, so the game shows itself instead of offering a
   // menu on an empty field. It is dealt and left alone: nothing is
   // playing it, and starting a mode deals a fresh one.
@@ -955,6 +971,7 @@ export class Game {
     this.phase = PHASE.OVER
     this.page = "over"
     this.cleared = null
+    this.finishedAt = this.time
     this.#resetMenuCursor()
     for (const player of this.players) {
       this.#dropChain(player, true)

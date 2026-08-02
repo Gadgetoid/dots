@@ -1394,13 +1394,29 @@ export class GameView {
         if (cleared.contested) {
           lines.push({ star: true, size: CLEARED_STAR })
         }
+        // Short of a star it had, which is worth saying rather than leaving to be worked out.
+        // Par is the most any clearing order pays, so the mark is exact equality and a single
+        // wasted pair misses it: 8496 of 8512 reads as a success and is not one. The number is
+        // drawn in the warning colour and the gap is written out, since the two five-digit
+        // figures beside each other cannot be told apart at a glance and a difference of
+        // sixteen looks exactly like a difference of four thousand.
+        const missed = cleared.contested && !cleared.starred && cleared.par > 0
         lines.push({
           text: cleared.par > 0 ? `${cleared.scored} of ${cleared.par}` : `${cleared.scored}`,
-          colour: cleared.starred ? theme.accent : theme.text.normal,
+          colour: cleared.starred ? theme.accent : missed ? theme.warn : theme.text.normal,
           size: 40,
           bold: true,
           glow: cleared.starred ? 1 : 0,
         })
+        if (missed) {
+          // In words as well as in colour: the shapes setting exists because this game does not
+          // ask colour to carry a meaning on its own, and a star missed is a meaning.
+          lines.push({
+            text: `${cleared.par - cleared.scored} short of par`,
+            colour: theme.warn,
+            size: 19,
+          })
+        }
         lines.push({ text: turnsText(cleared.turns), colour: theme.text.faint, size: 19 })
         return lines
       }

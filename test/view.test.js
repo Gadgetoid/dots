@@ -377,6 +377,15 @@ test("a cleared level draws its page, star earned and star missed", () => {
     game.advance(FRAME)
   }
   assert.ok(game.cleared, "there was something to say")
+  // A star missed says how far short it fell, since two five-figure numbers side by side do
+  // not tell a player whether they were sixteen out or four thousand.
+  game.cleared.starred = false
+  game.cleared.contested = true
+  game.cleared.par = game.cleared.scored + 16
+  const shown = drawn(game)
+    .filter((call) => call.kind === "text")
+    .map((call) => call.opts.str)
+  assert.ok(shown.includes("16 short of par"), "the gap is written out")
   // Both marks and the flight between them: the star arrives over about half a second, and
   // a missed one is a different page - a hollow star and a retry beside the way on.
   for (const starred of [true, false]) {

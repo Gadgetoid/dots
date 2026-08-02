@@ -16,6 +16,7 @@
 //   node tools/find-levels.mjs --out found --shape mesa --from 40000
 //   node tools/find-levels.mjs --out found --mindots 10 --maxdots 16 --min 7 --max 9
 //   node tools/find-levels.mjs --out gentle --gentle
+//   node tools/find-levels.mjs --out three --chain 3 --min 11
 //
 // | flag        | what it does                                                         |
 // | ----------- | -------------------------------------------------------------------- |
@@ -279,6 +280,12 @@ const OPTIONS = {
   minDots: Number(arg("mindots", GENTLE ? 10 : 18)),
   steps: Number(arg("steps", 20)),
   apart: Number(arg("apart", 4)),
+  // What a chain has to be to count, which the puzzle mode answers unless a run says otherwise.
+  // A board is a different puzzle at a different chain length, not the same one judged harder:
+  // the moves are a different set, so the traps, the best order and what it pays are all
+  // different. Boards playable at three are a subset of those playable at two, and they measure
+  // lower for it - there is simply less to consider - so a run at three wants its own --min.
+  chain: Number(arg("chain", PUZZLE.minChain)),
 }
 
 // The biggest run of one colour a climb may make. Every connected subset of a region is a distinct
@@ -539,7 +546,7 @@ function wanted(found, min, gentle) {
 }
 
 // ---- one worker's share ----------------------------------------------------
-function hunt({ min, max, gentle, seconds, maxDots, steps, out, duty, until }) {
+function hunt({ min, max, gentle, seconds, maxDots, steps, out, duty, until, chain }) {
   // Whether to stop, checked between boards: a climb is up to `steps` boards and a board can take
   // `seconds`, so a check per climb could be minutes away from noticing. The file is only looked at
   // once a second, since asking the filesystem between boards that take a tenth of one is silly.
@@ -576,15 +583,15 @@ function hunt({ min, max, gentle, seconds, maxDots, steps, out, duty, until }) {
     if (SHIPPED.has(boardId(parse(layout, PUZZLE_COLS, PUZZLE_ROWS)))) {
       return null
     }
-    if (!solve(layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain, 40000).solved) {
+    if (!solve(layout, PUZZLE_COLS, PUZZLE_ROWS, chain, 40000).solved) {
       return null
     }
-    const greedy = greedily(layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain, SCORING)
+    const greedy = greedily(layout, PUZZLE_COLS, PUZZLE_ROWS, chain, SCORING)
     if (greedy.clears && greedy.moves <= 3) {
       return null
     }
     judged++
-    const found = analyse(layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain, SCORING, {
+    const found = analyse(layout, PUZZLE_COLS, PUZZLE_ROWS, chain, SCORING, {
       seconds,
       budget: 40000000,
     })
@@ -771,7 +778,7 @@ function main() {
   }
   console.log(
     `${shapeNames.length} of ${Object.keys(SHAPES).length} silhouettes, ` +
-      `${OPTIONS.minDots} to ${OPTIONS.maxDots} dots, measuring ${band}` +
+      `${OPTIONS.minDots} to ${OPTIONS.maxDots} dots, chains of ${OPTIONS.chain}, measuring ${band}` +
       `${OPTIONS.gentle ? ", and forgiving: several orders may pay par, three chains will do" : ""}`,
   )
   const out = path.resolve(OPTIONS.out)
@@ -925,6 +932,7 @@ function main() {
         seconds: OPTIONS.seconds,
         maxDots: OPTIONS.maxDots,
         steps: OPTIONS.steps,
+        chain: OPTIONS.chain,
         out,
         duty: OPTIONS.duty,
         until: OPTIONS.minutes > 0 ? Date.now() + OPTIONS.minutes * 60000 : 0,

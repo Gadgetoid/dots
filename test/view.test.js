@@ -663,7 +663,8 @@ test("the level picker scrolls past its cursor, as far as the last level", () =>
   const game = new Game()
   game.start("puzzle")
   game.page = "levels"
-  game.menuIndex = 0
+  // The grid's own row, since the ladder strip sits above it.
+  game.menuIndex = game.menuRows().findIndex((row) => row.id === "levels")
   game.menuOption = 0
 
   const view = new GameView(new Recorder())

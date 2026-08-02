@@ -640,16 +640,6 @@ export class Game {
     return this.levelSetFor()
   }
 
-  // The set the picker's button offers, or null in a mode with only one. Two sets, so it is the
-  // other one; more would make this the next one round.
-  get otherLevelSet() {
-    const sets = this.levelSetsFor()
-    if (!sets || sets.length < 2) {
-      return null
-    }
-    return sets[(clamp(this.settings.levelSet, 0, sets.length - 1) + 1) % sets.length]
-  }
-
   // How many dots a chain needs here: the set's own where it says, and the mode's otherwise.
   // A set is free to play at a different length from the rest of its mode, which makes it a
   // different puzzle on the same shapes rather than the same one - see Board.strandedDot and
@@ -657,6 +647,11 @@ export class Game {
   // `mode.minChain` cannot know which set is up.
   get minChain() {
     return this.levelSet?.minChain ?? this.mode.minChain
+  }
+
+  // What a ladder is, in one line, for the strip's hint.
+  #ladderLine(set) {
+    return `${set.levels.length} puzzles`
   }
 
   // The levels in play: the current set's, or the mode's own where it has no sets. Everything that
@@ -1807,8 +1802,27 @@ export class Game {
           { id: "hint", kind: "hint" },
           this.#buttons([{ action: "back", label: "Back" }, null]),
         ]
-      case "levels":
+      case "levels": {
+        const sets = this.levelSetsFor()
         return [
+          // Which ladder, where there is more than one. A strip of values rather than a button
+          // that cycles to the next: three of them cannot be reached by one button without
+          // pressing it twice, and a player cannot see what is there to swap to at all.
+          ...(sets && sets.length > 1
+            ? [
+                {
+                  id: "ladder",
+                  kind: "options",
+                  label: "Ladder",
+                  selected: clamp(this.settings.levelSet, 0, sets.length - 1),
+                  options: sets.map((set) => ({
+                    id: set.id,
+                    label: set.name,
+                    hint: this.#ladderLine(set),
+                  })),
+                },
+              ]
+            : []),
           {
             id: "levels",
             kind: "buttons",
@@ -1838,19 +1852,9 @@ export class Game {
             }),
           },
           { id: "hint", kind: "hint" },
-          // The other set, where the picker had an empty slot. A player stuck on one ladder can
-          // go and play the other rather than being stuck on the game.
-          this.#buttons([
-            { action: "back", label: "Back" },
-            this.otherLevelSet
-              ? {
-                  action: "levelSet",
-                  label: this.otherLevelSet.name,
-                  hint: `Swap to the ${this.otherLevelSet.name} puzzles, ${this.otherLevelSet.levels.length} of them`,
-                }
-              : null,
-          ]),
+          this.#buttons([{ action: "back", label: "Back" }, null]),
         ]
+      }
       case "seed":
         return [
           {
@@ -2498,6 +2502,14 @@ export class Game {
   // to press: the seed picker's code sits at the top because that is where a code belongs,
   // and a player who takes the code offered wants Play.
   #firstRow(rows) {
+    // The picker opens on the boards. The ladder strip above them is a thing to change and not
+    // the thing the page is for, the same way the seed picker opens on Play and not on the code.
+    if (this.page === "levels") {
+      const grid = rows.findIndex((row) => row.id === "levels")
+      if (grid >= 0) {
+        return grid
+      }
+    }
     if (this.page === "seed") {
       const play = rows.findIndex((row) =>
         (row.options || []).some((cell) => cell && cell.action === "seedPlay"),
@@ -2563,22 +2575,6 @@ export class Game {
         Sound.menuConfirm()
         this.#openPage("levels")
         break
-      case "levelSet": {
-        const sets = this.levelSetsFor()
-        if (!sets || sets.length < 2) {
-          break
-        }
-        Sound.menuConfirm()
-        this.settings.levelSet =
-          (clamp(this.settings.levelSet, 0, sets.length - 1) + 1) % sets.length
-        this.#storeSettings()
-        // Open the new set where that set was left, not where the old one was, and say which set
-        // this is: the grid redraws to different boards and nothing else would tell a player why.
-        this.#openPage("levels")
-        this.menuOption = this.furthestLevel()
-        Speech.say(`${this.levelSet.name}, ${this.levels.length} puzzles`)
-        break
-      }
       case "seed":
         Sound.menuConfirm()
         this.#openPage("seed")
@@ -2697,6 +2693,16 @@ export class Game {
         // the standard face until then, so the wait is a menu that has not changed yet
         // rather than a menu with nothing in it.
         ensureFont(wanted.id)
+        break
+      }
+      case "ladder": {
+        const sets = this.levelSetsFor() || []
+        this.settings.levelSet = clamp(option, 0, Math.max(sets.length - 1, 0))
+        this.#storeSettings()
+        this.#playCursor()
+        // The grid under it is now a different ladder's, so the cursor goes to where that one was
+        // left rather than staying at a number that means something else.
+        this.menuOption = clamp(this.menuOption, 0, Math.max((this.levels || []).length - 1, 0))
         break
       }
       case "hints":

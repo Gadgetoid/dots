@@ -806,28 +806,51 @@ test("no board is in more than one set, and no name either", () => {
   }
 })
 
-test("the picker offers the other set, and swapping does not disturb it", () => {
+test("the picker shows every ladder and swaps to the one pressed", () => {
   const game = new Game()
   game.start("puzzle")
   game.page = "levels"
-  const foot = () => {
-    const rows = game.menuRows()
-    return rows[rows.length - 1].options
-  }
+  const strip = () => game.menuRows().find((row) => row.id === "ladder")
+
   assert.equal(game.levelSet.name, PUZZLE_SETS[0].name, "it opens on the first set")
-  assert.equal(foot()[1].label, PUZZLE_SETS[1].name, "and the picker's spare slot offers the other")
+  assert.deepEqual(
+    strip().options.map((option) => option.label),
+    PUZZLE_SETS.map((set) => set.name),
+    "every ladder is on the strip, not just the one it would cycle to",
+  )
+  assert.equal(strip().selected, 0, "with the one being played marked")
 
-  game.menuIndex = game.menuRows().length - 1
-  game.menuOption = 1
-  game.menuConfirm()
-  assert.equal(game.levelSet.name, PUZZLE_SETS[1].name, "pressing it swaps")
-  assert.equal(game.levels[0].name, PUZZLE_SETS[1].levels[0].name, "and the grid is the other set")
-  assert.equal(foot()[1].label, PUZZLE_SETS[0].name, "and the button now offers the way back")
+  // Any of them in one press, which is the whole reason it is a strip and not a button.
+  for (const at of PUZZLE_SETS.map((set, index) => index).reverse()) {
+    const row = game.menuRows().findIndex((one) => one.id === "ladder")
+    game.menuTap(row, at)
+    assert.equal(game.levelSet.name, PUZZLE_SETS[at].name, `pressing ${at} swaps to it`)
+    assert.equal(game.levels[0].name, PUZZLE_SETS[at].levels[0].name, "and the grid follows")
+    assert.equal(strip().selected, at, "and the strip marks it")
+  }
 
-  game.menuIndex = game.menuRows().length - 1
-  game.menuOption = 1
-  game.menuConfirm()
-  assert.equal(game.levelSet.name, PUZZLE_SETS[0].name, "and again swaps back")
+  // And each says what it is, since a name alone does not tell a player what they are swapping to.
+  for (const [at, set] of PUZZLE_SETS.entries()) {
+    assert.match(
+      strip().options[at].hint,
+      new RegExp(`${set.levels.length} puzzles`),
+      `${set.name} says how many it holds`,
+    )
+  }
+})
+
+test("the picker opens on the boards, not on the ladder strip above them", () => {
+  const game = new Game()
+  game.start("puzzle")
+  game.togglePause()
+  // Through the button, so the cursor is placed the way opening the page really places it.
+  assert.ok(press(game, "levels"))
+  assert.equal(game.page, "levels")
+  assert.equal(
+    game.menuRows()[game.menuIndex].id,
+    "levels",
+    "the cursor is on the boards, which are what the page is for",
+  )
 })
 
 test("the two sets remember how far they got apart from each other", () => {

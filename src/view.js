@@ -1439,11 +1439,9 @@ export class GameView {
           game.notice
             ? { text: game.notice, colour: theme.accent, size: 19 }
             : {
-                // Which set, where there is more than one, since the button at the foot names the
-                // one it would swap to and nothing else would say which of them is on screen.
-                text:
-                  `${game.levelSet ? `${game.levelSet.name}: ` : ""}` +
-                  `${cleared} of ${levels.length} cleared, ${stars} of ${possible} stars`,
+                // Which ladder is not said here: the strip under this says it, with the one being
+                // played marked, so naming it again would be saying it twice.
+                text: `${cleared} of ${levels.length} cleared, ${stars} of ${possible} stars`,
                 colour: theme.text.dim,
                 size: 19,
               },

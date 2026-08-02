@@ -17,6 +17,10 @@
 // for what that means and test/levels.test.js for what it is held to. It differs per set because it
 // is a property of how that set's ending was built, not of the mode.
 //
+// `draft` marks a set still being built. Its boards are held to being real - clearable, proved,
+// and honest about par - and not to being a finished ladder, since a ladder cannot climb until it
+// has levels to climb. See test/levels.test.js.
+//
 // `minChain` is a set's own, where it plays at something other than the mode's. A set at a longer
 // chain is not the same puzzle judged harder: the moves are a different set, so the traps, the best
 // order and what a board pays all differ, and a colour is stranded by having fewer dots than a chain
@@ -24,12 +28,22 @@
 
 import { LEVELS, PUZZLE_COLS, PUZZLE_ROWS } from "./levels.js"
 import { LEVELS_TWO } from "./levels-two.js"
+import { LEVELS_THREE } from "./levels-three.js"
 
 // The first set keeps the bare mode id as its progress key, because that is the key every player who
 // has ever cleared a level already has one under. A set added later carries its own.
 export const PUZZLE_SETS = [
   { id: "one", name: "Ramparts", levels: LEVELS, finale: 14, progress: "puzzle" },
   { id: "two", name: "Caverns", levels: LEVELS_TWO, finale: 12, progress: "puzzle:two" },
+  {
+    id: "three",
+    name: "Thickets",
+    levels: LEVELS_THREE,
+    finale: 0,
+    progress: "puzzle:three",
+    minChain: 3,
+    draft: true,
+  },
 ]
 
 export const PUZZLE = {

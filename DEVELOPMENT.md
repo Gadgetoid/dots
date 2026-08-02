@@ -113,6 +113,8 @@ node tools/levels.mjs                    # the table for a shipped set
 node tools/find-levels.mjs --out found   # look for more, until stopped
 ```
 
+A set carries its own levels, its own progress key, how many of its levels are arranged rather than sorted, and optionally its own chain length. A set at three is a different puzzle on the same shapes rather than the same one made harder: the pairs are where most of a chain-of-two board's traps live, so boards at three are tighter and read more plainly, and a colour is stranded by having fewer than three dots left. `draft` marks a set still being built - its boards are held to being real, and not to being a finished ladder.
+
 [docs/puzzle-analysis.md](docs/puzzle-analysis.md) is the whole of it: the rules that bound the problem, how a board is scored, what is worth knowing about one and why each answer is exactly computable, what that costs, and what the search does about the cost.
 
 ## Sharing a round

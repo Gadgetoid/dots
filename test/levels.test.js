@@ -230,6 +230,13 @@ const SETS = PUZZLE_SETS.map((set) => {
   return { ...set, minChain, known: knownFor(set.levels, minChain) }
 })
 
+// The sets that claim to be a finished ladder. A draft is held to everything about a board being
+// real - clearable, proved, honest about its par, not a board another set already has - and to
+// nothing about the shape of the climb, because a set still being built has no climb yet. Dropping
+// the checks entirely would be the alternative, and then a finished ladder could be shipped with
+// them never having run on it.
+const LADDERS = SETS.filter((set) => !set.draft)
+
 test("every level has been proved, by the cache or here and now", () => {
   // A level nobody has verified is a level whose par is a guess. The tool writes them down; this is
   // what makes forgetting to run it a failure rather than a slow leak.
@@ -313,7 +320,7 @@ test("every level's floor is the least a clearing order scores", () => {
 // How many is a property of the set, since it is a property of how that set's ending was built.
 
 test("the ladder climbs as far as the finale, and the finale is above all of it", () => {
-  for (const { name: set, levels: LEVELS, known: KNOWN, finale: FINALE } of SETS) {
+  for (const { name: set, levels: LEVELS, known: KNOWN, finale: FINALE } of LADDERS) {
     const difficulty = KNOWN.map((known) => known.difficulty)
     const climb = difficulty.length - FINALE
     for (let index = 1; index < climb; index++) {
@@ -339,7 +346,7 @@ test("the ladder climbs as far as the finale, and the finale is above all of it"
 })
 
 test("the finale swings rather than climbing, and ends on the hardest board", () => {
-  for (const { levels: LEVELS, known: KNOWN, finale: FINALE } of SETS) {
+  for (const { levels: LEVELS, known: KNOWN, finale: FINALE } of LADDERS) {
     // Sorted, the last fourteen run 11.97 to 14.25 without a pause, which is a wall rather than an
     // ending. So the hardest are spread through them: what this insists on is that the run is not
     // monotone - there are dips - and that the last level is the hardest in the game, since an
@@ -391,7 +398,7 @@ test("the opening levels are warm ups and the rest are not", () => {
   // A warm up is a level where nothing can go wrong: no order strands the board, and every
   // order that clears pays the same. Two of those is a welcome; three would be a waste of the
   // player's time.
-  for (const { name: set, known: KNOWN } of SETS) {
+  for (const { name: set, known: KNOWN } of LADDERS) {
     const forced = KNOWN.map((known) => known.forced)
     assert.deepEqual(forced.slice(0, 2), [true, true], `${set} opens on two that ask nothing`)
     assert.equal(
@@ -405,7 +412,7 @@ test("the opening levels are warm ups and the rest are not", () => {
 test("the hard half has one best order, and the obvious play does not find it", () => {
   // What the later levels are for: a single order pays par, so there is something to find, and
   // taking the longest chain every time is not it.
-  for (const { name: set, levels: LEVELS, known: KNOWN } of SETS) {
+  for (const { name: set, levels: LEVELS, known: KNOWN } of LADDERS) {
     const half = KNOWN.slice(LEVELS.length / 2)
     assert.ok(
       half.filter((found) => found.parPaths === 1).length >= 6,
@@ -453,7 +460,7 @@ test("par is a target, not a formality: greed does not reach it", () => {
 })
 
 test("the levels get bigger as they go", () => {
-  for (const { name: set, levels } of SETS) {
+  for (const { name: set, levels } of LADDERS) {
     const counts = levels.map((level) => level.layout.join("").replace(/[.0]/g, "").length)
     assert.ok(counts[0] <= 8, `${set} opens on a handful of dots`)
     assert.ok(counts.at(-1) >= 20, `${set} ends on a full board`)
@@ -829,14 +836,33 @@ test("the picker shows every ladder and swaps to the one pressed", () => {
     assert.equal(strip().selected, at, "and the strip marks it")
   }
 
-  // And each says what it is, since a name alone does not tell a player what they are swapping to.
+  // And each says what it is, since a name alone does not tell a player what they are swapping
+  // to - how many boards, and the rules where they are the ladder's own.
   for (const [at, set] of PUZZLE_SETS.entries()) {
-    assert.match(
-      strip().options[at].hint,
-      new RegExp(`${set.levels.length} puzzles`),
-      `${set.name} says how many it holds`,
-    )
+    const hint = strip().options[at].hint
+    assert.match(hint, new RegExp(`${set.levels.length} puzzles`), `${set.name} says how many`)
+    if (set.minChain && set.minChain !== PUZZLE.minChain) {
+      assert.match(hint, /chains of 3/, `${set.name} says what a chain has to be`)
+    }
+    if (set.draft) {
+      assert.match(hint, /still being built/, `${set.name} admits it is not finished`)
+    }
   }
+})
+
+test("a ladder playing by its own rules says so while it is being played", () => {
+  const game = new Game()
+  game.settings.levelSet = PUZZLE_SETS.findIndex((set) => set.minChain === 3)
+  game.start("puzzle")
+  assert.equal(game.minChain, 3, "the board is dealt at the set's chain length")
+  assert.match(game.modeName, /chains of 3/, "and the pause page names it")
+  game.togglePause()
+  assert.match(game.pageSpeech(), /chains of 3/, "and says it out loud")
+
+  game.settings.levelSet = 0
+  game.start("puzzle")
+  assert.equal(game.minChain, PUZZLE.minChain)
+  assert.equal(game.modeName, PUZZLE.name, "a ladder at the mode's own length adds nothing")
 })
 
 test("the picker opens on the boards, not on the ladder strip above them", () => {

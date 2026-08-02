@@ -56,20 +56,20 @@ A finished seeded round adds `run`, which is every chain you played packed into 
 
 ## Modes
 
-| Mode        | Board | Chain | What is different                                       |
-| ----------- | ----- | ----- | ------------------------------------------------------- |
-| Classic     | 6x6   | 2     | The 32blit game. Refills until nothing matches          |
-| Rush        | 6x6   | 2     | Ninety seconds, as the original browser game gave       |
-| Long game   | 8x8   | 3     | A pair is not a move                                    |
-| Endless     | 7x7   | 2     | Deals against itself: matches are hidden, never absent  |
-| Elimination | 6x6   | 2     | A colour cleared off the board never comes back         |
-| Clear out   | 6x7   | 2     | No refill, and the board is random. Whittle it down     |
-| Puzzle      | 6x7   | 2     | Designed boards, in two sets, cleared one after another |
-| Seeded      | 6x6   | 2     | The same board and thirty turns for everyone            |
+| Mode        | Board | Chain | What is different                                      |
+| ----------- | ----- | ----- | ------------------------------------------------------ |
+| Classic     | 6x6   | 2     | The 32blit game. Refills until nothing matches         |
+| Rush        | 6x6   | 2     | Ninety seconds, as the original browser game gave      |
+| Long game   | 8x8   | 3     | A pair is not a move                                   |
+| Endless     | 7x7   | 2     | Deals against itself: matches are hidden, never absent |
+| Elimination | 6x6   | 2     | A colour cleared off the board never comes back        |
+| Clear out   | 6x7   | 2     | No refill, and the board is random. Whittle it down    |
+| Puzzle      | 6x7   | 2-3   | Designed boards, in ladders, cleared one after another |
+| Seeded      | 6x6   | 2     | The same board and thirty turns for everyone           |
 
 The last three all come from the original browser game, which had `puzzle`, `elimination` and a dangerously addictive Endless default. **Elimination** refills only with colours still in play, so the pool shrinks as the game goes on. Take the final colour off the board to win.
 
-**Puzzle** is the place to find a challenge: nothing refills, order counts and pitfalls abound because every pop collapses the columns under it. Every level has a par - the most any clearing order can score - and reaching it earns a star. Leave a colour with one dot on the board and the level is over there and then, because that dot can never be matched and the board can no longer be emptied. Clearing one stops on a page that says what it paid and what it cost, so a level cleared short of its par is one you can go straight back to. Two sets of 52 puzzles give you somewhere to go if you get stuck, picked from the strip at the top of the puzzle list.
+**Puzzle** is the place to find a challenge: nothing refills, order counts and pitfalls abound because every pop collapses the columns under it. Every level has a par - the most any clearing order can score - and reaching it earns a star. Leave a colour with fewer dots than a chain needs and the level is over there and then, because those dots can never be matched and the board can no longer be emptied. Clearing one stops on a page that says what it paid and what it cost, so a level cleared short of its par is one you can go straight back to. Two sets of 52 puzzles give you somewhere to go if you get stuck, picked from the strip at the top of the puzzle list. A third is being built, at chains of three, where a pair is not a move at all.
 
 **Clear out** is the same premise on a random board, and a random board usually cannot be emptied at all - at sizes small enough to search exhaustively, only about one dealt board in ten can be, and the rest strand a colour whatever order they are taken in. So it asks how far a board can be whittled down and reports what was left on it, and clearing one outright is an occasional thing worth a mention. If you want a board that is certainly clearable, that is what the designed levels are for.
 

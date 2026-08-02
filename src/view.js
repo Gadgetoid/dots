@@ -1474,7 +1474,7 @@ export class GameView {
         //
         // The score with it, which is the one figure a player might pause to look up. Same
         // words as pageSpeech, so it is also the one they can pause to be told.
-        const lines = [{ text: game.mode.name, colour: theme.text.bright, size: 30, bold: true }]
+        const lines = [{ text: game.modeName, colour: theme.text.bright, size: 30, bold: true }]
         lines.push({
           text: game.boardName || game.mode.blurb,
           colour: theme.text.dim,

@@ -649,9 +649,28 @@ export class Game {
     return this.levelSet?.minChain ?? this.mode.minChain
   }
 
-  // What a ladder is, in one line, for the strip's hint.
+  // What is being played, named. A set playing by rules the rest of its mode does not says so
+  // here: a mode has a blurb to carry that and a set has nowhere else, and a player dropped into
+  // one by a link needs telling why a pair will not pop.
+  get modeName() {
+    const chain = this.levelSet?.minChain
+    return chain && chain !== this.mode.minChain
+      ? `${this.mode.name}, chains of ${chain}`
+      : this.mode.name
+  }
+
+  // What a ladder is, in one line: how many boards, how far in, and the rules where they are not
+  // the mode's. Said by the picker's hint and spoken on swapping to one, so the two cannot differ.
   #ladderLine(set) {
-    return `${set.levels.length} puzzles`
+    return [
+      `${set.levels.length} puzzles`,
+      // Only where it differs from the rest of the mode, since a rule every ladder plays by is
+      // not something one of them has to announce.
+      set.minChain && set.minChain !== this.mode.minChain ? `chains of ${set.minChain}` : null,
+      set.draft ? "still being built" : null,
+    ]
+      .filter(Boolean)
+      .join(", ")
   }
 
   // The levels in play: the current set's, or the mode's own where it has no sets. Everything that
@@ -2342,7 +2361,7 @@ export class Game {
       // The same words the page shows, which is the point of pausing for anyone who cannot
       // read the score off the board: what is being played, what it has paid so far, and
       // what it has cost.
-      return [this.mode.name, this.boardName, this.scoreLine, this.turnsLine]
+      return [this.modeName, this.boardName, this.scoreLine, this.turnsLine]
         .filter(Boolean)
         .join(". ")
     }

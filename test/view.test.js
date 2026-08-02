@@ -499,10 +499,9 @@ test("the pause page says which board and what it has paid", () => {
   // Counted and named off the set being played, not off the first one: `mode.levels` is only
   // ever the first set.
   //
-  // The count cannot be shown wrong here while both ladders are the same length - the two
-  // expressions agree by coincidence - so what this pins is that the second set really is a
-  // different ladder being played, and that the total is derived from it. The day the two
-  // differ in length, the expectation below starts biting on its own.
+  // The two shipped ladders are the same length, so between those the count could be read off
+  // either and agree by coincidence. The third is not, which is what makes the total below a real
+  // check that it is derived from the ladder being played.
   for (const [at, set] of PUZZLE_SETS.entries()) {
     const game = new Game()
     game.settings.levelSet = at
@@ -514,7 +513,11 @@ test("the pause page says which board and what it has paid", () => {
       `${set.name}: 1 of ${game.levels.length}, ${set.levels[0].name}`,
       `${set.name} counts and names itself`,
     )
-    assert.match(game.pageSpeech(), new RegExp(`Puzzle\\. ${set.name}: 1 of`), "and says so")
+    assert.match(
+      game.pageSpeech(),
+      new RegExp(`${game.modeName}\\. ${set.name}: 1 of`),
+      "and says so, with the rules where they are the ladder's own",
+    )
   }
   // Which is only worth anything because the sets are genuinely different ladders.
   assert.notEqual(PUZZLE_SETS[1].levels, PUZZLE_SETS[0].levels)

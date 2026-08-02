@@ -511,7 +511,9 @@ function apart(one, other) {
 // The boards already in the ladder, by identity. A climb that wanders onto one of them would spend
 // its whole leash re-proving a board that has been proved, and then report it as a find - so it is
 // skipped, which is the other half of what the verified file is for.
-const SHIPPED = new Set(Object.keys(loadCache().boards))
+// Keyed by board and chain length, and a shipped layout is off limits at any chain length: no
+// board appears in two ladders, whatever they play at. So the chain length is dropped from the key.
+const SHIPPED = new Set(Object.keys(loadCache().boards).map((key) => key.split(":")[0]))
 
 // What a candidate has to be to be worth keeping. Difficulty is the gate; the rest is what the
 // shipped levels at the hard end all have, and what makes one worth playing.

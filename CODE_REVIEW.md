@@ -79,7 +79,7 @@ than reasoning from the source. `test/game.test.js` has the helpers (`advanceUnt
   `randRange` on `Math.random`; only the board's `random` is seeded. A spark landing in
   the same place twice is not what anyone means by the same board.
 - **The levels suite reads what it knows out of `data/verified-boards.json`**, keyed on each
-  board and on a fingerprint of the rules that judged it, so editing a layout or changing what
+  board and the chain length it was asked about, and on a fingerprint of the rules that judged it, so editing a layout or changing what
   a chain pays walks that level here and now. `DOTS_REWALK_LEVELS=1` walks a couple regardless,
   chosen by the day, which takes anything from seconds to several minutes and is worth it after
   a change to the search that no fingerprint could notice. `tools/verify-levels.mjs` is the

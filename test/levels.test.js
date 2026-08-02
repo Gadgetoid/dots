@@ -77,7 +77,7 @@ function carryOn(game) {
 // have. Also checks the solver's idea of a move against the game's: every chain it
 // found has to be one the game will actually accept.
 function playSolution(game, level) {
-  const result = solve(level.layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain)
+  const result = solve(level.layout, PUZZLE_COLS, PUZZLE_ROWS, game.minChain)
   assert.ok(result.solved, `${level.name} has a solution to play`)
   for (const cells of result.sequence) {
     playChain(game, cells)
@@ -122,9 +122,9 @@ test("no level uses a colour the mode does not deal", () => {
 })
 
 test("every level can be cleared", () => {
-  for (const { levels } of SETS) {
+  for (const { levels, minChain } of SETS) {
     for (const [index, level] of levels.entries()) {
-      const result = solve(level.layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain)
+      const result = solve(level.layout, PUZZLE_COLS, PUZZLE_ROWS, minChain)
       assert.ok(
         result.solved,
         `level ${index + 1} "${level.name}" - ${shapeOf(level, PUZZLE_COLS, PUZZLE_ROWS)} - ` +
@@ -176,12 +176,12 @@ const sampleFrom = Math.floor(Date.now() / 86400000) * SAMPLED
 // Everything below is asked of every set of levels the mode holds, not just the one a game opens on:
 // a second ladder is a second thing that can be drawn wrong. The mechanics further down stay with
 // the first set, since what they are testing is the mode and not the boards.
-const knownFor = (levels) => {
+const knownFor = (levels, minChain) => {
   const sampled = new Set(
     Array.from({ length: SAMPLED }, (_, at) => (sampleFrom + at) % levels.length),
   )
   return levels.map((level, index) => {
-    const proved = sampled.has(index) ? null : provenBoard(CACHE, level.layout)
+    const proved = sampled.has(index) ? null : provenBoard(CACHE, level.layout, minChain)
     // One shape whichever way the answer arrived, so nothing below has to care which. The cache holds
     // what was proved; the two derived from it - whether the score is forced, and what greed did - are
     // rebuilt rather than stored, since a stored copy of something derivable is a second thing to keep
@@ -201,7 +201,7 @@ const knownFor = (levels) => {
     // A walked level has no route written down, so the replay test finds one for it. The budget is
     // named rather than left to the default, which the largest boards are over: the two of thirty-two
     // dots reach nine million positions, and a walk that runs out of budget can say nothing exact.
-    const found = analyse(level.layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain, SCORING, {
+    const found = analyse(level.layout, PUZZLE_COLS, PUZZLE_ROWS, minChain, SCORING, {
       seconds: 300,
       budget: 20000000,
     })
@@ -222,8 +222,13 @@ const knownFor = (levels) => {
   })
 }
 
-// Each set with what is known about it, so a test can say which ladder it is talking about.
-const SETS = PUZZLE_SETS.map((set) => ({ ...set, known: knownFor(set.levels) }))
+// Each set with what is known about it, so a test can say which ladder it is talking about, and
+// with the chain length it plays at: a set is free to differ, and everything below is asked of the
+// set's own rules rather than the mode's.
+const SETS = PUZZLE_SETS.map((set) => {
+  const minChain = set.minChain ?? PUZZLE.minChain
+  return { ...set, minChain, known: knownFor(set.levels, minChain) }
+})
 
 test("every level has been proved, by the cache or here and now", () => {
   // A level nobody has verified is a level whose par is a guess. The tool writes them down; this is
@@ -426,20 +431,22 @@ test("par is a target, not a formality: greed does not reach it", () => {
   // at least one level it leaves score on the table - otherwise showing a target would
   // be telling the player nothing they could not get by not thinking.
   let missedOne = false
-  for (const level of SETS.flatMap((set) => set.levels)) {
-    const greedy = solve(level.layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain)
-    if (!greedy.solved) {
-      continue
-    }
-    let score = 0
-    let multiplier = 1
-    for (const cells of greedy.sequence) {
-      score += SCORING.scoreChain(cells.length) * multiplier
-      multiplier = SCORING.multiplierAfter(multiplier, cells.length)
-    }
-    assert.ok(score <= level.par, `${level.name}: a real order cannot beat par`)
-    if (score < level.par) {
-      missedOne = true
+  for (const { levels, minChain } of SETS) {
+    for (const level of levels) {
+      const greedy = solve(level.layout, PUZZLE_COLS, PUZZLE_ROWS, minChain)
+      if (!greedy.solved) {
+        continue
+      }
+      let score = 0
+      let multiplier = 1
+      for (const cells of greedy.sequence) {
+        score += SCORING.scoreChain(cells.length) * multiplier
+        multiplier = SCORING.multiplierAfter(multiplier, cells.length)
+      }
+      assert.ok(score <= level.par, `${level.name}: a real order cannot beat par`)
+      if (score < level.par) {
+        missedOne = true
+      }
     }
   }
   assert.ok(missedOne, "at least one level rewards playing it better than greedily")
@@ -948,13 +955,13 @@ test("par is reachable: an order that scores it can be played through the game",
   //
   // Finding the order is the slow half, so a proved level plays the order the tool wrote down, and
   // only a level being walked here has one found for it.
-  for (const { levels: LEVELS, known: KNOWN, progress } of SETS) {
+  for (const { levels: LEVELS, known: KNOWN, progress, minChain } of SETS) {
     for (const [index, level] of LEVELS.entries()) {
       const known = KNOWN[index]
       let route =
         known.route && known.route.map((chain) => chain.map(([col, row]) => ({ col, row })))
       if (!route) {
-        const found = parRoute(level.layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain, SCORING)
+        const found = parRoute(level.layout, PUZZLE_COLS, PUZZLE_ROWS, minChain, SCORING)
         assert.ok(found, `level ${index + 1} "${level.name}" could be walked`)
         assert.equal(
           found.score,

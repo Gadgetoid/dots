@@ -41,6 +41,7 @@ import {
   outcomesFrom,
   columnGroups,
   columnsOnly,
+  boardId,
   coloursIn,
   isEmpty,
   positionKey,
@@ -82,14 +83,15 @@ const DIFFICULTY = {
 // judging it now. Two halves, because two kinds of change happen:
 //
 //   - the rules and the weights, derived below, so changing what a chain pays or how difficulty is
-//     weighed invalidates the cache on its own.
+//     weighed invalidates the cache on its own. Not how long a chain has to be, which is part of
+//     the question rather than part of the judge: see provedKey.
 //   - MEASURE, declared, for a change in how the search *arrives* at an answer. A cache cannot
 //     detect that a bug was fixed. par decomposition being wrong changed one level's par with no
 //     rule changed at all, and a cache would have gone on serving the old number. So: **bump this
 //     whenever a change to solver.js or analysis.js can change what analyse returns.**
 export const MEASURE = 4
 
-export function measureFingerprint(rules, minChain) {
+export function measureFingerprint(rules) {
   const paid = []
   for (let length = 2; length <= 9; length++) {
     paid.push(`${length}:${rules.scoreChain(length)}`)
@@ -103,8 +105,14 @@ export function measureFingerprint(rules, minChain) {
   const weights = Object.entries(DIFFICULTY)
     .map(([name, value]) => `${name}=${Array.isArray(value) ? value.join(".") : value}`)
     .join(",")
-  return `m${MEASURE};min${minChain};cap${MOVE_LIMIT};${paid.join(",")};${ramp.join(",")};${weights}`
+  return `m${MEASURE};cap${MOVE_LIMIT};${paid.join(",")};${ramp.join(",")};${weights}`
 }
+
+// What a proved answer is filed under. The board, and how long a chain has to be on it: those are
+// two different questions about the same dots with two different answers, and both can be true at
+// once, so the chain length belongs in the key and not in the fingerprint. The fingerprint is for
+// what would make an old answer wrong; this is for which question it answered.
+export const provedKey = (position, minChain) => `${boardId(position)}:${minChain}`
 
 export function analyse(layout, cols, rows, minChain, rules, options = {}) {
   const budget = options.budget ?? 4000000

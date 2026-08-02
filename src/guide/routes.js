@@ -17,9 +17,9 @@
 
 import { CONFIG } from "../config.js"
 import { PUZZLE_COLS, PUZZLE_ROWS } from "../modes/levels.js"
-import { PUZZLE } from "../modes/puzzle.js"
-import { measureFingerprint } from "../analysis.js"
-import { parse, unpack, without, boardId, isEmpty, coloursIn } from "../solver.js"
+import { PUZZLE, PUZZLE_SETS } from "../modes/puzzle.js"
+import { measureFingerprint, provedKey } from "../analysis.js"
+import { parse, unpack, without, isEmpty, coloursIn } from "../solver.js"
 
 // What the game pays, in the shape the solver and the analysis want it. The same object
 // tools/verify-levels.mjs hands them, for the same reason: so nothing here can drift from what
@@ -30,7 +30,7 @@ export const SCORING = {
     length >= CONFIG.MULTIPLIER_CHAIN ? Math.min(multiplier + 1, CONFIG.MULTIPLIER_MAX) : 1,
 }
 
-export const FINGERPRINT = measureFingerprint(SCORING, PUZZLE.minChain)
+export const FINGERPRINT = measureFingerprint(SCORING)
 
 // Columns as letters and rows counted from the top, so a move can be written down: the top left
 // cell is A1. Chess notation upside down, which is the way a board is read on a screen.
@@ -63,7 +63,15 @@ export async function provedBoards() {
   }
 }
 
-export const levelId = (level) => boardId(parse(level.layout, PUZZLE_COLS, PUZZLE_ROWS))
+// Which set holds a level, and so how long a chain has to be on it. Levels are unique across the
+// sets - there is a test for it - so the level itself is enough to say. Built once, since every
+// lookup below asks.
+const CHAIN_OF = new Map(
+  PUZZLE_SETS.flatMap((set) => set.levels.map((level) => [level, set.minChain ?? PUZZLE.minChain])),
+)
+
+export const levelId = (level) =>
+  provedKey(parse(level.layout, PUZZLE_COLS, PUZZLE_ROWS), CHAIN_OF.get(level) ?? PUZZLE.minChain)
 
 // What was proved about this level, or null where nothing was.
 export function provenFor(proved, level) {

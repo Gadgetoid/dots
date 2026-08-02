@@ -6,7 +6,7 @@
 // the ladder - which is no way to spend every CI run on data that has not changed.
 //
 // So this does the work once and records it in data/verified-boards.json, against the board's own
-// identity and a fingerprint of what did the judging. The level test reads that: a level whose board
+// identity, the chain length it was asked about, and a fingerprint of what did the judging. The level test reads that: a level whose board
 // and fingerprint are both known is taken as proved, and anything else is walked there and then. See
 // test/levels.test.js for what stops the cache being believed forever.
 //
@@ -24,8 +24,8 @@ import fs from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 
-import { analyse, parRoute, measureFingerprint } from "../src/analysis.js"
-import { parse, boardId } from "../src/solver.js"
+import { analyse, parRoute, measureFingerprint, provedKey } from "../src/analysis.js"
+import { parse } from "../src/solver.js"
 import { PUZZLE_COLS, PUZZLE_ROWS } from "../src/modes/levels.js"
 import { PUZZLE, PUZZLE_SETS } from "../src/modes/puzzle.js"
 import { CONFIG } from "../src/config.js"
@@ -81,18 +81,21 @@ function save(fingerprint, boards, live) {
 }
 
 // A board is proved if it is in the cache under the fingerprint that is current.
-export function provenBoard(cache, layout) {
-  const wanted = measureFingerprint(SCORING, PUZZLE.minChain)
-  if (cache.fingerprint !== wanted) {
+export function provenBoard(cache, layout, minChain = PUZZLE.minChain) {
+  if (cache.fingerprint !== measureFingerprint(SCORING)) {
     return null
   }
-  return cache.boards[boardId(parse(layout, PUZZLE_COLS, PUZZLE_ROWS))] ?? null
+  return cache.boards[keyFor(layout, minChain)] ?? null
 }
+
+// A board and the chain length it was asked about, which together are what an answer is filed
+// under: the same layout at two and at three is two questions with two answers.
+const keyFor = (layout, minChain) => provedKey(parse(layout, PUZZLE_COLS, PUZZLE_ROWS), minChain)
 
 // Everything worth writing down about one level, all of it proved rather than assumed: par is
 // computed, and then an order that scores it is found and its total checked against it.
 function verify(level) {
-  const found = analyse(level.layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain, SCORING, {
+  const found = analyse(level.layout, PUZZLE_COLS, PUZZLE_ROWS, level.chain, SCORING, {
     seconds: 600,
     budget: 200000000,
   })
@@ -101,7 +104,7 @@ function verify(level) {
       `${level.name}: clearable ${found.clearable}, exact ${found.exact}, stats ${found.statsExact}`,
     )
   }
-  const route = parRoute(level.layout, PUZZLE_COLS, PUZZLE_ROWS, PUZZLE.minChain, SCORING)
+  const route = parRoute(level.layout, PUZZLE_COLS, PUZZLE_ROWS, level.chain, SCORING)
   if (!route) {
     throw new Error(`${level.name}: no order scoring par could be found to prove it with`)
   }
@@ -128,29 +131,36 @@ function verify(level) {
   }
 }
 
-// Every level of every set, in one list. The cache is keyed by the board, so the two sets share it
-// without either knowing about the other; what a set adds is a label, so a line of output says which
-// ladder the level is on.
+// Every level of every set, in one list. The cache is keyed by the board and the chain length it
+// plays at, so the sets share one file without either knowing about the other - and a set at a
+// different chain length does not invalidate the rest. What a set adds is a label, so a line of
+// output says which ladder the level is on.
 const ALL = PUZZLE_SETS.flatMap((set) =>
-  set.levels.map((level, at) => ({ ...level, set: set.name, at: at + 1 })),
+  set.levels.map((level, at) => ({
+    ...level,
+    set: set.name,
+    at: at + 1,
+    // The set's own chain length, which is what its boards are judged at and filed under.
+    chain: set.minChain ?? PUZZLE.minChain,
+  })),
 )
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const all = process.argv.includes("--all")
   const only = process.argv.includes("--check")
   const cache = all ? { fingerprint: null, boards: {} } : loadCache()
-  const fingerprint = measureFingerprint(SCORING, PUZZLE.minChain)
+  const fingerprint = measureFingerprint(SCORING)
   const stale = cache.fingerprint !== fingerprint
   if (stale && Object.keys(cache.boards).length > 0) {
     console.log("the measure has changed, so nothing already written down counts. Verifying all.")
   }
   const boards = stale ? {} : { ...cache.boards }
-  const live = new Set(ALL.map((level) => boardId(parse(level.layout, PUZZLE_COLS, PUZZLE_ROWS))))
+  const live = new Set(ALL.map((level) => keyFor(level.layout, level.chain)))
 
   let missing = 0
   let verified = 0
   for (const [index, level] of ALL.entries()) {
-    const id = boardId(parse(level.layout, PUZZLE_COLS, PUZZLE_ROWS))
+    const id = keyFor(level.layout, level.chain)
     if (boards[id]) {
       // The name is the only thing that can change without the board changing.
       boards[id].name = level.name

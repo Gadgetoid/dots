@@ -507,8 +507,8 @@ export class GameView {
     if (player.chain.length >= 2) {
       const worth = CONFIG.chainScore(player.chain.length) * player.multiplier
       const colours = theme.dots[player.chainColour % theme.dots.length]
-      const ready = player.chain.length >= game.mode.minChain
-      renderer.text(ready ? `+${worth}` : `${player.chain.length}/${game.mode.minChain}`, 28, 90, {
+      const ready = player.chain.length >= game.minChain
+      renderer.text(ready ? `+${worth}` : `${player.chain.length}/${game.minChain}`, 28, 90, {
         color: ready ? colours.bright : theme.text.faint,
         size: 22,
         bold: true,

@@ -16,6 +16,11 @@
 // `finale` is how many of a set's levels are arranged rather than sorted; see the head of levels.js
 // for what that means and test/levels.test.js for what it is held to. It differs per set because it
 // is a property of how that set's ending was built, not of the mode.
+//
+// `minChain` is a set's own, where it plays at something other than the mode's. A set at a longer
+// chain is not the same puzzle judged harder: the moves are a different set, so the traps, the best
+// order and what a board pays all differ, and a colour is stranded by having fewer dots than a chain
+// needs rather than by having one. Omitted, a set plays at whatever the mode does.
 
 import { LEVELS, PUZZLE_COLS, PUZZLE_ROWS } from "./levels.js"
 import { LEVELS_TWO } from "./levels-two.js"

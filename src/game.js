@@ -650,6 +650,15 @@ export class Game {
     return sets[(clamp(this.settings.levelSet, 0, sets.length - 1) + 1) % sets.length]
   }
 
+  // How many dots a chain needs here: the set's own where it says, and the mode's otherwise.
+  // A set is free to play at a different length from the rest of its mode, which makes it a
+  // different puzzle on the same shapes rather than the same one - see Board.strandedDot and
+  // the head of levels.js. Everything that asks a chain how long it is asks this, since
+  // `mode.minChain` cannot know which set is up.
+  get minChain() {
+    return this.levelSet?.minChain ?? this.mode.minChain
+  }
+
   // The levels in play: the current set's, or the mode's own where it has no sets. Everything that
   // asks what the levels are asks this, since `mode.levels` cannot know which set is up.
   levelsFor(modeId = this.mode.id) {
@@ -853,7 +862,7 @@ export class Game {
     return new Board({
       cols: this.mode.cols,
       rows: this.mode.rows,
-      minChain: this.mode.minChain,
+      minChain: this.minChain,
       colours: this.mode.colours,
       pickColour: this.mode.pickColour ? this.mode.pickColour.bind(this.mode) : null,
       specialChance: this.mode.specialChance,
@@ -1252,7 +1261,7 @@ export class Game {
     // Repeats while nothing happens, so a hint missed is a hint given again.
     this.sinceMove = CONFIG.HINT_DELAY - CONFIG.HINT_REPEAT
     const chain = this.board.longestChain()
-    if (chain.length >= this.mode.minChain) {
+    if (chain.length >= this.minChain) {
       this.#showHint(chain)
     }
   }
@@ -1394,7 +1403,7 @@ export class Game {
   // Spend the chain, if it is long enough. Returns what it scored, or 0.
   popChain(playerIndex = 0) {
     const player = this.players[playerIndex]
-    if (!player || player.chain.length < this.mode.minChain) {
+    if (!player || player.chain.length < this.minChain) {
       return 0
     }
     const chain = player.chain.slice()
@@ -1494,7 +1503,7 @@ export class Game {
     if (this.holdToLink) {
       return
     }
-    if (player.chain.length >= this.mode.minChain) {
+    if (player.chain.length >= this.minChain) {
       this.popChain(playerIndex)
     } else {
       this.#dropChain(player)
@@ -1511,7 +1520,7 @@ export class Game {
     if (!player || player.chain.length === 0) {
       return
     }
-    if (player.chain.length >= this.mode.minChain) {
+    if (player.chain.length >= this.minChain) {
       this.popChain(playerIndex)
     } else {
       // Nothing was really invested in one or two dots, so letting go of them is not
@@ -1572,7 +1581,7 @@ export class Game {
       return
     }
     const dot = this.board.at(player.cursor.col, player.cursor.row)
-    Sound.cursor(this.board.reachFrom(dot), this.mode.minChain)
+    Sound.cursor(this.board.reachFrom(dot), this.minChain)
   }
 
   // A pointer drags instead of stepping: down starts, move extends, up spends.
@@ -1622,7 +1631,7 @@ export class Game {
       return
     }
     player.dragging = false
-    if (player.chain.length >= this.mode.minChain) {
+    if (player.chain.length >= this.minChain) {
       this.popChain(playerIndex)
     } else {
       this.#dropChain(player, player.chain.length < 2)

@@ -21,6 +21,7 @@ import { modeRefills, defaultOutcome } from "../src/modes/index.js"
 import { CONFIG } from "../src/config.js"
 import { ELIMINATION } from "../src/modes/elimination.js"
 import { mulberry32 } from "../src/math.js"
+import { levelSlug } from "../src/link.js"
 
 const FRAME = 1 / 60
 
@@ -950,6 +951,23 @@ test("a link names a level in either set, and opens the set that holds it", () =
     "a number stays on the set being played",
   )
   assert.equal(numbered.currentLevel.name, second)
+})
+
+test("swapping ladders drops the notice that explained the page", () => {
+  // A link to a locked board opens the picker and says why. Swapping ladders is the player asking
+  // for something else, and the reason no longer applies - on another ladder there is no board of
+  // that name at all.
+  const game = new Game()
+  const locked = PUZZLE_SETS[2].levels[20].name
+  game.launch(`?puzzle=${levelSlug(locked)}`)
+  assert.equal(game.page, "levels")
+  assert.equal(game.levelSet.name, PUZZLE_SETS[2].name, "on the ladder that holds it")
+  assert.match(game.notice, new RegExp(locked), "and saying which board is shut")
+
+  const tabs = game.menuRows().findIndex((row) => row.layout === "tabs")
+  game.menuTap(tabs, 0)
+  assert.equal(game.levelSet.name, PUZZLE_SETS[0].name)
+  assert.equal(game.notice, null, "and the reason goes with the ladder it was about")
 })
 
 test("a level that has not been reached cannot be started", () => {

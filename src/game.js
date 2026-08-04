@@ -2723,6 +2723,10 @@ export class Game {
         this.settings.levelSet = clamp(option, 0, Math.max(sets.length - 1, 0))
         this.#storeSettings()
         this.#playCursor()
+        // A notice says why this page is the page being looked at, and swapping ladders is the
+        // player deciding to look at something else: kept, it goes on naming a board that is not
+        // on the grid any more, and on the wrong ladder no board of that name exists at all.
+        this.notice = null
         // The grid under it is now a different ladder's, so the cursor goes to where that one was
         // left rather than staying at a number that means something else.
         this.menuOption = clamp(this.menuOption, 0, Math.max((this.levels || []).length - 1, 0))

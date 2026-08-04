@@ -77,12 +77,15 @@ const RANK_MAX = 5
 const STAR_UP = -Math.PI / 2
 const STAR_HOLLOW = 0.7
 
-// The ladder tabs at the head of the picker: how tall one is, the air between them, and the rule
-// they stand on. The rule is what separates choosing a ladder from choosing a board out of it, and
-// the gap above it is the same gap that is between two tabs, so the row reads as one thing.
+// The ladder tabs at the head of the picker: how tall one is, the air around them, and the rule
+// they stand on. The rule is what separates choosing a ladder from choosing a board out of it.
+//
+// One gap does all the spacing: between two tabs, above the rule, and below it. So the tabs read as
+// one row rather than as three boxes, and the rule reads as belonging to them rather than to the
+// boards under it.
 const TAB_H = 48
 const TAB_GAP = 8
-const TAB_LINE = 3
+const TAB_LINE = 4
 // How far up the chosen tab's outline is painted back in where it meets the rule. Square and the
 // full width of the tab, so the outline's rounded bottom corners go with it: there is nothing to
 // stick out into, the rule being the same colour and running the whole way across.
@@ -812,7 +815,7 @@ export class GameView {
       return metrics.top + lines * (metrics.height + BUTTON_GAP)
     }
     if (row.layout === "tabs") {
-      return TAB_H + TAB_GAP + TAB_LINE + ROW_GAP
+      return TAB_H + TAB_GAP + TAB_LINE + TAB_GAP
     }
     if (row.kind === "options") {
       return (row.options.some((option) => option.preview) ? PREVIEW_H : OPTION_H) + ROW_GAP
@@ -1003,7 +1006,7 @@ export class GameView {
     const count = row.options.length
     const inner = width - PANEL_PAD * 2
     const tabW = (inner - TAB_GAP * (count - 1)) / count
-    const lineY = rowY + rowHeight - ROW_GAP - TAB_LINE
+    const lineY = rowY + rowHeight - TAB_GAP - TAB_LINE
     renderer.panel(x + PANEL_PAD, lineY, inner, TAB_LINE, {
       fill: theme.accent,
       radius: TAB_LINE / 2,

@@ -460,9 +460,12 @@ test("par is a target, not a formality: greed does not reach it", () => {
 })
 
 test("the levels get bigger as they go", () => {
-  for (const { name: set, levels } of LADDERS) {
+  for (const { name: set, levels, minChain } of LADDERS) {
     const counts = levels.map((level) => level.layout.join("").replace(/[.0]/g, "").length)
-    assert.ok(counts[0] <= 8, `${set} opens on a handful of dots`)
+    // A handful, which is about four chains' worth and so depends on what a chain is: three chains
+    // of three is nine dots, so a ladder played at three cannot open on eight and still take the
+    // three chains every level is held to.
+    assert.ok(counts[0] <= 4 * minChain, `${set} opens on a handful of dots`)
     assert.ok(counts.at(-1) >= 20, `${set} ends on a full board`)
     // Not strictly monotonic - a level can be smaller and harder - but the trend has
     // to be upward, or the ramp is not a ramp.

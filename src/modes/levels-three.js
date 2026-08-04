@@ -1,22 +1,35 @@
-// The puzzle mode's third set: the one that plays at chains of three.
+// The puzzle mode's third set of levels, and the one that plays at chains of three: a pair is not
+// a move here. Everything about how a layout is written, and what par and floor mean, is in
+// levels.js; this file is the boards.
 //
-// **A stand-in.** Five boards drawn by hand to have something real behind the picker while the
-// search runs; the ladder these become is fifty-two boards found by tools/find-levels.mjs at
-// --chain 3. The set carries `draft`, which is what keeps the tests off its shape - see the head
-// of test/levels.test.js for which of them a draft still has to pass, and it is all the ones
-// about a board being real.
+// None of them is a board from either other set, checked for mirrors and recolourings as well as
+// for exact copies.
 //
-// Everything about how a layout is written, and what par and floor mean, is in levels.js.
+// What a longer chain changes is the puzzle rather than the difficulty. The pairs are where most of
+// a chain-of-two board's traps live - a pair is a cheap move that quietly strands a colour four
+// moves later, and there are dozens on every board - so take pairs away and these read more plainly
+// and forgive more. Measured, the same layout comes out lower at three than at two, there being
+// less to consider, so these numbers are not comparable with the other two ladders'.
 //
-// What differs here is that a pair is not a move. That changes the puzzle rather than the
-// difficulty: the pairs are where most of a chain-of-two board's traps live, so these are tighter
-// and read more plainly, and a colour is stranded by having fewer than three dots left rather than
-// fewer than two. Windbreak is the whole of it in one board - a row of six where taking the middle
-// three leaves a one and a two, both of them dead.
+// A colour is stranded here by having fewer than three dots left rather than fewer than two, which
+// is the rule doing more work than it does anywhere else: a colour down to a pair is dead and looks
+// alive. And a chain is a path, so four dots of a colour in a T can never be taken in one - a path
+// crosses the middle once and reaches two of the three arms. L-shapes and squares can.
 //
-// A chain is a path through neighbouring cells, so a colour of four in a T cannot be taken in one:
-// a path crosses the middle once and reaches two of the three arms. Four in an L or a square can.
-// That is the first thing to know when drawing one of these by hand.
+// Where they came from. The last forty-nine were climbed by tools/find-levels.mjs at --chain 3, out
+// of a sweep of six hundred and fourteen boards: one hunt per rung, a quarter of a point apart,
+// because a hunt returns a cluster just under its ceiling rather than a spread across its range.
+// The first three were drawn by hand, as both other ladders' openings were, because no search
+// returns anything under about five however forgiving it is told to be - a keep needs greed to miss
+// par, which is worth 1.5 of the difficulty score on its own.
+//
+// The order is by measured difficulty as far as the last twelve, rising from 2.0 to 13.2. The last
+// twelve are arranged rather than sorted, all of them above everything before them, with five steps
+// down in them and the hardest board in the set at the end. Bands run 3, 5, 11, 11, 22 - a gentler
+// middle than either other ladder, which is what chains of three are.
+//
+// Windbreak, the third, is the whole set in one board: a row of six where taking the middle three
+// leaves a one and a two, both of them dead on the spot.
 
 import { parse, unpack } from "../solver.js"
 import { PUZZLE_COLS, PUZZLE_ROWS } from "./levels.js"
@@ -52,34 +65,6 @@ export const LEVELS_THREE = [
     ],
   },
   {
-    name: "Hedgerow",
-    par: 499,
-    floor: 418,
-    layout: [
-      "......",
-      "......",
-      "......",
-      "......",
-      "2.....",
-      "211...",
-      "211333",
-    ],
-  },
-  {
-    name: "Coppice",
-    par: 868,
-    floor: 787,
-    layout: [
-      "......",
-      "......",
-      "......",
-      "......",
-      "1.....",
-      "11.2.3",
-      "112233",
-    ],
-  },
-  {
     name: "Windbreak",
     par: 1539,
     floor: 324,
@@ -91,6 +76,692 @@ export const LEVELS_THREE = [
       "......",
       "111111",
       "222333",
+    ],
+  },
+  {
+    name: "Spinney",
+    par: 2563,
+    floor: 499,
+    layout: [
+      "......",
+      "......",
+      "......",
+      "......",
+      "..11..",
+      ".11222",
+      "333111",
+    ],
+  },
+  {
+    name: "Copse",
+    par: 2725,
+    floor: 580,
+    layout: [
+      "......",
+      "......",
+      "......",
+      "......",
+      ".3311.",
+      "132214",
+      "111244",
+    ],
+  },
+  {
+    name: "Bracken",
+    par: 1701,
+    floor: 486,
+    layout: [
+      "......",
+      "......",
+      "......",
+      ".1112.",
+      ".2442.",
+      ".2242.",
+      "333111",
+    ],
+  },
+  {
+    name: "Gorse",
+    par: 1539,
+    floor: 324,
+    layout: [
+      "......",
+      "......",
+      "......",
+      "......",
+      "......",
+      "222111",
+      "111333",
+    ],
+  },
+  {
+    name: "Heather",
+    par: 1701,
+    floor: 486,
+    layout: [
+      "......",
+      "......",
+      "......",
+      ".1113.",
+      ".2223.",
+      ".1113.",
+      "444222",
+    ],
+  },
+  {
+    name: "Nettle",
+    par: 5139,
+    floor: 755,
+    layout: [
+      "......",
+      "......",
+      "......",
+      "......",
+      "11..11",
+      "33..21",
+      "331122",
+    ],
+  },
+  {
+    name: "Briar",
+    par: 1911,
+    floor: 1205,
+    layout: [
+      "......",
+      "......",
+      "......",
+      ".4443.",
+      ".4433.",
+      ".2225.",
+      "111255",
+    ],
+  },
+  {
+    name: "Tangle",
+    par: 2967,
+    floor: 1555,
+    layout: [
+      "......",
+      "......",
+      "......",
+      "......",
+      ".3321.",
+      "133311",
+      "111221",
+    ],
+  },
+  {
+    name: "Snarl",
+    par: 5751,
+    floor: 1205,
+    layout: [
+      "......",
+      "......",
+      "......",
+      ".1222.",
+      ".1222.",
+      ".1332.",
+      "113111",
+    ],
+  },
+  {
+    name: "Scrub",
+    par: 2037,
+    floor: 1493,
+    layout: [
+      "......",
+      "......",
+      "......",
+      "3....1",
+      "3....1",
+      "334112",
+      "344122",
+    ],
+  },
+  {
+    name: "Blackthorn",
+    par: 8772,
+    floor: 1092,
+    layout: [
+      "......",
+      "......",
+      "......",
+      ".2233.",
+      ".1133.",
+      ".2112.",
+      "111122",
+    ],
+  },
+  {
+    name: "Hawthorn",
+    par: 3091,
+    floor: 499,
+    layout: [
+      "......",
+      "......",
+      "......",
+      "......",
+      "..22..",
+      ".22111",
+      "222111",
+    ],
+  },
+  {
+    name: "Holly",
+    par: 1011,
+    floor: 674,
+    layout: [
+      "......",
+      "......",
+      "......",
+      "......",
+      ".....1",
+      "..2112",
+      "222222",
+    ],
+  },
+  {
+    name: "Ivy",
+    par: 1749,
+    floor: 1043,
+    layout: [
+      "......",
+      "......",
+      "......",
+      "......",
+      "......",
+      "113333",
+      "111222",
+    ],
+  },
+  {
+    name: "Bindweed",
+    par: 1092,
+    floor: 755,
+    layout: [
+      "......",
+      "......",
+      "......",
+      "......",
+      "11..33",
+      "11..23",
+      "222222",
+    ],
+  },
+  {
+    name: "Creeper",
+    par: 35952,
+    floor: 1254,
+    layout: [
+      "......",
+      "......",
+      "2.3.2.",
+      "2.1.2.",
+      "221122",
+      "333111",
+      "331111",
+    ],
+  },
+  {
+    name: "Trellis",
+    par: 5301,
+    floor: 755,
+    layout: [
+      "......",
+      "......",
+      "......",
+      "......",
+      "11..33",
+      "22..31",
+      "221111",
+    ],
+  },
+  {
+    name: "Espalier",
+    par: 10983,
+    floor: 1367,
+    layout: [
+      "......",
+      "......",
+      "......",
+      "111411",
+      "111411",
+      "222441",
+      "223331",
+    ],
+  },
+  {
+    name: "Pollard",
+    par: 30849,
+    floor: 1173,
+    layout: [
+      "......",
+      "......",
+      "1.....",
+      "1..1..",
+      "111144",
+      "133144",
+      "132222",
+    ],
+  },
+  {
+    name: "Withy",
+    par: 9060,
+    floor: 1493,
+    layout: [
+      "......",
+      "......",
+      "......",
+      "2....3",
+      "2....3",
+      "222223",
+      "211111",
+    ],
+  },
+  {
+    name: "Osier",
+    par: 2929,
+    floor: 499,
+    layout: [
+      "......",
+      "......",
+      "......",
+      "......",
+      "..33..",
+      ".11133",
+      "111111",
+    ],
+  },
+  {
+    name: "Sallow",
+    par: 6171,
+    floor: 2916,
+    layout: [
+      "......",
+      "......",
+      "......",
+      "444333",
+      "411133",
+      "441522",
+      "455522",
+    ],
+  },
+  {
+    name: "Alder",
+    par: 25110,
+    floor: 1286,
+    layout: [
+      "......",
+      "......",
+      "2.....",
+      "2..1..",
+      "222444",
+      "221114",
+      "221114",
+    ],
+  },
+  {
+    name: "Hazel",
+    par: 14998,
+    floor: 1542,
+    layout: [
+      "......",
+      "..22..",
+      "..22..",
+      "..11..",
+      ".1141.",
+      "213344",
+      "223344",
+    ],
+  },
+  {
+    name: "Rowan",
+    par: 1860,
+    floor: 1124,
+    layout: [
+      "......",
+      "......",
+      "......",
+      "...3..",
+      "..333.",
+      ".21111",
+      "221111",
+    ],
+  },
+  {
+    name: "Elder",
+    par: 3172,
+    floor: 661,
+    layout: [
+      "......",
+      "......",
+      "......",
+      "......",
+      ".2113.",
+      "233333",
+      "211333",
+    ],
+  },
+  {
+    name: "Sloe",
+    par: 19063,
+    floor: 2342,
+    layout: [
+      "......",
+      "......",
+      "......",
+      "444111",
+      "434221",
+      "233322",
+      "221111",
+    ],
+  },
+  {
+    name: "Dogwood",
+    par: 15223,
+    floor: 2342,
+    layout: [
+      "......",
+      "......",
+      "1.22.1",
+      "1.24.1",
+      "1.22.1",
+      "111144",
+      "133334",
+    ],
+  },
+  {
+    name: "Privet",
+    par: 2805,
+    floor: 1461,
+    layout: [
+      "......",
+      "......",
+      "......",
+      ".2.1.1",
+      "33.2.1",
+      "322221",
+      "321111",
+    ],
+  },
+  {
+    name: "Hornbeam",
+    par: 1911,
+    floor: 1286,
+    layout: [
+      "......",
+      "......",
+      "......",
+      ".5555.",
+      ".1112.",
+      ".1152.",
+      "111112",
+    ],
+  },
+  {
+    name: "Yew",
+    par: 3048,
+    floor: 1461,
+    layout: [
+      "......",
+      "......",
+      "......",
+      ".3.1.2",
+      "33.1.2",
+      "313111",
+      "111122",
+    ],
+  },
+  {
+    name: "Coppice",
+    par: 1911,
+    floor: 1348,
+    layout: [
+      "......",
+      "......",
+      "......",
+      ".1211.",
+      ".1222.",
+      ".1121.",
+      "121112",
+    ],
+  },
+  {
+    name: "Standard",
+    par: 5045,
+    floor: 1173,
+    layout: [
+      "......",
+      "......",
+      "2.....",
+      "2..3..",
+      "222213",
+      "111133",
+      "221111",
+    ],
+  },
+  {
+    name: "Layering",
+    par: 1367,
+    floor: 1286,
+    layout: [
+      "......",
+      ".....3",
+      "....33",
+      "...113",
+      "..1133",
+      ".22221",
+      "211222",
+    ],
+  },
+  {
+    name: "Pleacher",
+    par: 4471,
+    floor: 1367,
+    layout: [
+      "......",
+      "......",
+      "2.11.2",
+      "2.13.2",
+      "2.31.2",
+      "333122",
+      "113333",
+    ],
+  },
+  {
+    name: "Stake",
+    par: 8016,
+    floor: 4023,
+    layout: [
+      "4....1",
+      "4....1",
+      "4....1",
+      "4.22.4",
+      "3.33.4",
+      "333224",
+      "323344",
+    ],
+  },
+  {
+    name: "Binder",
+    par: 4123,
+    floor: 3754,
+    layout: [
+      "......",
+      "......",
+      "......",
+      "221131",
+      "332213",
+      "311213",
+      "311113",
+    ],
+  },
+  {
+    name: "Brash",
+    par: 8385,
+    floor: 1992,
+    layout: [
+      "1....2",
+      "1....2",
+      "1....2",
+      "1.23.1",
+      "2.33.1",
+      "222111",
+      "222233",
+    ],
+  },
+  {
+    name: "Brushwood",
+    par: 7221,
+    floor: 1879,
+    layout: [
+      "......",
+      "......",
+      "1.11.3",
+      "3.11.3",
+      "333323",
+      "133222",
+      "111333",
+    ],
+  },
+  {
+    name: "Cordwood",
+    par: 3940,
+    floor: 1254,
+    layout: [
+      "......",
+      "......",
+      "......",
+      "333111",
+      "221133",
+      "231111",
+      "213333",
+    ],
+  },
+  {
+    name: "Hurdle",
+    par: 8016,
+    floor: 1879,
+    layout: [
+      "......",
+      "......",
+      "23..22",
+      "23..22",
+      "231312",
+      "111133",
+      "113333",
+    ],
+  },
+  {
+    name: "Wattle",
+    par: 3754,
+    floor: 2423,
+    layout: [
+      "......",
+      "......",
+      "..33..",
+      ".1113.",
+      "112311",
+      "221211",
+      "211111",
+    ],
+  },
+  {
+    name: "Deadwood",
+    par: 8016,
+    floor: 3449,
+    layout: [
+      "......",
+      "......",
+      "32..11",
+      "33..11",
+      "113312",
+      "111222",
+      "222222",
+    ],
+  },
+  {
+    name: "Windthrow",
+    par: 5260,
+    floor: 2423,
+    layout: [
+      "......",
+      "......",
+      "1.3.1.",
+      "1.3.1.",
+      "112111",
+      "122233",
+      "333333",
+    ],
+  },
+  {
+    name: "Undergrowth",
+    par: 3784,
+    floor: 1160,
+    layout: [
+      "..21..",
+      "..21..",
+      "..32..",
+      ".2233.",
+      ".1113.",
+      "111123",
+      "111333",
+    ],
+  },
+  {
+    name: "Chokehold",
+    par: 11002,
+    floor: 1879,
+    layout: [
+      "......",
+      "......",
+      "1.11.2",
+      "1.12.1",
+      "333111",
+      "132222",
+      "112222",
+    ],
+  },
+  {
+    name: "Windfall",
+    par: 8328,
+    floor: 4023,
+    layout: [
+      "......",
+      "......",
+      "11..21",
+      "33..11",
+      "311112",
+      "112223",
+      "313333",
+    ],
+  },
+  {
+    name: "Fastness",
+    par: 6842,
+    floor: 1879,
+    layout: [
+      "..11..",
+      "..41..",
+      "..41..",
+      ".3311.",
+      ".4442.",
+      "333322",
+      "333333",
+    ],
+  },
+  {
+    name: "Impasse",
+    par: 3385,
+    floor: 1879,
+    layout: [
+      "......",
+      "......",
+      "22..22",
+      "22..23",
+      "123332",
+      "331311",
+      "111111",
     ],
   },
 ]

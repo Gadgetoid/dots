@@ -39,10 +39,9 @@ export const PUZZLE_SETS = [
     id: "three",
     name: "Thickets",
     levels: LEVELS_THREE,
-    finale: 0,
+    finale: 12,
     progress: "puzzle:three",
     minChain: 3,
-    draft: true,
   },
 ]
 

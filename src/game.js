@@ -1832,7 +1832,11 @@ export class Game {
                 {
                   id: "ladder",
                   kind: "options",
-                  label: "Ladder",
+                  // Drawn as tabs; see #drawTabs. Everything else about it - walking it, pressing
+                  // it, what it sounds like - is a row of values like any setting. Unlabelled,
+                  // because a row of ladder names at the head of the ladder picker needs no
+                  // saying what it is.
+                  layout: "tabs",
                   selected: clamp(this.settings.levelSet, 0, sets.length - 1),
                   options: sets.map((set) => ({
                     id: set.id,

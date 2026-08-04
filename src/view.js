@@ -77,6 +77,17 @@ const RANK_MAX = 5
 const STAR_UP = -Math.PI / 2
 const STAR_HOLLOW = 0.7
 
+// The ladder tabs at the head of the picker: how tall one is, the air between them, and the rule
+// they stand on. The rule is what separates choosing a ladder from choosing a board out of it, and
+// the gap above it is the same gap that is between two tabs, so the row reads as one thing.
+const TAB_H = 48
+const TAB_GAP = 8
+const TAB_LINE = 3
+// How far up the chosen tab's outline is painted back in where it meets the rule. Square and the
+// full width of the tab, so the outline's rounded bottom corners go with it: there is nothing to
+// stick out into, the rule being the same colour and running the whole way across.
+const TAB_JOIN = 4
+
 // How far a banner keeps off the edges of the field it is written across.
 const BANNER_MARGIN = 22
 // The gutter a settings row's name sits in, to the left of its values.
@@ -764,6 +775,10 @@ export class GameView {
         this.#drawSeed(game, theme, row, index, x, rowY, width, rowHeight)
       } else if (row.kind === "buttons") {
         this.#drawButtons(game, theme, row, index, x, rowY, width)
+      } else if (row.layout === "tabs") {
+        // Checked before the plain row of values, which is what this is in every way except how
+        // it draws.
+        this.#drawTabs(game, theme, row, index, x, rowY, width, rowHeight)
       } else if (row.kind === "options") {
         this.#drawOptions(game, theme, row, index, x, rowY, width, rowHeight)
       } else if (row.kind === "hint") {
@@ -795,6 +810,9 @@ export class GameView {
       const metrics = this.#buttonMetrics(row)
       const lines = Math.ceil(row.options.length / (row.columns || row.options.length))
       return metrics.top + lines * (metrics.height + BUTTON_GAP)
+    }
+    if (row.layout === "tabs") {
+      return TAB_H + TAB_GAP + TAB_LINE + ROW_GAP
     }
     if (row.kind === "options") {
       return (row.options.some((option) => option.preview) ? PREVIEW_H : OPTION_H) + ROW_GAP
@@ -972,6 +990,62 @@ export class GameView {
           bold: chosen,
         })
       }
+    })
+  }
+
+  // The ladder tabs. The same row of values every setting is, drawn as tabs because that is what
+  // choosing between whole pages of a picker is: equal widths across the panel, centred, standing
+  // on a rule that separates them from the boards under them. The one being played reaches the rule
+  // and is the same colour as it, so it reads as part of it rather than as a thing sitting on it.
+  #drawTabs(game, theme, row, index, x, rowY, width, rowHeight) {
+    const renderer = this.renderer
+    const onRow = index === game.menuIndex
+    const count = row.options.length
+    const inner = width - PANEL_PAD * 2
+    const tabW = (inner - TAB_GAP * (count - 1)) / count
+    const lineY = rowY + rowHeight - ROW_GAP - TAB_LINE
+    renderer.panel(x + PANEL_PAD, lineY, inner, TAB_LINE, {
+      fill: theme.accent,
+      radius: TAB_LINE / 2,
+    })
+    // Every label on one line, taken from the shorter of the two heights: the chosen tab is taller
+    // by the gap it closes, and centring each in its own box would step the words up and down.
+    const textY = rowY + TAB_H / 2
+    row.options.forEach((option, at) => {
+      const chosen = at === row.selected
+      const box = {
+        x: x + PANEL_PAD + at * (tabW + TAB_GAP),
+        y: rowY,
+        w: tabW,
+        h: TAB_H + (chosen ? TAB_GAP : 0),
+      }
+      this.menuHits.push({ index, option: at, ...box })
+      renderer.panel(box.x, box.y, box.w, box.h, {
+        fill: chosen ? theme.accent : theme.cell,
+        alpha: chosen ? 1 : 0.96,
+      })
+      // Outlined while the cursor is on the row, so a player can see where they are without the
+      // row having to look pressed. Walking onto a tab takes it, so the cursor is always the
+      // chosen one.
+      //
+      // Open along the bottom, which is what makes it a tab: an outline all the way round draws a
+      // line across the join and the tab stops being part of the rule. Stroked whole and then the
+      // join painted back in, since three panels for three edges would square off the top corners
+      // the rest of the menu rounds.
+      if (onRow && chosen) {
+        renderer.panel(box.x, box.y, box.w, box.h, { stroke: theme.text.bright, width: 2 })
+        renderer.panel(box.x, lineY - TAB_JOIN, box.w, TAB_JOIN + TAB_LINE, {
+          fill: theme.accent,
+          radius: 0,
+        })
+      }
+      renderer.text(option.label, box.x + box.w / 2, textY, {
+        color: chosen ? theme.panel : theme.text.normal,
+        size: 21,
+        align: "center",
+        baseline: "middle",
+        bold: chosen,
+      })
     })
   }
 

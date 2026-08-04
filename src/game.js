@@ -825,6 +825,16 @@ export class Game {
     return best > 0 ? `${scored}, best ${best}` : scored
   }
 
+  // The number the HUD puts up big, and what it is measured against.
+  //
+  // On a level that is the level's own score, not the run's. Par is a level's, so a running total
+  // beside it is two numbers about different things: by the fourth level of a ladder the total has
+  // passed par before a move has been made, which reads as having beaten it. The run's total is
+  // still what the mode scores and it is still on screen, in the corner the best score uses.
+  get shownScore() {
+    return this.levelPar > 0 ? this.levelScore : this.player.score
+  }
+
   // What it has cost, in chains spent: the level's own where a level is being played, since
   // the score beside it is the level's too.
   get turnsLine() {

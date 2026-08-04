@@ -418,6 +418,34 @@ test("a round of turns is marked out of five, and the stars arrive one by one", 
   assert.deepEqual(landed, [0, 1, 4, 4], "they arrive one at a time and stop at the rank")
 })
 
+test("a level shows its own score, and the run it belongs to apart from it", () => {
+  // Par is a level's, so the number beside it has to be the level's too. A running total there
+  // has passed par before a move is made by about the fourth level of a ladder, which reads as
+  // having beaten it.
+  const game = new Game()
+  game.progress = { puzzle: { 0: 1, 1: 1 } }
+  game.start("puzzle", { level: 2 })
+  settle(game)
+  game.player.score = 41200
+  game.levelStartScore = 38900
+  assert.equal(game.shownScore, 2300, "the big number is what this level has paid")
+
+  const shown = drawn(game)
+    .filter((call) => call.kind === "text")
+    .map((call) => call.opts.str)
+  assert.ok(shown.includes("2300"), "and it is on screen")
+  assert.ok(shown.includes("41200"), "with the run's total apart from it")
+  assert.ok(shown.includes(`par ${game.levelPar}`), "and the target named, not repeated")
+  assert.equal(shown.includes(`${game.levelScore} / ${game.levelPar}`), false)
+
+  // A mode without levels has no par, so the big number is the whole of what has been scored.
+  const rush = new Game()
+  rush.start("rush")
+  settle(rush)
+  rush.player.score = 9100
+  assert.equal(rush.shownScore, 9100)
+})
+
 test("the turn gauge draws at every point of a round, and holds its label", () => {
   const game = new Game()
   game.start("seeded")

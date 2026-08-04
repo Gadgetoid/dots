@@ -488,15 +488,24 @@ export class GameView {
     // The title screen has no score to show, and a zero under a panel that says
     // START is just noise.
     if (game.phase !== PHASE.TITLE) {
-      // No labels: a big number top left is the score and a smaller one top right is the
-      // best there has been, and neither needs saying twice.
-      const score = String(player.score)
+      // No labels: a big number top left is the score and a smaller one top right is what it is
+      // being held against, and neither needs saying twice.
+      //
+      // On a level the big one is that level's own score, since par is a level's - see
+      // Game.shownScore - and the smaller one is the run it belongs to rather than a best,
+      // a ladder's total being the thing a run of it adds up to.
+      const score = String(game.shownScore)
       renderer.text(score, 28, 62, { color: theme.text.bright, size: SCORE_SIZE, bold: true })
-      renderer.text(String(Math.max(best, player.score)), VIEW_W - 28, 58, {
-        color: theme.text.dim,
-        size: 30,
-        align: "right",
-      })
+      renderer.text(
+        String(game.levelPar > 0 ? player.score : Math.max(best, player.score)),
+        VIEW_W - 28,
+        58,
+        {
+          color: theme.text.dim,
+          size: 30,
+          align: "right",
+        },
+      )
       // The multiplier only appears once it is worth something, and glows, since it
       // is what a long chain earned. Beside the score: above the board is where the page's
       // own buttons are.
@@ -576,7 +585,9 @@ export class GameView {
       // that, since it carries across levels. Right edge clear of the pause button.
       if (game.levelPar > 0) {
         const reached = game.levelScore >= game.levelPar
-        renderer.text(`${game.levelScore} / ${game.levelPar}`, PAUSE_BUTTON.x - 18, stripY, {
+        // Named, not repeated: what this level has paid is the big number above, so the strip is
+        // the target it is aiming at and nothing else.
+        renderer.text(`par ${game.levelPar}`, PAUSE_BUTTON.x - 18, stripY, {
           color: reached ? theme.accent : theme.text.dim,
           size: 21,
           align: "right",

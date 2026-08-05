@@ -61,7 +61,7 @@ test("a chain pops, scores, and the board refills", () => {
   const before = game.board.count
 
   const scored = game.popChain(0)
-  assert.equal(scored, CONFIG.chainScore(length), "the cube of the length, at no multiplier")
+  assert.equal(scored, CONFIG.chainScore(length), "what the length is worth, at no multiplier")
   assert.equal(game.player.score, scored)
   assert.equal(game.board.count, before - length, "the dots are off the board at once")
   assert.equal(game.busy, true, "and are still on their way out")

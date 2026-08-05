@@ -1430,6 +1430,12 @@ export class Game {
     if (!player || player.chain.length < this.minChain) {
       return 0
     }
+    // The round is judged on a settled board, so without this a chain started while the
+    // last one was still falling would be a turn past the limit - and replayRun refuses
+    // to verify a run of more chains than the mode allows.
+    if (this.mode.turnLimit > 0 && this.turns >= this.mode.turnLimit) {
+      return 0
+    }
     const chain = player.chain.slice()
     const length = chain.length
     const scored = CONFIG.chainScore(length) * player.multiplier

@@ -71,6 +71,27 @@ test("a chain pops, scores, and the board refills", () => {
   assert.equal(game.player.chain.length, 0)
 })
 
+test("a round of a fixed length cannot be given a chain past its limit", () => {
+  const game = new Game()
+  game.start("seeded", { seed: 0 })
+  settle(game)
+  const limit = game.mode.turnLimit
+  assert.ok(limit > 0, "the seeded mode counts turns")
+
+  // Straight to the last turn. The judge only looks at a settled board, so a chain
+  // linked while the previous one is still falling reaches popChain with the round
+  // already spent, and replayRun would refuse the run it made.
+  game.turns = limit
+  const chain = linkLongest(game)
+  assert.ok(chain.length >= game.minChain, "a poppable chain is in hand")
+  const score = game.player.score
+
+  assert.equal(game.popChain(0), 0, "it pays nothing")
+  assert.equal(game.turns, limit, "and does not count")
+  assert.equal(game.player.score, score, "and leaves the score alone")
+  assert.equal(game.board.count, game.board.cols * game.board.rows, "the dots stay put")
+})
+
 test("a chain of four or more banks a multiplier, a short one spends it", () => {
   const game = new Game()
   game.start("classic")
